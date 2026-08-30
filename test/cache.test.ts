@@ -22,6 +22,18 @@ describe("UserCache", () => {
     expect(cache.get("b")).toBeUndefined();
   });
 
+  it("should refresh LRU when reading an entry", () => {
+    const cache = new UserCache(2);
+    cache.put({ userId: "a", location: "A", basedIn: null, lang: null });
+    cache.put({ userId: "b", location: "B", basedIn: null, lang: null });
+
+    expect(cache.get("a")?.location).toBe("A");
+    cache.put({ userId: "c", location: "C", basedIn: null, lang: null });
+
+    expect(cache.get("a")?.location).toBe("A");
+    expect(cache.get("b")).toBeUndefined();
+  });
+
   it("round-trips dump/load", () => {
     const cache = new UserCache(10);
     cache.put({ userId: "a", location: "A", basedIn: null, lang: null });

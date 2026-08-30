@@ -36,10 +36,12 @@ function render(): void {
     }
     const li = document.createElement("li");
     const box = document.createElement("input");
+    box.id = `option-${tab}-${row.id}`;
     box.type = "checkbox";
     box.checked = selected.includes(row.id);
     box.addEventListener("change", () => void toggle(row.id, box.checked));
     const label = document.createElement("label");
+    label.htmlFor = box.id;
     label.textContent = row.label;
     li.append(box, label);
     list.append(li);

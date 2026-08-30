@@ -5,11 +5,13 @@ import {
   findTweetArticles,
   setArticleHidden,
   tweetIdFromArticle,
+  userIdFromElement,
 } from "../shared/hide-dom.ts";
-import { shouldHideCard } from "../shared/match.ts";
+import { shouldHideCard, shouldHideTweet } from "../shared/match.ts";
 import { parseSettings } from "../shared/settings.ts";
 import type { HookMessage, Settings, TweetRecord, UserRecord } from "../shared/types.ts";
 
+const TWEET_LIMIT = 10_000;
 const index = defaultCountryIndex();
 const tweets = new Map<string, TweetRecord>();
 const users = new UserCache(10_000);
@@ -47,6 +49,13 @@ function usersMap(): Map<string, UserRecord> {
   return map;
 }
 
+function putTweet(tweet: TweetRecord): void {
+  tweets.set(tweet.tweetId, tweet);
+  if (tweets.size <= TWEET_LIMIT) return;
+  const oldest = tweets.keys().next();
+  if (!oldest.done) tweets.delete(oldest.value);
+}
+
 function apply(): void {
   const map = usersMap();
   for (const article of findTweetArticles(document)) {
@@ -58,17 +67,45 @@ function apply(): void {
   }
   for (const row of findNotificationRows(document)) {
     const id = tweetIdFromArticle(row);
-    if (!id) continue;
-    const tweet = tweets.get(id);
-    setArticleHidden(row, tweet ? shouldHideCard(tweet, map, settings, index) : false);
+    const tweet = id ? tweets.get(id) : undefined;
+    if (tweet) {
+      setArticleHidden(row, shouldHideCard(tweet, map, settings, index));
+      continue;
+    }
+    const userId = userIdFromElement(row);
+    const author = userId ? map.get(userId) : undefined;
+    const fallbackTweet: TweetRecord | null =
+      userId && author
+        ? {
+            tweetId: id ?? "",
+            lang: null,
+            authorId: userId,
+            quoted: null,
+            retweeted: null,
+          }
+        : null;
+    setArticleHidden(
+      row,
+      fallbackTweet && author
+        ? shouldHideTweet(fallbackTweet, author, settings, index)
+        : false,
+    );
   }
 }
 
 function onMessage(event: MessageEvent): void {
-  const data = event.data as HookMessage | undefined;
-  if (!data || data.source !== "x-country-hide" || data.type !== "graphql") return;
+  const data = event.data as Partial<HookMessage> | undefined;
+  if (
+    !data ||
+    data.source !== "x-country-hide" ||
+    data.type !== "graphql" ||
+    !Array.isArray(data.users) ||
+    !Array.isArray(data.tweets)
+  ) {
+    return;
+  }
   for (const user of data.users) users.put(user);
-  for (const tweet of data.tweets) tweets.set(tweet.tweetId, tweet);
+  for (const tweet of data.tweets) putTweet(tweet);
   schedulePersist();
   apply();
 }

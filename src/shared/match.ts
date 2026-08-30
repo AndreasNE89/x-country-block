@@ -8,6 +8,7 @@ export function countriesFromLocation(text: string, index: CountryIndex): string
   if (!folded) return [];
   const hits = new Set<string>();
   const tokens = folded.split(" ");
+  const iso2Codes = new Set(index.names.values());
 
   for (const [phrase, iso2] of index.names) {
     if (hasPhrase(folded, phrase)) hits.add(iso2);
@@ -17,9 +18,8 @@ export function countriesFromLocation(text: string, index: CountryIndex): string
   }
   for (const token of tokens) {
     if (ISO2.test(token)) {
-      for (const iso2 of index.names.values()) {
-        if (iso2.toLowerCase() === token) hits.add(iso2);
-      }
+      const iso2 = token.toUpperCase();
+      if (iso2Codes.has(iso2)) hits.add(iso2);
     }
     const from3 = index.iso3.get(token);
     if (from3) hits.add(from3);

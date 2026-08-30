@@ -54,4 +54,39 @@ describe("parseGraphQL", () => {
     expect(parsed.tweets[0]?.lang).toBe("fr");
     expect(parsed.users[0]?.userId).toBe("u-fr");
   });
+
+  it("should unwrap a retweeted status and retain its original author", () => {
+    const parsed = parseGraphQL({
+      result: {
+        __typename: "Tweet",
+        rest_id: "444",
+        legacy: {
+          lang: "en",
+          retweeted_status_result: {
+            result: {
+              __typename: "TweetWithVisibilityResults",
+              tweet: {
+                __typename: "Tweet",
+                rest_id: "555",
+                legacy: { lang: "ja" },
+                core: {
+                  user_results: {
+                    result: {
+                      __typename: "User",
+                      rest_id: "u-original",
+                      legacy: { screen_name: "original", location: "Tokyo" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const outer = parsed.tweets.find((tweet) => tweet.tweetId === "444");
+    expect(outer?.retweeted?.tweetId).toBe("555");
+    expect(outer?.retweeted?.authorId).toBe("u-original");
+  });
 });

@@ -7,7 +7,9 @@ export class UserCache {
   constructor(private readonly limit: number) {}
 
   get(id: string): UserRecord | undefined {
-    return this.map.get(id);
+    const user = this.map.get(id);
+    if (user) this.touch(id);
+    return user;
   }
 
   put(user: UserRecord): void {
@@ -19,9 +21,7 @@ export class UserCache {
       lang: user.lang ?? prev?.lang ?? null,
     };
     this.map.set(user.userId, merged);
-    const at = this.order.indexOf(user.userId);
-    if (at >= 0) this.order.splice(at, 1);
-    this.order.push(user.userId);
+    this.touch(user.userId);
     while (this.order.length > this.limit) {
       const evict = this.order.shift();
       if (evict) this.map.delete(evict);
@@ -34,5 +34,11 @@ export class UserCache {
 
   load(users: UserRecord[]): void {
     for (const user of users) this.put(user);
+  }
+
+  private touch(id: string): void {
+    const at = this.order.indexOf(id);
+    if (at >= 0) this.order.splice(at, 1);
+    this.order.push(id);
   }
 }

@@ -1,4 +1,5 @@
 const TWEET_ID_RE = /\/status\/(\d+)/;
+const USER_ID_RE = /\/i\/user\/(\d+)(?:[/?#]|$)/;
 
 export function tweetIdFromHref(href: string): string | null {
   const match = href.match(TWEET_ID_RE);
@@ -9,6 +10,20 @@ export function tweetIdFromArticle(article: Element): string | null {
   const links = article.querySelectorAll("a[href]");
   for (const link of links) {
     const id = tweetIdFromHref(link.getAttribute("href") ?? "");
+    if (id) return id;
+  }
+  return null;
+}
+
+export function userIdFromHref(href: string): string | null {
+  const match = href.match(USER_ID_RE);
+  return match?.[1] ?? null;
+}
+
+export function userIdFromElement(element: Element): string | null {
+  const links = element.querySelectorAll("a[href]");
+  for (const link of links) {
+    const id = userIdFromHref(link.getAttribute("href") ?? "");
     if (id) return id;
   }
   return null;
@@ -30,11 +45,7 @@ export function findTweetArticles(root: ParentNode): HTMLElement[] {
 export function findNotificationRows(root: ParentNode): HTMLElement[] {
   const rows: HTMLElement[] = [];
   for (const node of root.querySelectorAll('[data-testid="cellInnerDiv"]')) {
-    if (
-      tweetIdFromArticle(node) ||
-      node.querySelector('a[href*="/status/"]') ||
-      node.querySelector('a[href*="/i/user/"]')
-    ) {
+    if (tweetIdFromArticle(node) || userIdFromElement(node)) {
       rows.push(node as HTMLElement);
     }
   }

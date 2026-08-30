@@ -52,6 +52,10 @@ XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, body?: Document 
     try {
       const type = this.getResponseHeader("content-type") ?? "";
       if (!type.includes("json")) return;
+      if (this.responseType === "json") {
+        publish(this.response);
+        return;
+      }
       const text = this.responseText;
       if (!text) return;
       publish(JSON.parse(text));

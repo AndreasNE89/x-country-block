@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "X Country Hide",
+  "version": "0.1.0",
+  "description": "Hide posts on X from countries and languages you choose.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "action": {
+    "default_title": "X Country Hide",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "x-country-hide@local",
+      "strict_min_version": "128.0"
+    }
+  }
+}

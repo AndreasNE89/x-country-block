@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { defaultCountryIndex } from "../src/shared/countries.ts";
+import { LANGUAGES, languageName } from "../src/shared/languages.ts";
 import { foldText } from "../src/shared/normalize.ts";
 import {
   countriesFromLocation,
@@ -196,5 +198,40 @@ describe("shouldHideCard", () => {
   it("keeps parent when only a reply would match (caller passes the reply card)", () => {
     const parent = tweet({ authorId: "outer", lang: "en" });
     expect(shouldHideCard(parent, users, settings(["NG"]), index)).toBe(false);
+  });
+});
+
+describe("defaultCountryIndex", () => {
+  const real = defaultCountryIndex();
+
+  it("maps several countries by name, city, and ISO3", () => {
+    expect(countriesFromLocation("Brazil", real)).toEqual(["BR"]);
+    expect(countriesFromLocation("São Paulo", real)).toEqual(["BR"]);
+    expect(countriesFromLocation("DEU", real)).toEqual(["DE"]);
+    expect(countriesFromLocation("Canada", real)).toEqual(["CA"]);
+    expect(countriesFromLocation("Toronto", real)).toEqual(["CA"]);
+    expect(countriesFromLocation("India", real)).toEqual(["IN"]);
+    expect(countriesFromLocation("Mumbai", real)).toEqual(["IN"]);
+  });
+
+  it("lists every ISO2 in COUNTRY_NAMES as a hide target", async () => {
+    const { COUNTRY_NAMES } = await import("../src/shared/countries.ts");
+    expect(Object.keys(COUNTRY_NAMES).length).toBeGreaterThan(190);
+    expect(COUNTRY_NAMES.IN).toBe("India");
+    expect(COUNTRY_NAMES.US).toBe("United States");
+    expect(COUNTRY_NAMES.NG).toBe("Nigeria");
+  });
+});
+
+describe("LANGUAGES", () => {
+  it("includes common codes and is not Indic-only", () => {
+    const codes = LANGUAGES.map((row) => row.code);
+    expect(codes).toContain("en");
+    expect(codes).toContain("es");
+    expect(codes).toContain("zh");
+    expect(codes).toContain("hi");
+    expect(codes).toContain("ar");
+    expect(codes.length).toBeGreaterThan(100);
+    expect(languageName("hi")).toBe("Hindi");
   });
 });

@@ -1,5 +1,36 @@
+import { COUNTRY_NAMES } from "./countries.ts";
 import { foldText } from "./normalize.ts";
-import type { CountryIndex, Settings, TweetRecord, UserRecord } from "./types.ts";
+import { regionName, regionsForCountry, regionsFromLocation } from "./regions.ts";
+import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "./types.ts";
+
+export function allowListLabel(settings: Settings): string {
+  const bits = [
+    ...settings.hiddenCountryCodes.map((code) => COUNTRY_NAMES[code] ?? code),
+    ...settings.hiddenRegionIds.map((id) => regionName(id)),
+    ...settings.hiddenLanguageCodes,
+  ];
+  return bits.join(" · ") || "allow list";
+}
+
+export function effectiveFilterMode(settings: Settings): FilterMode {
+  if (settings.filterMode === "only" && settings.onlyShowUnlocked) return "only";
+  return "hide";
+}
+
+export function actionReason(match: string | null, settings: Settings): string | null {
+  if (hideListsEmpty(settings)) return null;
+  const mode = effectiveFilterMode(settings);
+  switch (mode) {
+    case "hide":
+      return match;
+    case "only":
+      return match ? null : `outside · ${allowListLabel(settings)}`;
+    default: {
+      const _never: never = mode;
+      return _never;
+    }
+  }
+}
 
 const ISO2 = /^[a-z]{2}$/;
 
@@ -36,23 +67,71 @@ export function countryFromBasedIn(text: string, index: CountryIndex): string | 
   return found[0] ?? null;
 }
 
-function hideFromAuthor(
+function textMatchReason(
+  text: string,
+  field: string,
+  settings: Settings,
+  index: CountryIndex,
+): string | null {
+  const regionHit = regionsFromLocation(text).find((id) => settings.hiddenRegionIds.includes(id));
+  if (regionHit) return `${field} · ${regionName(regionHit)}`;
+  for (const code of countriesFromLocation(text, index)) {
+    if (settings.hiddenCountryCodes.includes(code)) {
+      return `${field} · ${COUNTRY_NAMES[code] ?? code}`;
+    }
+    const viaRegion = regionsForCountry(code).find((id) => settings.hiddenRegionIds.includes(id));
+    if (viaRegion) return `${field} · ${COUNTRY_NAMES[code] ?? code} · ${regionName(viaRegion)}`;
+  }
+  return null;
+}
+
+function authorMatchReason(
   author: UserRecord | undefined,
   settings: Settings,
   index: CountryIndex,
-): boolean {
-  if (!author) return false;
-  if (author.lang && settings.hiddenLanguageCodes.includes(author.lang)) return true;
+): string | null {
+  if (!author) return null;
+  if (author.lang && settings.hiddenLanguageCodes.includes(author.lang)) {
+    return `account lang · ${author.lang}`;
+  }
   if (author.basedIn) {
-    const code = countryFromBasedIn(author.basedIn, index);
-    if (code && settings.hiddenCountryCodes.includes(code)) return true;
+    const reason = textMatchReason(author.basedIn, "based in", settings, index);
+    if (reason) return reason;
+  }
+  if (author.connectedVia) {
+    const reason = textMatchReason(author.connectedVia, "connected via", settings, index);
+    if (reason) return reason;
   }
   if (author.location) {
-    for (const code of countriesFromLocation(author.location, index)) {
-      if (settings.hiddenCountryCodes.includes(code)) return true;
-    }
+    const reason = textMatchReason(author.location, "location", settings, index);
+    if (reason) return reason;
   }
-  return false;
+  return null;
+}
+
+function hideListsEmpty(settings: Settings): boolean {
+  return (
+    settings.hiddenCountryCodes.length === 0 &&
+    settings.hiddenLanguageCodes.length === 0 &&
+    settings.hiddenRegionIds.length === 0
+  );
+}
+
+export function tweetMatchReason(
+  tweet: TweetRecord,
+  author: UserRecord | undefined,
+  settings: Settings,
+  index: CountryIndex,
+): string | null {
+  if (hideListsEmpty(settings)) return null;
+  if (tweet.place) {
+    const placeReason = textMatchReason(tweet.place, "place", settings, index);
+    if (placeReason) return placeReason;
+  }
+  if (tweet.lang && settings.hiddenLanguageCodes.includes(tweet.lang)) {
+    return `tweet lang · ${tweet.lang}`;
+  }
+  return authorMatchReason(author, settings, index);
 }
 
 export function shouldHideTweet(
@@ -61,11 +140,27 @@ export function shouldHideTweet(
   settings: Settings,
   index: CountryIndex,
 ): boolean {
-  if (settings.hiddenCountryCodes.length === 0 && settings.hiddenLanguageCodes.length === 0) {
-    return false;
+  return actionReason(tweetMatchReason(tweet, author, settings, index), settings) !== null;
+}
+
+export function cardMatchReason(
+  tweet: TweetRecord,
+  users: Map<string, UserRecord>,
+  settings: Settings,
+  index: CountryIndex,
+): string | null {
+  const author = tweet.authorId ? users.get(tweet.authorId) : undefined;
+  const self = tweetMatchReason(tweet, author, settings, index);
+  if (self) return self;
+  if (tweet.quoted) {
+    const quoted = cardMatchReason(tweet.quoted, users, settings, index);
+    if (quoted) return `quote · ${quoted}`;
   }
-  if (tweet.lang && settings.hiddenLanguageCodes.includes(tweet.lang)) return true;
-  return hideFromAuthor(author, settings, index);
+  if (tweet.retweeted) {
+    const retweeted = cardMatchReason(tweet.retweeted, users, settings, index);
+    if (retweeted) return `retweet · ${retweeted}`;
+  }
+  return null;
 }
 
 export function shouldHideCard(
@@ -74,9 +169,5 @@ export function shouldHideCard(
   settings: Settings,
   index: CountryIndex,
 ): boolean {
-  const author = tweet.authorId ? users.get(tweet.authorId) : undefined;
-  if (shouldHideTweet(tweet, author, settings, index)) return true;
-  if (tweet.quoted && shouldHideCard(tweet.quoted, users, settings, index)) return true;
-  if (tweet.retweeted && shouldHideCard(tweet.retweeted, users, settings, index)) return true;
-  return false;
+  return actionReason(cardMatchReason(tweet, users, settings, index), settings) !== null;
 }

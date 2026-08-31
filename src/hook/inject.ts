@@ -1,22 +1,22 @@
 // src/hook/inject.ts
+import { isGraphqlUrl, requestUrl } from "../shared/graphql-url.ts";
 import { parseGraphQL } from "../shared/parse-graphql.ts";
-import type { HookMessage } from "../shared/types.ts";
-
-const SOURCE = "x-country-hide";
+import { HOOK_SOURCE, type HookMessage } from "../shared/types.ts";
 
 function publish(payload: unknown): void {
   try {
     const parsed = parseGraphQL(payload);
     if (parsed.tweets.length === 0 && parsed.users.length === 0) return;
-    const message: HookMessage = { source: SOURCE, type: "graphql", ...parsed };
+    const message: HookMessage = { source: HOOK_SOURCE, type: "graphql", ...parsed };
     window.postMessage(message, "*");
   } catch {
     // fail open
   }
 }
 
-async function parseResponse(response: Response): Promise<void> {
+async function parseResponse(url: string, response: Response): Promise<void> {
   try {
+    if (!isGraphqlUrl(url)) return;
     const clone = response.clone();
     const contentType = clone.headers.get("content-type") ?? "";
     if (!contentType.includes("json")) return;
@@ -29,7 +29,7 @@ async function parseResponse(response: Response): Promise<void> {
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
   const response = await originalFetch(...args);
-  void parseResponse(response);
+  void parseResponse(requestUrl(args[0]), response);
   return response;
 };
 
@@ -48,20 +48,26 @@ XMLHttpRequest.prototype.open = function (
 };
 
 XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, body?: Document | XMLHttpRequestBodyInit | null): void {
-  this.addEventListener("load", () => {
-    try {
-      const type = this.getResponseHeader("content-type") ?? "";
-      if (!type.includes("json")) return;
-      if (this.responseType === "json") {
-        publish(this.response);
-        return;
+  this.addEventListener(
+    "load",
+    () => {
+      try {
+        const url = (this as XMLHttpRequest & { __xchUrl?: string }).__xchUrl ?? "";
+        if (!isGraphqlUrl(url)) return;
+        const type = this.getResponseHeader("content-type") ?? "";
+        if (!type.includes("json")) return;
+        if (this.responseType === "json") {
+          publish(this.response);
+          return;
+        }
+        const text = this.responseText;
+        if (!text) return;
+        publish(JSON.parse(text));
+      } catch {
+        // fail open
       }
-      const text = this.responseText;
-      if (!text) return;
-      publish(JSON.parse(text));
-    } catch {
-      // fail open
-    }
-  });
+    },
+    { once: true },
+  );
   return xhrSend.call(this, body);
 };

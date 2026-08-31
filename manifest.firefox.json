@@ -3,13 +3,14 @@
   "name": "X Country Block",
   "version": "0.1.0",
   "description": "Block posts on X from countries, regions, and languages you choose.",
-  "permissions": ["storage", "https://extensionpay.com/*"],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://x.com/*",
     "https://twitter.com/*",
     "https://extensionpay.com/*"
   ],
   "background": {
+    "scripts": ["background.js"],
     "service_worker": "background.js"
   },
   "icons": {
@@ -59,8 +60,11 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "x-country-block@local",
-      "strict_min_version": "128.0"
+      "id": "x-country-block@andreasne89.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

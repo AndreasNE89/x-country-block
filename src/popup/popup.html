@@ -2,12 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>X Country Hide</title>
+    <title>X Country Block</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
+    <p id="status"></p>
+    <label id="mark-only-row">
+      <input id="mark-only" type="checkbox" />
+      Mark matches — do not hide
+    </label>
+    <div id="pro-block">
+      <label id="only-from-row">
+        <input id="only-from" type="checkbox" />
+        Only show posts from ticked items
+        <span id="pro-tag">Pro · $5.99</span>
+      </label>
+      <div id="pro-actions">
+        <button type="button" id="pro-pay">Unlock $5.99</button>
+        <button type="button" id="pro-trial">7-day trial</button>
+        <button type="button" id="pro-login">Log in</button>
+      </div>
+      <button type="button" id="pro-manage" hidden>Manage Pro</button>
+    </div>
     <header>
       <button type="button" id="tab-countries" aria-selected="true">Countries</button>
+      <button type="button" id="tab-regions" aria-selected="false">Regions</button>
       <button type="button" id="tab-languages" aria-selected="false">Languages</button>
     </header>
     <input id="search" type="search" placeholder="Search" autocomplete="off" />

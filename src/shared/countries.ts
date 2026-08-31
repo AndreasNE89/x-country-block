@@ -580,6 +580,7 @@ export const MAJOR_CITIES: Record<string, string> = {
   mumbai: "IN",
   delhi: "IN",
   bengaluru: "IN",
+  jabalpur: "IN",
   tokyo: "JP",
   osaka: "JP",
   seoul: "KR",

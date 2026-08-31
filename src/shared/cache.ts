@@ -16,8 +16,10 @@ export class UserCache {
     const prev = this.map.get(user.userId);
     const merged: UserRecord = {
       userId: user.userId,
+      screenName: user.screenName ?? prev?.screenName ?? null,
       location: user.location ?? prev?.location ?? null,
       basedIn: user.basedIn ?? prev?.basedIn ?? null,
+      connectedVia: user.connectedVia ?? prev?.connectedVia ?? null,
       lang: user.lang ?? prev?.lang ?? null,
     };
     this.map.set(user.userId, merged);

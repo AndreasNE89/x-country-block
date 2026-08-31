@@ -28,6 +28,67 @@ describe("parseGraphQL", () => {
     const lagos = parsed.users.find((u) => u.userId === "u-inner");
     expect(lagos?.location).toBe("Lagos");
     expect(lagos?.basedIn).toBe("Nigeria");
+    expect(lagos?.connectedVia).toBeNull();
+  });
+
+  it("should read AboutAccount about_profile based-in and connected-via", () => {
+    const parsed = parseGraphQL({
+      data: {
+        user_result_by_screen_name: {
+          result: {
+            __typename: "User",
+            rest_id: "u-india",
+            legacy: {
+              screen_name: "santoshkvkd",
+              location: "Jabalpur, India",
+            },
+            about_profile: {
+              account_based_in: "India",
+              source: "India Android App",
+            },
+          },
+        },
+      },
+    });
+    const user = parsed.users.find((row) => row.userId === "u-india");
+    expect(user?.location).toBe("Jabalpur, India");
+    expect(user?.screenName).toBe("santoshkvkd");
+    expect(user?.basedIn).toBe("India");
+    expect(user?.connectedVia).toBe("India Android App");
+  });
+
+  it("should treat a rest_id plus about_profile blob as a user", () => {
+    const parsed = parseGraphQL({
+      result: {
+        rest_id: "u-about",
+        about_profile: {
+          account_based_in: "India",
+          source: "India Android App",
+        },
+      },
+    });
+    expect(parsed.users[0]).toEqual({
+      userId: "u-about",
+      screenName: null,
+      location: null,
+      basedIn: "India",
+      connectedVia: "India Android App",
+      lang: null,
+    });
+  });
+
+  it("should read tweet place country from legacy.place", () => {
+    const parsed = parseGraphQL({
+      result: {
+        __typename: "Tweet",
+        rest_id: "999",
+        legacy: {
+          lang: "en",
+          place: { country: "India", full_name: "Jabalpur, India" },
+        },
+      },
+    });
+    expect(parsed.tweets[0]?.place).toBe("India");
   });
 
   it("unwraps TweetWithVisibilityResults", () => {

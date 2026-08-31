@@ -187,3 +187,16 @@ export const LANGUAGES: { code: string; name: string }[] = [
 export function languageName(code: string): string {
   return LANGUAGES.find((row) => row.code === code)?.name ?? code;
 }
+
+const LANGUAGE_NAME_TO_CODE = new Map(
+  LANGUAGES.flatMap((row) => [
+    [row.name.toLowerCase(), row.code],
+    [row.code, row.code],
+  ]),
+);
+
+export function languageCodeFromName(name: string): string | null {
+  const folded = name.trim().toLowerCase();
+  if (!folded) return null;
+  return LANGUAGE_NAME_TO_CODE.get(folded) ?? null;
+}

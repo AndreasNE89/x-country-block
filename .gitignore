@@ -1,5 +1,14 @@
 .worktrees/
 node_modules/
 dist/
+dist-firefox/
+/hook.js
+/content.js
+/popup.js
+/background.js
+/extpay-page.js
+/popup.html
+/popup.css
 *.log
 .DS_Store
+/release/

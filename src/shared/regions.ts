@@ -302,6 +302,12 @@ export const REGIONS: RegionDef[] = [
   },
 ];
 
+for (const region of REGIONS) {
+  if (region.countries.length > 0) continue;
+  const childCodes = REGIONS.filter((row) => row.parent === region.id).flatMap((row) => row.countries);
+  region.countries = existing([...new Set(childCodes)]);
+}
+
 export const REGION_IDS = new Set(REGIONS.map((region) => region.id));
 
 export function regionName(id: string): string {
@@ -320,11 +326,14 @@ for (const region of REGIONS) {
 }
 
 export function regionsForCountry(iso2: string): string[] {
-  const leaves = countryLeaves.get(iso2) ?? [];
-  const hits = new Set(leaves);
-  for (const leaf of leaves) {
-    const parent = parentById.get(leaf);
-    if (parent) hits.add(parent);
+  const hits = new Set<string>();
+  const queue = [...(countryLeaves.get(iso2) ?? [])];
+  while (queue.length > 0) {
+    const id = queue.pop();
+    if (!id || hits.has(id)) continue;
+    hits.add(id);
+    const parent = parentById.get(id);
+    if (parent) queue.push(parent);
   }
   return [...hits];
 }

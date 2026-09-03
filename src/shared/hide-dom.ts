@@ -279,7 +279,10 @@ function ensureMarkStyles(doc: Document): void {
   if (doc.getElementById(MARK_STYLE_ID)) return;
   const style = doc.createElement("style");
   style.id = MARK_STYLE_ID;
-  style.textContent = `[${HIDE_ATTR}]{display:none!important}`;
+  style.textContent = [
+    `[${HIDE_ATTR}]{display:none!important}`,
+    `[${MARK_ATTR}]{outline:2px solid #c23b22!important;outline-offset:-2px!important}`,
+  ].join("");
   doc.documentElement.appendChild(style);
 }
 
@@ -335,6 +338,16 @@ function clearCardPaint(article: HTMLElement): void {
   if (reason && article.getAttribute("title") === reason) article.removeAttribute("title");
 }
 
+function paintMark(article: HTMLElement, reason: string): void {
+  ensureMarkStyles(article.ownerDocument);
+  article.style.removeProperty("display");
+  article.removeAttribute(HIDE_ATTR);
+  const box = layoutBox(article);
+  if (box !== article) clearHideOn(box);
+  article.setAttribute(MARK_ATTR, reason);
+  article.setAttribute("title", reason);
+}
+
 function paintHide(article: HTMLElement, reason: string): void {
   ensureMarkStyles(article.ownerDocument);
   article.removeAttribute(MARK_ATTR);
@@ -375,9 +388,14 @@ export function applyCardAction(
   reason: string | null,
   markOnly: boolean,
   zone?: CardZone,
+  hideBelow = false,
 ): void {
-  if (markOnly || !reason) {
+  if (markOnly) {
     applyCardMark(article, reason, true);
+    return;
+  }
+  if (!reason) {
+    applyCardMark(article, null, true);
     return;
   }
   if (article.getAttribute(HIDE_ATTR)) {
@@ -391,7 +409,7 @@ export function applyCardAction(
       applyCardMark(article, reason, false);
       return;
     case "below":
-      applyCardMark(article, reason, true);
+      applyCardMark(article, hideBelow ? reason : null, !hideBelow);
       return;
     default: {
       const _never: never = resolved;
@@ -406,9 +424,14 @@ export function applyCardMark(
   markOnly: boolean,
 ): void {
   clearInsertedLabel(article);
-  if (!reason || markOnly) {
+  if (!reason) {
     if (!article.hasAttribute(MARK_ATTR) && !article.hasAttribute(HIDE_ATTR)) return;
     clearCardPaint(article);
+    return;
+  }
+  if (markOnly) {
+    if (article.getAttribute(MARK_ATTR) === reason && !article.hasAttribute(HIDE_ATTR)) return;
+    paintMark(article, reason);
     return;
   }
   if (article.getAttribute(HIDE_ATTR) === reason) return;

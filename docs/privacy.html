@@ -27,9 +27,16 @@
       filter list to our servers.
     </p>
     <p>
-      If you buy Pro, checkout and license status go through ExtensionPay and
-      Stripe. You can clear the list or uninstall to delete local data.
+      If you buy Pro, checkout goes through Stripe. License status is stored on
+      this device. You can clear the list or uninstall to delete local data.
     </p>
+    <p id="paid-note" hidden>Pro unlocked. You can close this tab.</p>
     <p>Contact: norway4metal@gmail.com</p>
+    <script>
+      const params = new URLSearchParams(location.search);
+      if (params.get("paid") === "1") {
+        document.getElementById("paid-note").hidden = false;
+      }
+    </script>
   </body>
 </html>

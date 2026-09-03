@@ -19,7 +19,7 @@ await esbuild.build({
     content: join(root, "src/content/main.ts"),
     popup: join(root, "src/popup/popup.ts"),
     background: join(root, "src/background/main.ts"),
-    "extpay-page": join(root, "src/extpay-page.ts"),
+    "paid-page": join(root, "src/paid-page.ts"),
   },
   outdir: dist,
   bundle: true,
@@ -36,12 +36,12 @@ await copyFile(join(root, "src/popup/popup.html"), join(dist, "popup.html"));
 await copyFile(join(root, "src/popup/popup.css"), join(dist, "popup.css"));
 const iconsDir = join(dist, "icons");
 await mkdir(iconsDir, { recursive: true });
-for (const file of ["icon16.png", "icon32.png", "icon48.png", "icon128.png"]) {
+for (const file of ["icon16.png", "icon32.png", "icon48.png", "icon64.png", "icon96.png", "icon128.png"]) {
   await copyFile(join(root, "icons", file), join(iconsDir, file));
 }
 
 if (!firefox) {
-  for (const file of ["hook.js", "content.js", "popup.js", "popup.html", "popup.css", "background.js", "extpay-page.js"]) {
+  for (const file of ["hook.js", "content.js", "popup.js", "popup.html", "popup.css", "background.js", "paid-page.js"]) {
     await copyFile(join(dist, file), join(root, file));
   }
 }

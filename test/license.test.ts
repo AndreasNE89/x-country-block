@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  licenseFieldsFromExtPayUser,
+  isStripePaidMessage,
   onlyShowAllowed,
+  STRIPE_PAID_MESSAGE,
   trialStartedAtFromUnknown,
 } from "../src/shared/license.ts";
+import { isStripeSuccessUrl, STRIPE_SUCCESS_PATH } from "../src/shared/stripe.ts";
 
 describe("onlyShowAllowed", () => {
   it("should unlock when paid", () => {
@@ -25,13 +27,24 @@ describe("onlyShowAllowed", () => {
   });
 });
 
-describe("licenseFieldsFromExtPayUser", () => {
-  it("should store trial start as a timestamp", () => {
-    const started = new Date("2026-08-01T00:00:00.000Z");
-    expect(licenseFieldsFromExtPayUser({ paid: false, trialStartedAt: started })).toEqual({
-      onlyShowPaid: false,
-      trialStartedAt: started.getTime(),
-    });
+describe("trialStartedAtFromUnknown", () => {
+  it("should reject non-numbers", () => {
     expect(trialStartedAtFromUnknown("nope")).toBeNull();
+  });
+});
+
+describe("isStripePaidMessage", () => {
+  it("should accept the paid message type", () => {
+    expect(isStripePaidMessage({ type: STRIPE_PAID_MESSAGE })).toBe(true);
+    expect(isStripePaidMessage({ type: "nope" })).toBe(false);
+  });
+});
+
+describe("isStripeSuccessUrl", () => {
+  it("should accept the paid redirect", () => {
+    expect(isStripeSuccessUrl(`${STRIPE_SUCCESS_PATH}?paid=1`)).toBe(true);
+    expect(isStripeSuccessUrl(`${STRIPE_SUCCESS_PATH}?session_id=cs_test`)).toBe(true);
+    expect(isStripeSuccessUrl(STRIPE_SUCCESS_PATH)).toBe(false);
+    expect(isStripeSuccessUrl("https://example.com/?paid=1")).toBe(false);
   });
 });

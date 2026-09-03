@@ -60,7 +60,7 @@ describe("articles", () => {
     expect(articles[0]!.getAttribute(HIDE_ATTR)).toBeNull();
   });
 
-  it("should leave a match native when markOnly is on", () => {
+  it("should outline a match when markOnly is on", () => {
     document.body.innerHTML = `
       <article>
         <a href="/alice/status/111">link</a>
@@ -68,7 +68,7 @@ describe("articles", () => {
     `;
     const article = findTweetArticles(document)[0]!;
     applyCardMark(article, "location · South Asia", true);
-    expect(article.getAttribute(MARK_ATTR)).toBeNull();
+    expect(article.getAttribute(MARK_ATTR)).toBe("location · South Asia");
     expect(article.getAttribute(HIDE_ATTR)).toBeNull();
     expect(article.querySelector(`.${MARK_LABEL_CLASS}`)).toBeNull();
     applyCardMark(article, "location · South Asia", false);
@@ -151,9 +151,20 @@ describe("cardZone", () => {
     expect(article.getAttribute(HIDE_ATTR)).toBeNull();
     expect(article.getAttribute(MARK_ATTR)).toBeNull();
 
+    applyCardAction(article, "outside · India", true, "visible");
+    expect(article.getAttribute(MARK_ATTR)).toBe("outside · India");
+    expect(article.getAttribute(HIDE_ATTR)).toBeNull();
+
     applyCardAction(article, "outside · India", false, "visible");
     applyCardAction(article, "outside · India", false, "below");
     expect(article.getAttribute(HIDE_ATTR)).toBe("outside · India");
+  });
+
+  it("should hide below-fold cards when only-show asks to hide below", () => {
+    document.body.innerHTML = `<article id="card"><a href="/alice/status/111">link</a></article>`;
+    const article = findTweetArticles(document)[0]!;
+    applyCardAction(article, "outside · Africa", false, "below", true);
+    expect(article.getAttribute(HIDE_ATTR)).toBe("outside · Africa");
   });
 
   it("should treat the last timeline cards as below the fold", () => {
@@ -219,7 +230,7 @@ India Android App`;
     const header = findProfileIdentity(document);
     expect(header?.id).toBe("header-card");
     applyCardMark(header!, "location · India", true);
-    expect(header!.getAttribute(MARK_ATTR)).toBeNull();
+    expect(header!.getAttribute(MARK_ATTR)).toBe("location · India");
     expect(header!.getAttribute(HIDE_ATTR)).toBeNull();
     expect(handleFromProfileHeader(document)).toBeNull();
     document.body.innerHTML = `

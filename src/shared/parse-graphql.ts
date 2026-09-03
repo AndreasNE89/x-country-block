@@ -43,15 +43,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isTweet(obj: Record<string, unknown>): boolean {
   if (obj.__typename === "User") return false;
   if (obj.__typename === "Tweet") return true;
-  const legacy = isRecord(obj.legacy) ? obj.legacy : null;
-  return typeof obj.rest_id === "string" && !!legacy && typeof legacy.lang === "string";
+  const legacy = recordOrEmpty(obj.legacy);
+  return typeof idFrom(obj) === "string" && !!tweetLang(obj, legacy);
 }
 
 function isUser(obj: Record<string, unknown>): boolean {
   if (obj.__typename === "User") return true;
-  if (typeof obj.rest_id === "string" && isRecord(obj.about_profile)) return true;
-  const legacy = isRecord(obj.legacy) ? obj.legacy : null;
-  return typeof obj.rest_id === "string" && !!legacy && typeof legacy.screen_name === "string";
+  const id = idFrom(obj);
+  if (!id) return false;
+  if (isRecord(obj.about_profile)) return true;
+  const legacy = recordOrEmpty(obj.legacy);
+  const core = isRecord(obj.core) ? obj.core : null;
+  return (
+    typeof legacy.screen_name === "string" ||
+    (core !== null && typeof core.screen_name === "string")
+  );
+}
+
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function idFrom(obj: Record<string, unknown>): string | null {
+  if (typeof obj.rest_id === "string" && obj.rest_id.trim()) return obj.rest_id;
+  if (typeof obj.id_str === "string" && obj.id_str.trim()) return obj.id_str;
+  if (typeof obj.id === "string" && obj.id.trim()) return obj.id;
+  if (typeof obj.id === "number" && Number.isFinite(obj.id)) return String(obj.id);
+  return null;
+}
+
+function tweetLang(obj: Record<string, unknown>, legacy: Record<string, unknown>): string | null {
+  if (typeof obj.lang === "string" && obj.lang.trim()) return obj.lang;
+  if (typeof legacy.lang === "string" && legacy.lang.trim()) return legacy.lang;
+  return null;
 }
 
 function extractTweet(
@@ -59,27 +83,29 @@ function extractTweet(
   tweets: Map<string, TweetRecord>,
   users: Map<string, UserRecord>,
 ): void {
-  const tweetId = String(obj.rest_id ?? "");
+  const tweetId = idFrom(obj) ?? "";
   if (!tweetId) return;
-  const legacy = isRecord(obj.legacy) ? obj.legacy : {};
+  const legacy = recordOrEmpty(obj.legacy);
   const author = authorFromTweet(obj);
   if (author) extractUser(author, users);
   const authorId =
-    (author && typeof author.rest_id === "string" && author.rest_id) ||
+    (author && idFrom(author)) ||
+    (typeof obj.user_id_str === "string" && obj.user_id_str) ||
     (typeof legacy.user_id_str === "string" && legacy.user_id_str) ||
     null;
-  const place = placeFromLegacy(legacy);
+  const place = placeFrom(obj, legacy);
   const quoted = quotedFrom(obj);
-  const retweeted = retweetedFrom(legacy);
+  const retweeted = retweetedFrom(obj, legacy);
+  const lang = tweetLang(obj, legacy);
   const prev = tweets.get(tweetId);
   if (prev) {
     if (!prev.authorId && authorId) prev.authorId = authorId;
     if (!prev.place && place) prev.place = place;
-    if (!prev.lang && typeof legacy.lang === "string") prev.lang = legacy.lang;
+    if (!prev.lang && lang) prev.lang = lang;
   } else {
     tweets.set(tweetId, {
       tweetId,
-      lang: typeof legacy.lang === "string" ? legacy.lang : null,
+      lang,
       authorId,
       place,
       quoted: null,
@@ -89,16 +115,14 @@ function extractTweet(
   if (quoted) {
     extractTweet(quoted, tweets, users);
     const row = tweets.get(tweetId);
-    if (row && typeof quoted.rest_id === "string") {
-      row.quoted = tweets.get(String(quoted.rest_id)) ?? null;
-    }
+    const quotedId = idFrom(quoted);
+    if (row && quotedId) row.quoted = tweets.get(quotedId) ?? null;
   }
   if (retweeted) {
     extractTweet(retweeted, tweets, users);
     const row = tweets.get(tweetId);
-    if (row && typeof retweeted.rest_id === "string") {
-      row.retweeted = tweets.get(String(retweeted.rest_id)) ?? null;
-    }
+    const retweetedId = idFrom(retweeted);
+    if (row && retweetedId) row.retweeted = tweets.get(retweetedId) ?? null;
   }
 }
 
@@ -110,18 +134,24 @@ function unwrapUserResult(obj: Record<string, unknown> | null): Record<string, u
   return null;
 }
 
-function authorFromTweet(obj: Record<string, unknown>): Record<string, unknown> | null {
-  const core = isRecord(obj.core) ? obj.core : null;
-  const userResults = core && isRecord(core.user_results) ? core.user_results : null;
+function userResultsFrom(obj: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!obj) return null;
+  const userResults = isRecord(obj.user_results) ? obj.user_results : null;
   const result = userResults && isRecord(userResults.result) ? userResults.result : null;
-  const fromCore = unwrapUserResult(result);
+  return unwrapUserResult(result);
+}
+
+function authorFromTweet(obj: Record<string, unknown>): Record<string, unknown> | null {
+  const fromCore = userResultsFrom(isRecord(obj.core) ? obj.core : null);
   if (fromCore) return fromCore;
+  const fromRoot = userResultsFrom(obj);
+  if (fromRoot) return fromRoot;
   if (isRecord(obj.author)) return unwrapUserResult(obj.author) ?? obj.author;
   return null;
 }
 
-function placeFromLegacy(legacy: Record<string, unknown>): string | null {
-  const place = isRecord(legacy.place) ? legacy.place : null;
+function placeFrom(obj: Record<string, unknown>, legacy: Record<string, unknown>): string | null {
+  const place = isRecord(obj.place) ? obj.place : isRecord(legacy.place) ? legacy.place : null;
   if (!place) return null;
   if (typeof place.country === "string" && place.country.trim()) return place.country;
   if (typeof place.full_name === "string" && place.full_name.trim()) return place.full_name;
@@ -136,15 +166,22 @@ function quotedFrom(obj: Record<string, unknown>): Record<string, unknown> | nul
   return unwrapTweet(result) ?? (isTweet(result) ? result : null);
 }
 
-function retweetedFrom(legacy: Record<string, unknown>): Record<string, unknown> | null {
-  const rt = isRecord(legacy.retweeted_status_result) ? legacy.retweeted_status_result : null;
+function retweetedFrom(
+  obj: Record<string, unknown>,
+  legacy: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const rt = isRecord(obj.retweeted_status_result)
+    ? obj.retweeted_status_result
+    : isRecord(legacy.retweeted_status_result)
+      ? legacy.retweeted_status_result
+      : null;
   const result = rt && isRecord(rt.result) ? rt.result : null;
   if (!result) return null;
   return unwrapTweet(result) ?? (isTweet(result) ? result : null);
 }
 
 function extractUser(obj: Record<string, unknown>, users: Map<string, UserRecord>): void {
-  const userId = String(obj.rest_id ?? "");
+  const userId = idFrom(obj) ?? "";
   if (!userId) return;
   const legacy = isRecord(obj.legacy) ? obj.legacy : {};
   const location = locationFromUser(obj, legacy);
@@ -181,9 +218,17 @@ function locationFromUser(
   obj: Record<string, unknown>,
   legacy: Record<string, unknown>,
 ): string | null {
+  if (typeof obj.location === "string" && obj.location.trim()) return obj.location;
   if (typeof legacy.location === "string" && legacy.location.trim()) return legacy.location;
-  const loc = isRecord(obj.location) ? obj.location : null;
-  if (loc && typeof loc.location === "string" && loc.location.trim()) return loc.location;
+  const loc = isRecord(obj.location)
+    ? obj.location
+    : isRecord(legacy.location)
+      ? legacy.location
+      : null;
+  if (loc) {
+    if (typeof loc.location === "string" && loc.location.trim()) return loc.location;
+    if (typeof loc.full_name === "string" && loc.full_name.trim()) return loc.full_name;
+  }
   const core = isRecord(obj.core) ? obj.core : null;
   if (core && typeof core.location === "string" && core.location.trim()) return core.location;
   return null;
@@ -193,25 +238,33 @@ function aboutProfile(obj: Record<string, unknown>): Record<string, unknown> | n
   return isRecord(obj.about_profile) ? obj.about_profile : null;
 }
 
+function countryText(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (!isRecord(value)) return null;
+  return (
+    countryText(value.account_based_in) ??
+    countryText(value.based_in) ??
+    countryText(value.country) ??
+    countryText(value.country_code) ??
+    countryText(value.name)
+  );
+}
+
 function basedInFrom(obj: Record<string, unknown>, legacy: Record<string, unknown>): string | null {
-  const about = aboutProfile(obj);
-  if (about && typeof about.account_based_in === "string" && about.account_based_in.trim()) {
-    return about.account_based_in;
-  }
-  if (about && typeof about.based_in === "string" && about.based_in.trim()) {
-    return about.based_in;
-  }
-  const loc = isRecord(obj.location) ? obj.location : null;
-  if (loc && typeof loc.country === "string" && loc.country.trim()) return loc.country;
-  if (loc && typeof loc.country_code === "string" && loc.country_code.trim()) {
-    return loc.country_code;
-  }
-  if (typeof obj.account_based_in === "string" && obj.account_based_in.trim()) {
-    return obj.account_based_in;
-  }
-  if (typeof obj.country === "string" && obj.country.trim()) return obj.country;
-  if (typeof legacy.country === "string" && legacy.country.trim()) return legacy.country;
-  return null;
+  const about = aboutProfile(obj) ?? (isRecord(obj.about) ? obj.about : null);
+  return (
+    countryText(about?.account_based_in) ??
+    countryText(about?.based_in) ??
+    countryText(obj.account_based_in) ??
+    countryText(obj.based_in) ??
+    countryText(isRecord(obj.location) ? obj.location.country : null) ??
+    countryText(isRecord(obj.location) ? obj.location.country_code : null) ??
+    countryText(obj.country) ??
+    countryText(legacy.country)
+  );
 }
 
 function connectedViaFrom(obj: Record<string, unknown>): string | null {

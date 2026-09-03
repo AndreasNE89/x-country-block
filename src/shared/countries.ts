@@ -1,4 +1,5 @@
 import { foldText } from "./normalize.ts";
+import { CITY_TO_COUNTRY, SUBDIVISION_NAMES } from "./places.ts";
 import type { CountryIndex } from "./types.ts";
 
 export const COUNTRY_NAMES: Record<string, string> = {
@@ -606,6 +607,9 @@ export function buildCountryIndex(): CountryIndex {
   for (const [alias, iso2] of Object.entries(COUNTRY_ALIASES)) {
     names.set(foldText(alias), iso2);
   }
+  for (const [place, iso2] of Object.entries(SUBDIVISION_NAMES)) {
+    names.set(foldText(place), iso2);
+  }
 
   const iso3 = new Map<string, string>();
   for (const [code, iso2] of Object.entries(COUNTRY_ISO3)) {
@@ -614,6 +618,9 @@ export function buildCountryIndex(): CountryIndex {
 
   const cities = new Map<string, string>();
   for (const [city, iso2] of Object.entries(MAJOR_CITIES)) {
+    cities.set(foldText(city), iso2);
+  }
+  for (const [city, iso2] of Object.entries(CITY_TO_COUNTRY)) {
     cities.set(foldText(city), iso2);
   }
 

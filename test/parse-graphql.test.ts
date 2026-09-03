@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { defaultCountryIndex } from "../src/shared/countries.ts";
+import { shouldHideTweet } from "../src/shared/match.ts";
 import { parseGraphQL } from "../src/shared/parse-graphql.ts";
+import { parseSettings } from "../src/shared/settings.ts";
 
 const fixture = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fixtures/timeline-tweet.json"), "utf8"),
@@ -114,6 +117,60 @@ describe("parseGraphQL", () => {
     expect(parsed.tweets[0]?.tweetId).toBe("333");
     expect(parsed.tweets[0]?.lang).toBe("fr");
     expect(parsed.users[0]?.userId).toBe("u-fr");
+  });
+
+  it("should read 2026 tweets when legacy is null", () => {
+    const parsed = parseGraphQL({
+      data: {
+        result: {
+          __typename: "Tweet",
+          rest_id: "2026",
+          lang: "hi",
+          user_id_str: "u-2026",
+          legacy: null,
+          core: {
+            user_results: {
+              result: {
+                __typename: "User",
+                rest_id: "u-2026",
+                legacy: null,
+                core: { screen_name: "rahul" },
+                location: { location: "Mumbai, India" },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(parsed.tweets[0]?.tweetId).toBe("2026");
+    expect(parsed.tweets[0]?.lang).toBe("hi");
+    expect(parsed.tweets[0]?.authorId).toBe("u-2026");
+    expect(parsed.users[0]).toMatchObject({
+      userId: "u-2026",
+      screenName: "rahul",
+      location: "Mumbai, India",
+    });
+    expect(
+      shouldHideTweet(
+        parsed.tweets[0]!,
+        parsed.users[0],
+        { ...parseSettings(undefined), hiddenCountryCodes: ["IN"] },
+        defaultCountryIndex(),
+      ),
+    ).toBe(true);
+  });
+
+  it("should read 2026 location country_code as based-in", () => {
+    const parsed = parseGraphQL({
+      result: {
+        __typename: "User",
+        rest_id: "u-ng",
+        core: { screen_name: "ada" },
+        location: { location: "", country_code: "NG", country: "Nigeria" },
+      },
+    });
+    expect(parsed.users[0]?.basedIn).toBe("Nigeria");
+    expect(parsed.users[0]?.location).toBeNull();
   });
 
   it("should unwrap a retweeted status and retain its original author", () => {

@@ -19,11 +19,11 @@ npm --version    # 10.x or higher
 
 ## Step-by-step: reproduce submitted Firefox build
 
-These steps produce `release/x-country-block-0.1.0-firefox.zip`, which should match the uploaded add-on byte-for-byte (same version `0.1.0` in `package.json`).
+These steps produce `release/x-country-block-0.1.1-firefox.zip`, which should match the uploaded add-on byte-for-byte (same version `0.1.1` in `package.json`).
 
 1. **Extract** this source archive to a directory.
 
-2. **Install dependencies** (downloads `esbuild`, `typescript`, `vitest`, `extpay`, etc. into `node_modules/`):
+2. **Install dependencies** (downloads `esbuild`, `typescript`, `vitest`, etc. into `node_modules/`):
 
    ```bash
    npm install
@@ -43,9 +43,9 @@ These steps produce `release/x-country-block-0.1.0-firefox.zip`, which should ma
 
 5. **Output files:**
    - Built extension (unzipped): `dist-firefox/`
-   - AMO upload zip: `release/x-country-block-0.1.0-firefox.zip`
+   - AMO upload zip: `release/x-country-block-0.1.1-firefox.zip`
 
-6. **Verify:** unzip `release/x-country-block-0.1.0-firefox.zip`. Root must contain `manifest.json`, `background.js`, `content.js`, `hook.js`, `popup.js`, `popup.html`, `popup.css`, `extpay-page.js`, and `icons/`.
+6. **Verify:** unzip `release/x-country-block-0.1.1-firefox.zip`. Root must contain `manifest.json`, `background.js`, `content.js`, `hook.js`, `popup.js`, `popup.html`, `popup.css`, `paid-page.js`, and `icons/`.
 
 ## Build script
 
@@ -80,14 +80,12 @@ Output: `dist-firefox/` with non-minified JavaScript.
 |------|---------|
 | `src/hook/inject.ts` | MAIN-world fetch/XHR hook on x.com |
 | `src/content/main.ts` | Content script: filter, hide, badge |
-| `src/background/main.ts` | Service worker / background: ExtPay, badge |
+| `src/background/main.ts` | Service worker / background: Stripe unlock, badge |
 | `src/popup/` | Popup UI |
 | `src/shared/` | Match logic, settings, GraphQL parse, etc. |
-| `src/extpay-page.ts` | ExtensionPay page script |
+| `src/paid-page.ts` | Marks Pro paid after Stripe redirect |
 | `manifest.firefox.json` | Firefox manifest (gecko id, data consent) |
 | `scripts/build.mjs` | Build script |
-
-Third-party library **extpay** is bundled from `node_modules/extpay/` at build time (open source, listed in `package.json`).
 
 ## Public repository
 

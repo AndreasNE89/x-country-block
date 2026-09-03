@@ -6,7 +6,7 @@ dist-firefox/
 /content.js
 /popup.js
 /background.js
-/extpay-page.js
+/paid-page.js
 /popup.html
 /popup.css
 *.log

@@ -5,6 +5,7 @@ import {
   applyCardAction,
   applyCardMark,
   HIDE_ATTR,
+  MARK_ATTR,
   measureCardZones,
   findNotificationRows,
   findProfileIdentity,
@@ -12,19 +13,22 @@ import {
   restoreScrollAfterHide,
   snapshotAboveFold,
   handleFromProfileHeader,
-  profileHeaderTexts,
   screenNameFromElement,
   screenNameFromPath,
   tweetIdFromArticle,
   userIdFromElement,
   visiblePlaceFromCard,
-  visibleProfileLocation,
   visibleTranslatedFrom,
 } from "../shared/hide-dom.ts";
 import { languageCodeFromName } from "../shared/languages.ts";
 import { BADGE_MSG } from "../shared/badge.ts";
-import { actionReason, cardMatchReason, countriesFromLocation, tweetMatchReason } from "../shared/match.ts";
-import { regionsFromLocation } from "../shared/regions.ts";
+import {
+  actionReason,
+  cardDecision,
+  effectiveFilterMode,
+  tweetDecision,
+  type MatchDecision,
+} from "../shared/match.ts";
 import { parseSettings } from "../shared/settings.ts";
 import { HOOK_SOURCE, type HookMessage, type Settings, type TweetRecord, type UserRecord } from "../shared/types.ts";
 
@@ -101,27 +105,11 @@ function emptyTweet(partial: Partial<TweetRecord> = {}): TweetRecord {
   };
 }
 
-function locationFromHeaderTexts(): string | null {
-  const known = visibleProfileLocation(document);
-  if (known) return known;
-  for (const text of profileHeaderTexts(document)) {
-    if (countriesFromLocation(text, index).length > 0) return text;
-    if (regionsFromLocation(text).length > 0) return text;
-  }
-  return null;
-}
-
 function pageSignals(): {
-  location: string | null;
   basedIn: string | null;
   connectedVia: string | null;
 } {
-  const about = aboutSignalsFromDocument(document);
-  return {
-    location: locationFromHeaderTexts(),
-    basedIn: about.basedIn,
-    connectedVia: about.connectedVia,
-  };
+  return aboutSignalsFromDocument(document);
 }
 
 let signalsCache: ReturnType<typeof pageSignals> | null = null;
@@ -161,7 +149,6 @@ function mergeAuthor(
   extra: {
     userId?: string | null;
     screenName?: string | null;
-    location?: string | null;
     basedIn?: string | null;
     connectedVia?: string | null;
   },
@@ -170,7 +157,6 @@ function mergeAuthor(
     !author &&
     !extra.userId &&
     !extra.screenName &&
-    !extra.location &&
     !extra.basedIn &&
     !extra.connectedVia
   ) {
@@ -179,7 +165,7 @@ function mergeAuthor(
   return {
     userId: extra.userId ?? author?.userId ?? "",
     screenName: extra.screenName ?? author?.screenName ?? null,
-    location: author?.location ?? extra.location ?? null,
+    location: author?.location ?? null,
     basedIn: author?.basedIn ?? extra.basedIn ?? null,
     connectedVia: author?.connectedVia ?? extra.connectedVia ?? null,
     lang: author?.lang ?? null,
@@ -205,7 +191,7 @@ function reasonForCard(
   map: Map<string, UserRecord>,
   signals: ReturnType<typeof pageSignals>,
   pageName: string | null,
-): string | null {
+): MatchDecision {
   const id = tweetIdFromArticle(card);
   const tweet = id ? tweets.get(id) : undefined;
   const articleName = screenNameFromElement(card);
@@ -217,7 +203,6 @@ function reasonForCard(
     author = mergeAuthor(author, {
       userId,
       screenName: articleName,
-      location: signals.location,
       basedIn: signals.basedIn,
       connectedVia: signals.connectedVia,
     });
@@ -235,28 +220,25 @@ function reasonForCard(
         place,
         lang,
       });
-  const self = tweetMatchReason(record, author, settings, index);
-  if (self) return self;
-  if (tweet) return cardMatchReason(record, map, settings, index);
-  return null;
+  if (tweet) return cardDecision(record, map, settings, index);
+  return tweetDecision(record, author, settings, index);
 }
 
 function profileReason(
   map: Map<string, UserRecord>,
   signals: ReturnType<typeof pageSignals>,
   pageName: string | null,
-): string | null {
-  if (!pageName && !signals.location && !signals.basedIn && !signals.connectedVia) {
-    return null;
+): MatchDecision {
+  if (!pageName && !signals.basedIn && !signals.connectedVia) {
+    return { hit: null, decided: false };
   }
   const author = mergeAuthor(findAuthor(map, null, pageName), {
     screenName: pageName,
-    location: signals.location,
     basedIn: signals.basedIn,
     connectedVia: signals.connectedVia,
   });
   if (author) rememberAuthor(author);
-  return tweetMatchReason(emptyTweet(), author, settings, index);
+  return tweetDecision(emptyTweet(), author, settings, index);
 }
 
 function applyCardList(
@@ -276,7 +258,13 @@ function applyCardList(
         continue;
       }
       const reason = actionReason(reasonForCard(card, map, signals, pageName), settings);
-      applyCardAction(card, reason, settings.markOnly, zones[i]);
+      applyCardAction(
+        card,
+        reason,
+        settings.markOnly,
+        zones[i],
+        effectiveFilterMode(settings) === "only",
+      );
       if (reason) marked += 1;
     } catch {
       // fail open
@@ -302,7 +290,7 @@ function apply(): void {
   if (header && full) {
     try {
       const reason = actionReason(profileReason(map, signals, pageName), settings);
-      applyCardMark(header, reason, true);
+      applyCardMark(header, settings.markOnly ? reason : null, true);
     } catch {
       // fail open
     }
@@ -311,7 +299,7 @@ function apply(): void {
   if (rows.length) applyCardList(rows, map, signals, pageName, full);
   if (!settings.markOnly) restoreScrollAfterHide(snaps);
   document.getElementById("xcb-status-hud")?.remove();
-  reportBadge(document.querySelectorAll(`[${HIDE_ATTR}]`).length);
+  reportBadge(document.querySelectorAll(`[${HIDE_ATTR}], [${MARK_ATTR}]`).length);
 }
 
 function reportBadge(count: number): void {
@@ -337,6 +325,7 @@ function onMessage(event: MessageEvent): void {
   for (const tweet of data.tweets) putTweet(tweet);
   invalidateUsersMap();
   persistUsers();
+  forceFull = true;
   requestApply();
 }
 

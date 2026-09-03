@@ -1,11 +1,11 @@
-import ExtPay from "extpay";
 import { COUNTRY_NAMES } from "../shared/countries.ts";
-import { LANGUAGES } from "../shared/languages.ts";
-import { EXTPAY_ID } from "../shared/license.ts";
+import { LANGUAGES, languageName } from "../shared/languages.ts";
 import { effectiveFilterMode } from "../shared/match.ts";
-import { REGIONS } from "../shared/regions.ts";
+import { REGIONS, regionName } from "../shared/regions.ts";
 import { parseSettings } from "../shared/settings.ts";
+import { STRIPE_PAYMENT_LINK } from "../shared/stripe.ts";
 import type { Settings } from "../shared/types.ts";
+import { visibleOptionRows } from "./option-rows.ts";
 
 type Tab = "countries" | "regions" | "languages";
 
@@ -20,8 +20,7 @@ const onlyFromBox = document.getElementById("only-from") as HTMLInputElement;
 const proActions = document.getElementById("pro-actions") as HTMLDivElement;
 const proPay = document.getElementById("pro-pay") as HTMLButtonElement;
 const proTrial = document.getElementById("pro-trial") as HTMLButtonElement;
-const proLogin = document.getElementById("pro-login") as HTMLButtonElement;
-const proManage = document.getElementById("pro-manage") as HTMLButtonElement;
+const proTest = document.getElementById("pro-test") as HTMLButtonElement;
 const tabCountries = document.getElementById("tab-countries") as HTMLButtonElement;
 const tabRegions = document.getElementById("tab-regions") as HTMLButtonElement;
 const tabLanguages = document.getElementById("tab-languages") as HTMLButtonElement;
@@ -79,25 +78,24 @@ function render(): void {
     settings.hiddenRegionIds.length +
     settings.hiddenLanguageCodes.length;
   if (active === 0) {
-    status.textContent = "Nothing ticked. Tick India (or a region / language) or nothing is marked.";
-    status.dataset.ok = "false";
+    const onlyShow = effectiveFilterMode(settings) === "only";
+    status.textContent = onlyShow
+      ? "Only show is on. Nothing ticked, so showing all."
+      : "Nothing ticked. Tick a country, region, or language.";
+    status.dataset.ok = onlyShow ? "true" : "false";
   } else {
     const bits = [
       ...settings.hiddenCountryCodes.map((code) => COUNTRY_NAMES[code] ?? code),
-      ...settings.hiddenRegionIds,
-      ...settings.hiddenLanguageCodes,
+      ...settings.hiddenRegionIds.map((id) => regionName(id)),
+      ...settings.hiddenLanguageCodes.map((code) => languageName(code)),
     ];
     const verb = effectiveFilterMode(settings) === "only" ? "Only showing" : "Hiding";
     status.textContent = `${verb}: ${bits.join(", ")}`;
     status.dataset.ok = "true";
   }
-  const query = search.value.trim().toLowerCase();
   const selected = selectedIds();
   list.replaceChildren();
-  for (const row of rowsForTab()) {
-    if (query && !row.label.toLowerCase().includes(query) && !row.id.toLowerCase().includes(query)) {
-      continue;
-    }
+  for (const row of visibleOptionRows(rowsForTab(), selected, search.value)) {
     const li = document.createElement("li");
     const box = document.createElement("input");
     box.id = `option-${tab}-${row.id}`;
@@ -151,6 +149,7 @@ async function toggle(id: string, on: boolean): Promise<void> {
     }
   }
   await persist();
+  render();
 }
 
 function setTab(next: Tab): void {
@@ -169,39 +168,37 @@ markOnlyBox.addEventListener("change", () => {
   settings = { ...settings, markOnly: markOnlyBox.checked };
   void persist();
 });
-function extpayClient() {
-  return ExtPay(EXTPAY_ID);
-}
-
 function paintPro(): void {
   const unlocked = settings.onlyShowUnlocked;
   onlyFromBox.checked = unlocked && settings.filterMode === "only";
   proActions.hidden = unlocked;
-  proManage.hidden = !unlocked;
+}
+
+function openCheckout(): void {
+  void chrome.tabs.create({ url: STRIPE_PAYMENT_LINK });
 }
 
 onlyFromBox.addEventListener("change", () => {
   if (!settings.onlyShowUnlocked) {
     onlyFromBox.checked = false;
-    void extpayClient().openPaymentPage().catch(() => undefined);
+    openCheckout();
     return;
   }
   settings = { ...settings, filterMode: onlyFromBox.checked ? "only" : "hide" };
   void persist();
   render();
 });
-proPay.addEventListener("click", () => {
-  void extpayClient().openPaymentPage().catch(() => undefined);
-});
+proPay.addEventListener("click", openCheckout);
 proTrial.addEventListener("click", () => {
-  void extpayClient().openTrialPage("7-day").catch(() => undefined);
+  if (settings.trialStartedAt !== null) return;
+  void chrome.storage.local.set({ trialStartedAt: Date.now() });
 });
-proLogin.addEventListener("click", () => {
-  void extpayClient().openLoginPage().catch(() => undefined);
-});
-proManage.addEventListener("click", () => {
-  void extpayClient().openPaymentPage().catch(() => undefined);
-});
+if (!__XCB_PROD__) {
+  proTest.hidden = false;
+  proTest.addEventListener("click", () => {
+    void chrome.storage.local.set({ onlyShowPaid: true, onlyShowUnlocked: true });
+  });
+}
 
 void chrome.storage.local
   .get([

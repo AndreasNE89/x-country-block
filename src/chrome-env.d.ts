@@ -20,12 +20,18 @@ type ChromeRuntime = {
   };
 };
 
+type ChromeTabs = {
+  create: (createProperties: { url: string }) => Promise<{ id?: number }>;
+  remove: (tabId: number) => Promise<void>;
+};
+
 declare const chrome: {
   storage: {
     local: ChromeStorageLocal;
   };
   action: ChromeAction;
   runtime: ChromeRuntime;
+  tabs: ChromeTabs;
 };
 
 declare const __XCB_PROD__: boolean;
@@ -37,6 +43,7 @@ declare global {
     };
     action: ChromeAction;
     runtime: ChromeRuntime;
+    tabs: ChromeTabs;
   };
   var __XCB_PROD__: boolean;
 }

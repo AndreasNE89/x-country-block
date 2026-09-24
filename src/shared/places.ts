@@ -84,7 +84,8 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|" +
     "West Virginia|Wisconsin|Wyoming|District of Columbia|New England|Midwest|Pacific Northwest|" +
     "PNW|SoCal|NorCal|Bay Area|SF Bay Area|Silicon Valley|Upstate New York|Long Island|DMV|DFW|" +
-    "Dallas-Fort Worth|Twin Cities|Tri-State Area",
+    "Dallas-Fort Worth|Twin Cities|Tri-State Area|North Georgia|South Georgia|North Jersey|" +
+    "South Jersey|Central Jersey",
   CA:
     "Ontario|Quebec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|" +
     "Newfoundland|Newfoundland and Labrador|Prince Edward Island|PEI|Yukon|Nunavut|" +
@@ -93,7 +94,7 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "New South Wales|Queensland|Western Australia|South Australia|Tasmania|Northern Territory|" +
     "Australian Capital Territory",
   GB:
-    "Scotland|Wales|Northern Ireland|Cornwall|Yorkshire|West Yorkshire|South Yorkshire|" +
+    "Scotland|Wales|Northern Ireland|North Ireland|Cornwall|Yorkshire|West Yorkshire|South Yorkshire|" +
     "North Yorkshire|Lancashire|Essex|Cumbria|Merseyside|West Midlands|Greater Manchester|" +
     "Greater London|East Anglia|Northumberland|Hertfordshire|Hampshire|Berkshire|Oxfordshire|" +
     "Dorset|Wiltshire|Sussex|East Sussex|West Sussex|Cheshire|Derbyshire|Nottinghamshire|" +
@@ -127,7 +128,7 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "Lagos State|FCT|Rivers State|Delta State|Oyo|Ogun|Ondo|Osun|Ekiti|Edo State|Anambra|" +
     "Enugu State|Imo State|Abia|Akwa Ibom|Cross River|Bayelsa|Ebonyi|Kogi|Kwara|Benue|" +
     "Plateau State|Nasarawa|Niger State|Kaduna State|Kano State|Katsina|Jigawa|Bauchi|Gombe|" +
-    "Borno|Yobe|Adamawa|Taraba|Sokoto State|Kebbi|Zamfara",
+    "Borno|Yobe|Adamawa|Taraba|Sokoto State|Kebbi|Zamfara|Niger Delta|South South",
   ID:
     "Bali|Jawa Barat|Jawa Timur|Jawa Tengah|West Java|East Java|Central Java|Sumatra|Sumatera|" +
     "North Sumatra|Sumatera Utara|Sulawesi|Kalimantan|Aceh|Riau|Banten|Lombok|Nusa Tenggara|Maluku",

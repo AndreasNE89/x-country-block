@@ -864,7 +864,6 @@ export const COUNTRY_ALIASES: Record<string, string> = {
   falklands: "FK",
   malvinas: "FK",
   "islas malvinas": "FK",
-  "south georgia": "GS",
   "kalaallit nunaat": "GL",
   grønland: "GL",
   føroyar: "FO",

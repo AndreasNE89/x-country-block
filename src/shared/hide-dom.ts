@@ -357,7 +357,7 @@ function ensureMarkStyles(doc: Document): void {
     `[${MARK_ATTR}]{outline:2px solid ${HIGHLIGHT_COLOR}!important;outline-offset:-2px!important}`,
     // Only-show: a slim row per set-aside post keeps X's loader below the fold, so X does not
     // fetch page after page into an empty-looking timeline, and says why the post is missing.
-    `[${SLIM_ATTR}]{display:block!important;pointer-events:none!important;cursor:default!important}`,
+    `[${SLIM_ATTR}]{display:block!important;min-height:0!important;height:auto!important;padding:0!important;pointer-events:none!important;cursor:default!important}`,
     `[${SLIM_ATTR}]>*{display:none!important}`,
     `[${SLIM_ATTR}]::before{content:attr(title);display:block;padding:4px 16px;font:400 12px/16px ${FONT};color:#536471;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`,
     `html[${DARK_ATTR}] [${SLIM_ATTR}]::before{color:#8B98A5}`,

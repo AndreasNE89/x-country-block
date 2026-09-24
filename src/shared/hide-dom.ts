@@ -361,7 +361,11 @@ function ensureMarkStyles(doc: Document): void {
     `[${SLIM_ATTR}]>*{display:none!important}`,
     `[${SLIM_ATTR}]::before{content:attr(title);display:block;padding:4px 16px;font:400 12px/16px ${FONT};color:#536471;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`,
     `html[${DARK_ATTR}] [${SLIM_ATTR}]::before{color:#8B98A5}`,
-    `.${MARK_LABEL_CLASS}{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 12px 10px;padding:4px 8px;border-radius:6px;background:#FFB638;color:#14201F;font:500 12px/16px ${FONT}}`,
+    // X's post <article> is a flex row around one content column. Wrapping it and giving the
+    // label a full-width box puts the label on its own line under the post; in a column or block
+    // parent the same width simply fills the row.
+    `[${MARK_ATTR}]:has(>.${MARK_LABEL_CLASS}){flex-wrap:wrap!important}`,
+    `.${MARK_LABEL_CLASS}{flex:none;box-sizing:border-box;width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 12px 10px;padding:4px 8px;border-radius:6px;background:#FFB638;color:#14201F;font:500 12px/16px ${FONT}}`,
     `.${MARK_LABEL_CLASS} button{all:unset;cursor:pointer;font-weight:600;text-decoration:underline;color:#14201F}`,
     `.${MARK_LABEL_CLASS} button:focus-visible{outline:2px solid #14201F;outline-offset:2px}`,
   ].join("");

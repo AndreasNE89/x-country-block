@@ -92,6 +92,10 @@ describe("paintCard", () => {
     expect(css).toContain(`outline:2px solid ${HIGHLIGHT_COLOR}`);
     expect(css).not.toContain("#c23b22");
     expect(HIGHLIGHT_COLOR).toBe("#B86E00");
+    // X's post <article> lays its children out in a row: the label must wrap onto its own full
+    // line under the post, not become a column beside it (checked in Chrome on X's classes).
+    expect(css).toContain(`[${MARK_ATTR}]:has(>.${MARK_LABEL_CLASS}){flex-wrap:wrap!important}`);
+    expect(css).toMatch(new RegExp(`\\.${MARK_LABEL_CLASS}\\{[^}]*flex:none;[^}]*width:calc\\(100% - 24px\\)`));
     // Repainting the same state touches nothing; switching to hide removes the label.
     expect(paintCard(article, { kind: "mark", reason: "Post language: Hindi", handle: "Carol", label: true }, "t:111")).toBe(false);
     paintCard(article, { kind: "hide", reason: "Post language: Hindi" }, "t:111");

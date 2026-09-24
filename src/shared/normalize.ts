@@ -2,9 +2,17 @@ const ASCII = /^[\x00-\x7f]*$/;
 
 // Accents and vowel points that decomposition splits off Latin, Greek, Cyrillic,
 // Hebrew and Arabic letters, plus the Arabic tatweel. Indic and Thai vowel signs
-// are marks too, but they carry meaning, so they stay.
-const COMBINING =
-  /[̀-ͯ᪰-᫿᷀-᷿⃐-⃿︠-֑︯-ׇֽֿׁׂׅׄؐ-ًؚ-ٰٟۖ-ۜ۟-۪ۤۧۨ-ۭـ]/g;
+// are marks too, but they carry meaning, so they stay. Written as escapes: the
+// marks are invisible in an editor, and a formatter could normalize them away.
+const COMBINING = new RegExp(
+  "[" +
+    "\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f" + // Latin, Greek, Cyrillic
+    "\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7" + // Hebrew points
+    "\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06dc\u06df-\u06e4\u06e7\u06e8\u06ea-\u06ed" + // Arabic
+    "\u0640" + // Arabic tatweel
+    "]",
+  "g",
+);
 
 // Letters with no Unicode decomposition.
 const SPECIAL: Record<string, string> = {
@@ -20,7 +28,7 @@ const SPECIAL: Record<string, string> = {
   ħ: "h",
   ŀ: "l",
 };
-const SPECIAL_LETTER = /[ßøłæœđıþðħŀ]/g;
+const SPECIAL_LETTER = new RegExp(`[${Object.keys(SPECIAL).join("")}]`, "g");
 
 // "U.S.A." / "D.C." -> "USA" / "DC". Runs before punctuation becomes spaces,
 // otherwise the letters would split into separate one-letter words.
@@ -45,7 +53,7 @@ const TAG_FLAG = /\u{1F3F4}([\u{E0061}-\u{E007A}]+)\u{E007F}/gu;
 const INDICATOR_A = 0x1f1e6;
 const TAG_A = 0xe0061;
 
-/** ISO2 codes of the flag emoji in a text, in order: "🇮🇳 🏴󠁧󠁢󠁳󠁣󠁴󠁿" -> ["IN", "GB"]. */
+/** ISO2 codes of the flag emoji in a text, in order: India then Scotland -> ["IN", "GB"]. */
 export function flagCountryCodes(input: string): string[] {
   const codes = new Set<string>();
   for (const [pair] of input.matchAll(FLAG_PAIR)) {
@@ -69,7 +77,7 @@ export function stripFlags(input: string): string {
 /**
  * Lowercase, accent-free form for matching and search: "São Paulo" -> "sao paulo",
  * "Trinidad & Tobago" -> "trinidad and tobago", "U.K." -> "uk". Non-Latin scripts
- * stay as letters ("भारत", "日本"), so native names can match.
+ * stay as letters ("Россия", "日本"), so native names can match.
  */
 export function foldText(input: string): string {
   let text = input;

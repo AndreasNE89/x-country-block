@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   collapseDottedInitials,
@@ -42,6 +45,22 @@ describe("foldText", () => {
 
   it("folds Arabic alef forms and strips harakat", () => {
     expect(foldText("الإمارات")).toBe(foldText("الامارات"));
+    expect(foldText("مِصْر")).toBe("مصر");
+    expect(foldText("مـصـر")).toBe("مصر");
+  });
+
+  it("strips Hebrew points and keeps Indic vowel signs", () => {
+    expect(foldText("יִשְׂרָאֵל")).toBe("ישראל");
+    expect(foldText("मुंबई")).toBe("मुंबई");
+  });
+
+  it("is written without invisible characters in its source", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../src/shared/normalize.ts"),
+      "utf8",
+    );
+    // Combining marks, format characters (tag letters) and unassigned code points.
+    expect(source).not.toMatch(/[\p{M}\p{Cf}\p{Cn}]/u);
   });
 
   it("maps & to and and collapses dotted initials", () => {

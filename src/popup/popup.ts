@@ -1,11 +1,12 @@
 import { COUNTRY_NAMES } from "../shared/countries.ts";
-import { LANGUAGES, languageName } from "../shared/languages.ts";
+import { languageName } from "../shared/languages.ts";
 import { effectiveFilterMode } from "../shared/match.ts";
-import { REGIONS, regionName } from "../shared/regions.ts";
+import { regionName } from "../shared/regions.ts";
 import { parseSettings } from "../shared/settings.ts";
 import { STRIPE_PAYMENT_LINK } from "../shared/stripe.ts";
 import type { Settings } from "../shared/types.ts";
-import { visibleOptionRows } from "./option-rows.ts";
+import { catalogRows } from "./catalog.ts";
+import { type OptionRow, visibleOptionRows } from "./option-rows.ts";
 
 type Tab = "countries" | "regions" | "languages";
 
@@ -25,22 +26,6 @@ const tabCountries = document.getElementById("tab-countries") as HTMLButtonEleme
 const tabRegions = document.getElementById("tab-regions") as HTMLButtonElement;
 const tabLanguages = document.getElementById("tab-languages") as HTMLButtonElement;
 
-function countryRows(): { id: string; label: string }[] {
-  return Object.entries(COUNTRY_NAMES)
-    .map(([id, name]) => ({ id, label: `${name} (${id})` }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function regionRows(): { id: string; label: string }[] {
-  return REGIONS.map((row) => ({ id: row.id, label: row.name })).sort((a, b) =>
-    a.label.localeCompare(b.label),
-  );
-}
-
-function languageRows(): { id: string; label: string }[] {
-  return LANGUAGES.map((row) => ({ id: row.code, label: `${row.name} (${row.code})` }));
-}
-
 function selectedIds(): string[] {
   switch (tab) {
     case "countries":
@@ -56,19 +41,8 @@ function selectedIds(): string[] {
   }
 }
 
-function rowsForTab(): { id: string; label: string }[] {
-  switch (tab) {
-    case "countries":
-      return countryRows();
-    case "regions":
-      return regionRows();
-    case "languages":
-      return languageRows();
-    default: {
-      const _never: never = tab;
-      return _never;
-    }
-  }
+function rowsForTab(): readonly OptionRow[] {
+  return catalogRows(tab);
 }
 
 function render(): void {

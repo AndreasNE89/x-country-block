@@ -432,6 +432,7 @@ export class ContentController {
     const shifting = changes.filter(
       (c) => heightClass(c.el) !== paintHeightClass(c.paint) && startsAboveViewBottom(layoutBox(c.el), null, win),
     );
+    const resized = shifting.map((c) => layoutBox(c.el));
     let anchor = null;
     if (shifting.length > 0) {
       const scroller = scrollerFor(shifting[0]!.el, win);
@@ -446,7 +447,7 @@ export class ContentController {
       }
     }
     if (changes.some((c) => c.paint.kind === "slim")) syncThemeFlag(doc);
-    if (anchor) holdAnchor(anchor, win, this.raf);
+    if (anchor) holdAnchor(anchor, win, this.raf, 4, resized);
   }
 
   private paintHeader(pathname: string, ctx: PageContext): void {

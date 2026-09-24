@@ -1,12 +1,16 @@
 // Keeps the post the user is reading in place when cards above it collapse or reappear.
 // X lays its timeline out asynchronously (cells are positioned with translateY and moved after
 // X re-measures), so the shift is measured, not predicted, and corrected over a few frames.
+// The browser (CSS scroll anchoring) or X may already hold the view, and the user may be
+// scrolling at the same time, so only the part of the move that neither explains is corrected.
 
 export type Anchor = {
   el: HTMLElement;
   /** Scrolling ancestor, or null for the window. */
   scroller: HTMLElement | null;
-  /** Position in the scrolled content: stays the same while the user scrolls, moves on layout shifts. */
+  /** On-screen position (from the top of the scroller or window) at the last check. */
+  top: number;
+  /** Position in the scrolled content at the last check: stays put while anyone scrolls, moves on layout shifts. */
   offset: number;
 };
 
@@ -33,10 +37,6 @@ function scrollPos(scroller: HTMLElement | null, win: Window): number {
   return scroller ? scroller.scrollTop : win.scrollY;
 }
 
-function contentOffset(el: HTMLElement, scroller: HTMLElement | null, win: Window): number {
-  return el.getBoundingClientRect().top - viewTop(scroller) + scrollPos(scroller, win);
-}
-
 /** Whether a box starts above the bottom edge of the visible area (so changing it can shift what is seen). */
 export function startsAboveViewBottom(box: HTMLElement, scroller: HTMLElement | null, win: Window): boolean {
   return box.getBoundingClientRect().top < viewBottom(scroller, win);
@@ -59,28 +59,54 @@ export function captureAnchor(
     if (!best || rect.top < best.top) best = { el: box, top: rect.top };
   }
   if (!best) return null;
-  return { el: best.el, scroller, offset: best.top - top + scrollPos(scroller, win) };
+  const onScreen = best.top - top;
+  return { el: best.el, scroller, top: onScreen, offset: onScreen + scrollPos(scroller, win) };
 }
 
-/** Scroll by however far the anchor moved in the content. Returns the correction applied. */
+/**
+ * Scroll back the part of the anchor's on-screen move that a layout shift caused, since the last
+ * check. `moved` is how far it moved on screen, `shifted` how far it moved in the content. When
+ * the browser or X already scrolled to compensate, moved is 0: nothing to do. When the user
+ * scrolled, shifted is 0: not ours to undo. Correcting only what both agree on (same direction,
+ * the smaller amount) never doubles a compensation and never reverts the user's scroll.
+ * Returns the correction applied.
+ */
 export function restoreAnchor(anchor: Anchor, win: Window): number {
   if (!anchor.el.isConnected) return 0;
-  const drift = contentOffset(anchor.el, anchor.scroller, win) - anchor.offset;
-  if (Math.abs(drift) < 1) return 0;
-  if (anchor.scroller) anchor.scroller.scrollTop += drift;
-  else win.scrollBy(0, drift);
-  anchor.offset += drift;
-  return drift;
+  const top = anchor.el.getBoundingClientRect().top - viewTop(anchor.scroller);
+  const offset = top + scrollPos(anchor.scroller, win);
+  const moved = top - anchor.top;
+  const shifted = offset - anchor.offset;
+  anchor.offset = offset;
+  anchor.top = top;
+  if (Math.sign(moved) !== Math.sign(shifted)) return 0;
+  const correction = Math.sign(moved) * Math.min(Math.abs(moved), Math.abs(shifted));
+  if (Math.abs(correction) < 1) return 0;
+  if (anchor.scroller) anchor.scroller.scrollTop += correction;
+  else win.scrollBy(0, correction);
+  anchor.top = top - correction;
+  return correction;
 }
 
-/** Correct now and on the next few frames, while X re-positions its cells. */
-export function holdAnchor(anchor: Anchor, win: Window, raf: Raf, frames = 4): void {
+/**
+ * Correct now and on the next few frames, while X re-positions its cells. X moves them from a
+ * ResizeObserver, which runs after this frame's animation callbacks; an observer on the `resized`
+ * boxes, created after X's, runs after it in the same frame, so the post is held before paint.
+ */
+export function holdAnchor(anchor: Anchor, win: Window, raf: Raf, frames = 4, resized: HTMLElement[] = []): void {
   restoreAnchor(anchor, win);
+  const Observer = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+  let observer: ResizeObserver | null = null;
+  if (typeof Observer === "function" && resized.length > 0 && frames > 0) {
+    observer = new Observer(() => restoreAnchor(anchor, win));
+    for (const box of resized) observer.observe(box);
+  }
   let left = frames;
   const tick = (): void => {
     restoreAnchor(anchor, win);
     left -= 1;
     if (left > 0) raf(tick);
+    else observer?.disconnect();
   };
   if (left > 0) raf(tick);
 }

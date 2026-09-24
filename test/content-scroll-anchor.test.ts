@@ -58,6 +58,107 @@ describe("scroll anchor (F52)", () => {
     expect(win.scrollBy).toHaveBeenCalledTimes(1);
   });
 
+  it("does not correct again when the browser already held the post (native scroll anchoring)", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300]);
+    state.scrollY = 450;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    state.heights[0] = 0;
+    state.scrollY -= 300; // the browser compensates in the same layout
+    expect(restoreAnchor(anchor, win)).toBe(0);
+    expect(win.scrollBy).not.toHaveBeenCalled();
+    expect(boxes[2]!.getBoundingClientRect().top).toBe(150);
+  });
+
+  it("does not correct again when X re-lays out and scrolls in the same later frame", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300]);
+    state.scrollY = 450;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    const frames: (() => void)[] = [];
+    holdAnchor(anchor, win, (cb) => frames.push(cb));
+    state.heights[0] = 0;
+    state.scrollY -= 300;
+    while (frames.length) frames.shift()!();
+    expect(win.scrollBy).not.toHaveBeenCalled();
+    expect(boxes[2]!.getBoundingClientRect().top).toBe(150);
+  });
+
+  it("keeps the user's own scroll when a card above collapses while they scroll", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300]);
+    state.scrollY = 450;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    state.heights[0] = 0;
+    state.scrollY += 50; // the user scrolls down in the same frame
+    expect(restoreAnchor(anchor, win)).toBe(-300);
+    expect(boxes[2]!.getBoundingClientRect().top).toBe(100);
+  });
+
+  it("does not fight the user scrolling during the held frames", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300]);
+    state.scrollY = 450;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    const frames: (() => void)[] = [];
+    holdAnchor(anchor, win, (cb) => frames.push(cb));
+    while (frames.length) {
+      state.scrollY += 40;
+      frames.shift()!();
+    }
+    expect(win.scrollBy).not.toHaveBeenCalled();
+    expect(state.scrollY).toBe(450 + 4 * 40);
+  });
+
+  it("corrects the nested scroller, not the window", () => {
+    document.body.innerHTML = `<div id="panel"><div id="p0"></div><div id="p1"></div><div id="p2"></div></div>`;
+    const panel = document.getElementById("panel") as HTMLElement;
+    const heights = [300, 300, 300];
+    panel.getBoundingClientRect = () => ({ top: 100, bottom: 700, height: 600 }) as DOMRect;
+    const boxes = heights.map((_, i) => {
+      const box = document.getElementById(`p${i}`) as HTMLElement;
+      box.getBoundingClientRect = () => {
+        const top = 100 + heights.slice(0, i).reduce((a, b) => a + b, 0) - panel.scrollTop;
+        return { top, bottom: top + heights[i]!, height: heights[i]! } as DOMRect;
+      };
+      return box;
+    });
+    panel.scrollTop = 350;
+    const win = { innerHeight: 800, scrollY: 0, scrollBy: vi.fn() } as unknown as Window;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), panel, win)!;
+    expect(anchor.el).toBe(boxes[2]);
+    heights[0] = 0;
+    expect(restoreAnchor(anchor, win)).toBe(-300);
+    expect(panel.scrollTop).toBe(50);
+    expect(win.scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("corrects from a ResizeObserver in the frame X re-lays out, then lets go", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300]);
+    const observers: { cb: () => void; targets: Element[]; disconnect: ReturnType<typeof vi.fn> }[] = [];
+    (win as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      entry: (typeof observers)[number];
+      constructor(cb: () => void) {
+        this.entry = { cb, targets: [], disconnect: vi.fn() };
+        observers.push(this.entry);
+      }
+      observe(target: Element) {
+        this.entry.targets.push(target);
+      }
+      disconnect() {
+        this.entry.disconnect();
+      }
+    };
+    state.scrollY = 450;
+    const anchor = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    const frames: (() => void)[] = [];
+    holdAnchor(anchor, win, (cb) => frames.push(cb), 2, [boxes[0]!]);
+    expect(observers[0]!.targets).toEqual([boxes[0]]);
+    state.heights[0] = 0; // X's own observer moves the cells, then ours runs
+    observers[0]!.cb();
+    expect(win.scrollBy).toHaveBeenCalledTimes(1);
+    expect(boxes[2]!.getBoundingClientRect().top).toBe(150);
+    while (frames.length) frames.shift()!();
+    expect(win.scrollBy).toHaveBeenCalledTimes(1);
+    expect(observers[0]!.disconnect).toHaveBeenCalled();
+  });
+
   it("finds no anchor when nothing stable is in view", () => {
     const { boxes, win } = column([300, 300]);
     expect(captureAnchor(boxes, new Set(boxes), null, win)).toBeNull();

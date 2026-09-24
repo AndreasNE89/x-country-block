@@ -517,7 +517,6 @@ export const COUNTRY_ALIASES: Record<string, string> = {
   // United States
   usa: "US",
   "u.s.a.": "US",
-  "u.s.": "US",
   america: "US",
   "united states of america": "US",
   "the states": "US",

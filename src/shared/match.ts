@@ -1,7 +1,13 @@
 import { COUNTRY_NAMES } from "./countries.ts";
-import { foldText } from "./normalize.ts";
-import { countryForSubdivisionCode } from "./places.ts";
-import { regionName, regionsForCountry, regionsFromLocation } from "./regions.ts";
+import { collapseDottedInitials, flagCountryCodes, foldText, stripFlags } from "./normalize.ts";
+import {
+  AMBIGUOUS_PLACES,
+  CITY_ALT_COUNTRIES,
+  countriesForSubdivisionCode,
+  SUBDIVISION_NAMES,
+  UPPERCASE_PLACE_CODES,
+} from "./places.ts";
+import { REGION_PHRASES, regionName, regionsForCountry, regionsFromLocation } from "./regions.ts";
 import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "./types.ts";
 
 export function allowListLabel(settings: Settings): string {
@@ -38,110 +44,495 @@ export function actionReason(decision: MatchDecision, settings: Settings): strin
   }
 }
 
-const ISO2 = /^[a-z]{2}$/;
-const PLACE_STOP = new Set([
-  "from",
-  "in",
-  "the",
-  "at",
-  "to",
-  "of",
-  "and",
-  "or",
-  "a",
-  "an",
-  "via",
-  "based",
-  "live",
-  "lives",
+// ---------------------------------------------------------------------------
+// Location parsing
+// ---------------------------------------------------------------------------
+
+type EntryKind = "country" | "subdivision" | "city" | "ambiguous" | "region";
+
+type Entry = {
+  kind: EntryKind;
+  /** Possible countries, most likely first. Empty for region phrases. */
+  countries: string[];
+  /** Ambiguous names: reading with no context, and right after an unknown place. */
+  alone?: string | null;
+  afterPlace?: string | null;
+  /** Only when written with a capital letter ("Chad", not "chad"). */
+  capitalOnly?: boolean;
+};
+
+type Derived = {
+  phrases: Map<string, Entry>;
+  /** First token -> longest phrase (in tokens) starting with it. */
+  maxTokens: Map<string, number>;
+  iso2: Set<string>;
+  /** Upper-case ISO3 -> ISO2. */
+  iso3: Map<string, string>;
+  /** Names in scripts written without spaces (日本, กรุงเทพ), longest first. */
+  scriptNames: [string, Entry][];
+  cache: Map<string, string[]>;
+};
+
+const CAPITAL_ONLY = new Set(["chad"]);
+const NO_SPACE_SCRIPT =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Hangul}]/u;
+const CACHE_LIMIT = 5000;
+const derivedByIndex = new WeakMap<CountryIndex, Derived>();
+
+function derive(index: CountryIndex): Derived {
+  const known = derivedByIndex.get(index);
+  if (known) return known;
+  const phrases = new Map<string, Entry>();
+  const subdivisions = new Set(Object.keys(SUBDIVISION_NAMES).map(foldText));
+  const ambiguous = new Map(Object.entries(AMBIGUOUS_PLACES).map(([name, v]) => [foldText(name), v]));
+  const alts = new Map(Object.entries(CITY_ALT_COUNTRIES).map(([name, v]) => [foldText(name), v]));
+
+  // Lowest priority first: region phrases only consume their words ("Latin America"
+  // must not leave "america" for the US alias), then cities, then names.
+  for (const key of REGION_PHRASES.keys()) phrases.set(key, { kind: "region", countries: [] });
+  for (const [key, code] of index.cities) {
+    phrases.set(key, { kind: "city", countries: [code, ...(alts.get(key) ?? [])] });
+  }
+  for (const [key, code] of index.names) {
+    const amb = ambiguous.get(key);
+    const entry: Entry = amb
+      ? { kind: "ambiguous", countries: amb.countries, alone: amb.alone, afterPlace: amb.afterPlace }
+      : { kind: subdivisions.has(key) ? "subdivision" : "country", countries: [code] };
+    if (CAPITAL_ONLY.has(key)) entry.capitalOnly = true;
+    phrases.set(key, entry);
+  }
+  // Hashtag spellings: #NewYork, #SouthAfrica.
+  for (const [key, entry] of [...phrases]) {
+    if (entry.kind === "region" || entry.kind === "ambiguous") continue;
+    const parts = key.split(" ");
+    const joined = parts.join("");
+    if (parts.length >= 2 && parts.length <= 3 && joined.length >= 7 && !phrases.has(joined)) {
+      phrases.set(joined, entry);
+    }
+  }
+
+  const maxTokens = new Map<string, number>();
+  const scriptNames: [string, Entry][] = [];
+  for (const [key, entry] of phrases) {
+    const parts = key.split(" ");
+    const first = parts[0]!;
+    maxTokens.set(first, Math.max(maxTokens.get(first) ?? 0, parts.length));
+    if (NO_SPACE_SCRIPT.test(key) && parts.length === 1) scriptNames.push([key, entry]);
+  }
+  scriptNames.sort((a, b) => b[0].length - a[0].length);
+
+  const iso3 = new Map<string, string>();
+  for (const [code, iso2] of index.iso3) iso3.set(code.toUpperCase(), iso2);
+
+  const derived: Derived = {
+    phrases,
+    maxTokens,
+    iso2: new Set([...index.names.values(), ...index.cities.values()]),
+    iso3,
+    scriptNames,
+    cache: new Map(),
+  };
+  derivedByIndex.set(index, derived);
+  return derived;
+}
+
+type Token = {
+  text: string;
+  /** Written in capitals ("IN", "USA"), at least two letters. */
+  upper: boolean;
+  capital: boolean;
+  /** Comma-separated part within the group. */
+  level: number;
+};
+
+type Item = {
+  kind: EntryKind | "code";
+  countries: string[];
+  start: number;
+  end: number;
+  level: number;
+  segment: number;
+  /** Words come before it in the same segment. */
+  hasPrefix: boolean;
+  /** Starts a comma part that follows another part: "Macon, Georgia". */
+  afterComma: boolean;
+  entry?: Entry;
+  code?: string;
+  /** Set by a neighbour: the country it resolves to, or null to drop it. */
+  pinned?: string | null;
+};
+
+// Separators between independent locations ("London | Lagos", "Paris / LA").
+const GROUP_SEPARATOR =
+  /[|/\\·•;\n\r+→>~]+|\.(?=\s|$)|\s[-–—]+\s|[–—]|\p{Extended_Pictographic}+/u;
+// Separators between the levels of one location ("Austin, Texas, USA").
+const LEVEL_SEPARATOR = /[,()[\]{}:]+/;
+const WORD_SEPARATOR = /[^\p{L}\p{N}\p{M}]+/u;
+// Words that join separate places inside one part ("Berlin & LA", "Lagos to London").
+const LIST_WORDS = new Set(["and", "or", "to", "via", "from", "vs", "x"]);
+
+const URLS = /(?:https?:\/\/|www\.)\S+|\S+@\S+\.\S+|(?:^|\s)@\w+/gi;
+// Bare domains ("site.de", "example.in/about"). The top-level part must be lower case,
+// so "St.Louis" or "Lagos.Nigeria" are kept.
+const DOMAINS = /[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.[a-z]{2,12}(?:\/\S*)?(?=$|[\s,;|)])/gu;
+// "St. Louis", "St Kitts" -> "Saint ..." so "St" is never read as São Tomé (ST).
+// All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
+const SAINT = /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L}))/gu;
+const MOUNT_FORT = /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L}))/gu;
+
+/**
+ * Two-letter codes that are ordinary words. After another word in the same part
+ * ("Follow ME", "Photo ID") they only count when that word is a known city
+ * ("Portland ME").
+ */
+const TRAILING_CODE_WORDS = new Set([
+  "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE", "HI", "ID",
+  "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST", "TO", "TV",
+  "UP", "WE",
+]);
+/** Codes that mean nothing on their own ("IT", "OK", "PS"). */
+const STANDALONE_CODE_WORDS = new Set([
+  "AI", "AM", "AS", "AT", "BE", "BY", "DJ", "DM", "DO", "GM", "HI", "IS", "IT", "MC", "ME",
+  "MY", "OK", "OR", "PM", "PS", "SO", "TO", "TV",
+]);
+/**
+ * A bare code that is both a country and a US/Canadian/Australian state ("MA",
+ * "IN", "CA") is ambiguous on its own and decides nothing, except "LA", which on X
+ * is Los Angeles far more often than Laos.
+ */
+const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US" };
+/**
+ * "City, XX" where the city is not in the tables and XX is both a state code and a
+ * country code. US "City, ST" is by far the most common form on X, so the state
+ * reading wins; foreign cities of any size are in the tables, so "Jaipur, IN" and
+ * "Munich, DE" still resolve by the city. Exceptions: small provinces lose to the
+ * country (NL, PE, SK), and DE/SA stay undecided (Germans write "Stadt, DE";
+ * "SA" is Saudi Arabia, South Australia or South Africa).
+ */
+const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
+  DE: null,
+  NL: "NL",
+  PE: "PE",
+  SK: "SK",
+  SA: null,
+  NU: "CA",
+  YT: "CA",
+};
+/** Upper-case country abbreviations that are not ISO codes. */
+const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO" };
+/** ISO3 codes that are English words or common acronyms. */
+const ISO3_WORDS = new Set([
+  "AND", "ARE", "ARM", "BEN", "BLM", "CAF", "CAN", "COD", "COL", "COM", "CUB", "DOM", "EST",
+  "FIN", "GAB", "GIN", "GRL", "GUM", "GUY", "HUN", "IOT", "IRL", "JAM", "LIE", "MAC", "MDA",
+  "MUS", "NIC", "NOR", "PAN", "PER", "PNG", "PRY", "SEN", "SOM", "TLS", "TON", "VAT", "ALA",
+  "ATF",
 ]);
 
+function isUpperWord(word: string): boolean {
+  return word.length >= 2 && word === word.toUpperCase() && word !== word.toLowerCase();
+}
+
+function foldWord(word: string): string[] {
+  const folded = /^[\x00-\x7f]*$/.test(word) ? word.toLowerCase() : foldText(word);
+  return folded ? folded.split(" ") : [];
+}
+
+function cleanLocation(text: string): string {
+  return collapseDottedInitials(text.replace(URLS, " "), true)
+    .replace(DOMAINS, " ")
+    .replace(SAINT, (_match, title?: string, other?: string) =>
+      (title ?? other ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",
+    )
+    .replace(MOUNT_FORT, (match: string) => (match[0]!.toLowerCase() === "m" ? "Mount " : "Fort "))
+    .replace(/&/g, " and ");
+}
+
+function tokenizeGroup(group: string): Token[] {
+  const tokens: Token[] = [];
+  group.split(LEVEL_SEPARATOR).forEach((part, level) => {
+    for (const word of part.split(WORD_SEPARATOR)) {
+      if (!word) continue;
+      const upper = isUpperWord(word);
+      const capital = word[0] !== word[0]!.toLowerCase();
+      for (const text of foldWord(word)) tokens.push({ text, upper, capital, level });
+    }
+  });
+  return tokens;
+}
+
+/** Countries named in free text (profile location, place tag). Order of appearance. */
 export function countriesFromLocation(text: string, index: CountryIndex): string[] {
-  const folded = foldText(text);
-  if (!folded) return [];
-  const hits = new Set<string>();
-  const tokens = folded.split(" ");
-  const iso2Codes = new Set(index.names.values());
-  const phrases = new Map<string, string>([...index.names, ...index.cities]);
-  addLongestPhrases(folded, phrases, hits);
+  const derived = derive(index);
+  const cached = derived.cache.get(text);
+  if (cached) return [...cached];
+  const found = parseLocation(text, derived);
+  if (derived.cache.size >= CACHE_LIMIT) derived.cache.clear();
+  derived.cache.set(text, found);
+  return [...found];
+}
 
-  for (let i = 0; i < tokens.length; i += 1) {
+function parseLocation(text: string, derived: Derived): string[] {
+  const flags = flagCountryCodes(text).filter((code) => code in COUNTRY_NAMES || derived.iso2.has(code));
+  const cleaned = cleanLocation(stripFlags(text));
+  const out = new Set<string>();
+  for (const group of cleaned.split(GROUP_SEPARATOR)) {
+    if (!group || !group.trim()) continue;
+    for (const code of parseGroup(tokenizeGroup(group), derived)) out.add(code);
+  }
+  // Flags are a fallback: many profiles add them for heritage or solidarity
+  // next to the place they live ("NYC 🇺🇦").
+  if (out.size === 0) for (const code of flags) out.add(code);
+  return [...out];
+}
+
+/**
+ * One location, possibly with several comma-separated levels ("Austin, Texas, USA").
+ * List words that no phrase consumed ("Berlin & LA") start a new segment: places on
+ * either side are listed side by side, not one inside the other.
+ */
+function parseGroup(tokens: Token[], derived: Derived): string[] {
+  const items: Item[] = [];
+  let segment = 0;
+  let segmentStart = 0;
+  let i = 0;
+  while (i < tokens.length) {
     const token = tokens[i]!;
-    if (ISO2.test(token) || countryForSubdivisionCode(token.toUpperCase())) {
-      const code = token.toUpperCase();
-      const subdiv = countryForSubdivisionCode(code);
-      if (subdiv) {
-        if (iso2Codes.has(code) && hits.has(code)) continue;
-        if (hits.has(subdiv) || hasNonStopPrefix(tokens, i)) {
-          hits.add(subdiv);
-          continue;
-        }
-      }
-      if (iso2Codes.has(code)) hits.add(code);
+    const phrase = matchPhrase(tokens, i, derived);
+    if (phrase) {
+      const [len, entry] = phrase;
+      items.push(makeItem(entry.kind, entry.countries, i, i + len, token, segment, segmentStart, tokens, entry));
+      i += len;
+      continue;
     }
-    const from3 = index.iso3.get(token);
-    if (from3 && iso3Allowed(text, folded, token)) hits.add(from3);
-  }
-
-  const last = tokens[tokens.length - 1];
-  const lastCode = last?.toUpperCase() ?? "";
-  const lastSub = lastCode ? countryForSubdivisionCode(lastCode) : null;
-  if (
-    lastSub &&
-    hasNonStopPrefix(tokens, tokens.length - 1) &&
-    !(iso2Codes.has(lastCode) && hits.has(lastCode))
-  ) {
-    return [lastSub];
-  }
-  return [...hits];
-}
-
-function addLongestPhrases(folded: string, dict: Map<string, string>, hits: Set<string>): void {
-  const phrases = [...dict.keys()].sort((a, b) => b.length - a.length);
-  const used = new Uint8Array(folded.length);
-  const padded = ` ${folded} `;
-  for (const phrase of phrases) {
-    if (!phrase) continue;
-    const needle = ` ${phrase} `;
-    let from = 0;
-    while (from <= padded.length - needle.length) {
-      const at = padded.indexOf(needle, from);
-      if (at < 0) break;
-      const start = at;
-      const end = start + phrase.length;
-      let overlap = false;
-      for (let i = start; i < end; i += 1) {
-        if (used[i]) {
-          overlap = true;
-          break;
-        }
-      }
-      if (!overlap) {
-        for (let i = start; i < end; i += 1) used[i] = 1;
-        const iso2 = dict.get(phrase);
-        if (iso2) hits.add(iso2);
-      }
-      from = at + 1;
+    if (LIST_WORDS.has(token.text) && !token.upper) {
+      segment += 1;
+      segmentStart = i + 1;
+      i += 1;
+      continue;
     }
+    const code = token.upper ? codeItem(tokens, i, segment, segmentStart, items, derived) : null;
+    if (code) items.push(code);
+    else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(token, i, segment, segmentStart, tokens, derived));
+    i += 1;
+  }
+  return resolveItems(items);
+}
+
+function matchPhrase(tokens: Token[], start: number, derived: Derived): [number, Entry] | null {
+  const first = tokens[start]!;
+  let max = derived.maxTokens.get(first.text) ?? 0;
+  if (max === 0) return null;
+  let end = start;
+  while (end < tokens.length && tokens[end]!.level === first.level) end += 1;
+  max = Math.min(max, end - start);
+  for (let len = max; len > 0; len -= 1) {
+    const key = len === 1 ? first.text : tokens.slice(start, start + len).map((t) => t.text).join(" ");
+    const entry = derived.phrases.get(key);
+    if (!entry) continue;
+    if (entry.capitalOnly && !first.capital) continue;
+    return [len, entry];
+  }
+  return null;
+}
+
+function makeItem(
+  kind: Item["kind"],
+  countries: string[],
+  start: number,
+  end: number,
+  token: Token,
+  segment: number,
+  segmentStart: number,
+  tokens: Token[],
+  entry?: Entry,
+): Item {
+  const levelStart = start === 0 || tokens[start - 1]!.level !== token.level;
+  return {
+    kind,
+    countries,
+    start,
+    end,
+    level: token.level,
+    segment,
+    hasPrefix: start > segmentStart,
+    afterComma: levelStart && token.level > 0 && start > 0,
+    entry,
+  };
+}
+
+/**
+ * An upper-case code counts only where a place would go: as a whole part
+ * ("Lagos, NG", "TX") or as the last word of a part after another word
+ * ("Houston TX"), and never inside an all-caps sentence.
+ */
+function codeItem(
+  tokens: Token[],
+  i: number,
+  segment: number,
+  segmentStart: number,
+  items: Item[],
+  derived: Derived,
+): Item | null {
+  const token = tokens[i]!;
+  const code = token.text.toUpperCase();
+  if (!/^[A-Z]{2,4}$/.test(code)) return null;
+  let partStart = i;
+  while (partStart > segmentStart && tokens[partStart - 1]!.level === token.level) partStart -= 1;
+  let partEnd = i + 1;
+  while (partEnd < tokens.length && tokens[partEnd]!.level === token.level && !isListWord(tokens[partEnd]!)) {
+    partEnd += 1;
+  }
+  const whole = partStart === i && partEnd === i + 1;
+  const last = partEnd === i + 1;
+  if (!whole) {
+    if (!last) return null;
+    const part = tokens.slice(partStart, partEnd);
+    if (part.every((t) => t.upper)) return null;
+    const prev = items[items.length - 1];
+    const afterCity = prev !== undefined && prev.end === i && prev.kind === "city";
+    if (TRAILING_CODE_WORDS.has(code) && !afterCity) return null;
+  }
+  const hasPrefix = i > segmentStart;
+  const make = (kind: Item["kind"], countries: string[]): Item => ({
+    ...makeItem(kind, countries, i, i + 1, token, segment, segmentStart, tokens),
+    code,
+  });
+
+  const city = UPPERCASE_PLACE_CODES[code];
+  if (city) return make("city", [city]);
+  const country = UPPERCASE_COUNTRY_CODES[code];
+  if (country) return make("country", [country]);
+  if (code.length === 3 && whole && !ISO3_WORDS.has(code)) {
+    const iso2 = derived.iso3.get(code);
+    if (iso2) return make("country", [iso2]);
+  }
+  const states = countriesForSubdivisionCode(code);
+  const iso2 = code.length === 2 && derived.iso2.has(code) ? code : null;
+  if (!iso2 && states.length === 0) return null;
+  if (!hasPrefix && whole && STANDALONE_CODE_WORDS.has(code)) return null;
+  return make("code", iso2 ? [...states, iso2] : states);
+}
+
+function isListWord(token: Token): boolean {
+  return LIST_WORDS.has(token.text) && !token.upper;
+}
+
+/** Native names inside a token of a script written without spaces ("日本東京"). */
+function scriptItems(
+  token: Token,
+  i: number,
+  segment: number,
+  segmentStart: number,
+  tokens: Token[],
+  derived: Derived,
+): Item[] {
+  let rest = token.text;
+  const found: [number, Entry][] = [];
+  for (const [name, entry] of derived.scriptNames) {
+    const at = rest.indexOf(name);
+    if (at < 0) continue;
+    found.push([at, entry]);
+    rest = rest.slice(0, at) + " ".repeat(name.length) + rest.slice(at + name.length);
+  }
+  return found
+    .sort((a, b) => a[0] - b[0])
+    .map(([, entry]) => makeItem(entry.kind, entry.countries, i, i + 1, token, segment, segmentStart, tokens, entry));
+}
+
+function intersect(first: string[], second: string[]): string[] {
+  return first.filter((code) => second.includes(code));
+}
+
+/**
+ * Decide what each place in one location means, using its neighbours:
+ * - a city or ambiguous name followed by a state or country ("Paris, Texas",
+ *   "Atlanta, Georgia", "London, ON") takes the reading they share; if none is
+ *   shared, a state or country name wins over the city ("London, Kentucky"), while
+ *   a known city wins over a bare country code ("Mumbai, MH", "Durban, SA");
+ * - anything still open takes a country named elsewhere in the same segment
+ *   ("Springfield, IL, USA"), else its default reading.
+ */
+function resolveItems(items: Item[]): string[] {
+  for (let i = 0; i < items.length - 1; i += 1) {
+    const item = items[i]!;
+    const next = items[i + 1]!;
+    if (item.segment !== next.segment) continue;
+    if (item.kind !== "city" && item.kind !== "ambiguous" && item.kind !== "code") continue;
+    if (next.kind === "city" || next.kind === "region") continue;
+    const shared = intersect(item.countries, next.countries);
+    if (shared.length > 0) {
+      if (item.countries.length > 1 || item.kind !== "code") item.pinned ??= shared[0]!;
+      if (next.countries.length > 1) next.pinned ??= shared[0]!;
+      continue;
+    }
+    if (next.kind === "ambiguous") continue;
+    const nextIsIsoCode = next.kind === "code" && next.code !== undefined && next.countries.includes(next.code);
+    // A code cannot contain a state of another country ("PH, Rivers State").
+    if (item.kind === "code") {
+      if (!nextIsIsoCode && item.pinned === undefined) item.pinned = null;
+    } else if (nextIsIsoCode) next.pinned = null;
+    else if (item.pinned === undefined) item.pinned = null;
+  }
+
+  const explicit = new Map<number, Set<string>>();
+  const settled = (item: Item): string | null | undefined => {
+    if (item.pinned !== undefined) return item.pinned;
+    if (item.kind === "country" || item.kind === "subdivision") return item.countries[0] ?? null;
+    if (item.kind === "code" && item.countries.length === 1) return item.countries[0]!;
+    return undefined;
+  };
+  for (const item of items) {
+    const code = settled(item);
+    if (!code) continue;
+    const set = explicit.get(item.segment) ?? new Set<string>();
+    set.add(code);
+    explicit.set(item.segment, set);
+  }
+
+  const out: string[] = [];
+  for (const item of items) {
+    if (item.kind === "region") continue;
+    let code = settled(item);
+    if (code === undefined) {
+      const context = explicit.get(item.segment);
+      code = item.countries.find((c) => context?.has(c)) ?? fallback(item);
+    }
+    if (code) out.push(code);
+  }
+  return out;
+}
+
+function fallback(item: Item): string | null {
+  switch (item.kind) {
+    case "ambiguous":
+      return (item.afterComma ? item.entry?.afterPlace : item.entry?.alone) ?? null;
+    case "code": {
+      const code = item.code ?? "";
+      if (!item.hasPrefix) return code in STANDALONE_COLLISIONS ? STANDALONE_COLLISIONS[code]! : null;
+      if (code in AFTER_PLACE_COLLISIONS) return AFTER_PLACE_COLLISIONS[code]!;
+      return item.countries[0] ?? null;
+    }
+    default:
+      return item.countries[0] ?? null;
   }
 }
 
-function iso3Allowed(original: string, folded: string, token: string): boolean {
-  if (folded === token) return true;
-  const code = token.toUpperCase();
-  return new RegExp(`(^|[^A-Za-z0-9])${code}([^A-Za-z0-9]|$)`).test(original);
-}
+const X_LABEL_SUFFIX = /\s+(?:app store|android app|google play|ios app|iphone app|ipad app|app)$/;
 
-function hasNonStopPrefix(tokens: string[], index: number): boolean {
-  for (let i = 0; i < index; i += 1) {
-    if (!PLACE_STOP.has(tokens[i]!)) return true;
-  }
-  return false;
+/**
+ * Countries in one of X's own labels ("Account based in: Georgia", "Connected via:
+ * India App Store"). X shows country names there, so an exact name wins ("Georgia"
+ * is the country); anything else is parsed like a location.
+ */
+function xLabelCountries(text: string, index: CountryIndex): string[] {
+  const folded = foldText(text).replace(X_LABEL_SUFFIX, "");
+  const exact = folded ? index.names.get(folded) : undefined;
+  if (exact) return [exact];
+  return countriesFromLocation(text, index);
 }
 
 export function countryFromBasedIn(text: string, index: CountryIndex): string | null {
-  const found = countriesFromLocation(text, index);
-  return found[0] ?? null;
+  return xLabelCountries(text, index)[0] ?? null;
 }
 
 function textMatchReason(

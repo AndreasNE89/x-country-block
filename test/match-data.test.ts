@@ -108,6 +108,13 @@ describe("buildCountryIndex", () => {
     expect(index.names.get("republic of china")).toBe("TW");
   });
 
+  it("does not index ordinary short words", () => {
+    for (const word of ["us", "in", "me", "it", "no", "to", "at", "is", "la", "de", "st", "or", "ok"]) {
+      expect(index.names.has(word), word).toBe(false);
+      expect(index.cities.has(word), word).toBe(false);
+    }
+  });
+
   it("covers Kosovo", () => {
     expect(COUNTRY_NAMES.XK).toBe("Kosovo");
     expect(index.names.get("kosovo")).toBe("XK");

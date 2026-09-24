@@ -471,7 +471,8 @@ describe("defaultCountryIndex", () => {
     expect(countriesFromLocation("Boston, MA", real)).not.toContain("MA");
     expect(countriesFromLocation("Casablanca, MA", real)).toEqual(["MA"]);
     expect(countriesFromLocation("from US", real)).toEqual(["US"]);
-    expect(countriesFromLocation("MA", real)).toEqual(["MA"]);
+    // Bare "MA" is Massachusetts as often as Morocco: it decides nothing on its own.
+    expect(countriesFromLocation("MA", real)).toEqual([]);
   });
 
   it("lists every ISO2 in COUNTRY_NAMES as a hide target", async () => {

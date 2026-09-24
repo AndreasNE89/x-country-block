@@ -7,15 +7,26 @@
 //                                                  sheet (16/32 px on light
 //                                                  and dark) to out.png
 //
+// Store screenshots 1-4 are composed only when their hand-made captures
+// exist (store/screenshots/capture-N.png; see store/screenshots/README.md).
+//
 // brand/icon-16.svg is drawn by hand and only read. Every other file is
 // written by this script; change the code in scripts/brand/, not the output.
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decodePng, encodePng } from "./lib/png.mjs";
 import { INTER_FONTS, lockupSvg, markSvg, parseWordmark } from "./brand/artwork.mjs";
 import { withChrome } from "./brand/chrome.mjs";
-import { marquee, privacyScreenshot, promoTile, socialPreview } from "./brand/compositions.mjs";
+import {
+  FEATURE_SCREENSHOTS,
+  featureScreenshot,
+  marquee,
+  privacyScreenshot,
+  promoTile,
+  socialPreview,
+} from "./brand/compositions.mjs";
 import { iconGeometry, iconSvg } from "./brand/icon.mjs";
 import { descriptorPath, descriptorUnits, fetchInter, wordmarkSvg, wordmarkUnits } from "./brand/wordmark.mjs";
 
@@ -107,6 +118,18 @@ await withChrome(async (page) => {
   ]) {
     const { html, width, height } = composition;
     await write(at(`store/${name}.png`), await render(html, width, height, { alpha: false, fonts: INTER_FONTS }));
+  }
+  for (const shot of FEATURE_SCREENSHOTS) {
+    const capture = at(`store/screenshots/capture-${shot.n}.png`);
+    if (!existsSync(capture)) {
+      console.log(`  (screenshot ${shot.n} skipped: no store/screenshots/capture-${shot.n}.png yet)`);
+      continue;
+    }
+    const { html, width, height } = featureScreenshot(shot, await readFile(capture));
+    await write(
+      at(`store/screenshot-${shot.n}-${shot.slug}-1280x800.png`),
+      await render(html, width, height, { alpha: false, fonts: INTER_FONTS }),
+    );
   }
 
   if (checkPath) {

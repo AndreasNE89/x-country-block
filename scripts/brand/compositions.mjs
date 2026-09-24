@@ -115,6 +115,61 @@ export function socialPreview(wm) {
   return { width, height, html: page(width, height, `${field("bg", width, height)}${hero.markup}${text}`) };
 }
 
+/**
+ * Store screenshots 1-4: headline column on the left, a real capture of
+ * x.com with the popup open on the right. Captures are made by hand (see
+ * store/screenshots/README.md) and saved as store/screenshots/capture-N.png.
+ */
+export const FEATURE_SCREENSHOTS = [
+  {
+    n: 1,
+    slug: "languages",
+    headline: "Your feed, in the languages you read.",
+    sub: "Hide posts in languages you don't read. Free.",
+  },
+  {
+    n: 2,
+    slug: "highlight",
+    headline: "Highlight first. Hide when you're sure.",
+    sub: "See exactly what matched, and why. Free.",
+  },
+  {
+    n: 3,
+    slug: "focus",
+    headline: "Focus mode: only the places you pick.",
+    sub: "Great for local news and match day. $5.99 once · 7-day free trial.",
+  },
+  {
+    n: 4,
+    slug: "regions",
+    headline: "One tick covers a whole region.",
+    sub: "Uses the Account based in label X shows. It can be wrong for VPN users and travellers.",
+  },
+];
+
+export function featureScreenshot({ headline, sub }, capture) {
+  const width = 1280;
+  const height = 800;
+  const escape = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const mark = `<svg width="40" height="40" viewBox="0 0 40 40">${tileMarkup({ id: "m", x: 0, y: 0, size: 40 })}</svg>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8">${INTER_LINK}<style>
+html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;background:${COLORS.surface}}
+body{display:grid;grid-template-columns:486px 1fr;font-family:Inter,sans-serif;color:${COLORS.ink}}
+.copy{padding:72px 40px 0 64px}
+svg{display:block;margin-bottom:48px}
+h1{margin:0 0 20px;font-weight:600;font-size:44px;line-height:1.15;letter-spacing:-0.01em;text-wrap:balance}
+p{margin:0;font-weight:500;font-size:20px;line-height:1.45;color:${COLORS.muted};text-wrap:balance}
+.shot{display:flex;align-items:center;justify-content:center;padding:40px 40px 56px 0}
+.shot img{display:block;max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 1px 2px rgba(11,51,54,.12),0 8px 24px rgba(11,51,54,.12)}
+.fine{position:absolute;right:40px;bottom:20px;font-weight:500;font-size:13px;color:${COLORS.muted}}
+</style></head><body>
+<div class="copy">${mark}<h1>${escape(headline)}</h1><p>${escape(sub)}</p></div>
+<div class="shot"><img src="data:image/png;base64,${capture.toString("base64")}"></div>
+<div class="fine">Accounts blurred for privacy · Not affiliated with X Corp.</div>
+</body></html>`;
+  return { width, height, html };
+}
+
 export const PRIVACY_LINES = [
   "Runs in your browser",
   "No extra requests to X",

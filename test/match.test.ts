@@ -54,14 +54,17 @@ function settings(
   filterMode: FilterMode = "hide",
 ): Settings {
   return {
+    enabled: true,
     hiddenCountryCodes: countries,
     hiddenLanguageCodes: languages,
     hiddenRegionIds: regions,
+    allowedHandles: [],
     markOnly: true,
     filterMode,
     onlyShowPaid: filterMode === "only",
     trialStartedAt: null,
     onlyShowUnlocked: filterMode === "only",
+    trialExpired: false,
   };
 }
 

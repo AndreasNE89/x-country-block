@@ -3,14 +3,22 @@ export const HOOK_SOURCE = "x-country-block" as const;
 export type FilterMode = "hide" | "only";
 
 export type Settings = {
+  /** Master switch. false = paused: nothing hidden or marked, picks kept. */
+  enabled: boolean;
   hiddenCountryCodes: string[];
   hiddenLanguageCodes: string[];
   hiddenRegionIds: string[];
+  /** Lowercase screen names (no @) that are never hidden or marked. */
+  allowedHandles: string[];
+  /** "Highlight instead of hide". */
   markOnly: boolean;
   filterMode: FilterMode;
   onlyShowPaid: boolean;
   trialStartedAt: number | null;
+  /** Derived: paid, or trial still running. Never read from storage. */
   onlyShowUnlocked: boolean;
+  /** Derived: trial was started and has run out, and not paid. */
+  trialExpired: boolean;
 };
 
 export type UserRecord = {

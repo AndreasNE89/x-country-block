@@ -106,6 +106,19 @@ describe("scroll anchor (F52)", () => {
     expect(state.scrollY).toBe(450 + 4 * 40);
   });
 
+  it("corrects a shift once when two holds overlap (passes in consecutive frames)", () => {
+    const { boxes, state, win } = column([300, 300, 300, 300, 300]);
+    state.scrollY = 450;
+    const first = captureAnchor(boxes, new Set([boxes[0]!]), null, win)!;
+    const second = captureAnchor(boxes, new Set([boxes[0]!, boxes[2]!]), null, win)!;
+    expect(second.el).toBe(boxes[3]);
+    state.heights[0] = 0;
+    expect(restoreAnchor(first, win)).toBe(-300);
+    expect(restoreAnchor(second, win)).toBe(0);
+    expect(win.scrollBy).toHaveBeenCalledTimes(1);
+    expect(boxes[2]!.getBoundingClientRect().top).toBe(150);
+  });
+
   it("corrects the nested scroller, not the window", () => {
     document.body.innerHTML = `<div id="panel"><div id="p0"></div><div id="p1"></div><div id="p2"></div></div>`;
     const panel = document.getElementById("panel") as HTMLElement;

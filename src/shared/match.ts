@@ -1,4 +1,5 @@
 import { COUNTRY_NAMES } from "./countries.ts";
+import { isNoLanguageCode, languageName, normalizeLang } from "./languages.ts";
 import { collapseDottedInitials, flagCountryCodes, foldText, stripFlags } from "./normalize.ts";
 import {
   AMBIGUOUS_PLACES,
@@ -7,16 +8,27 @@ import {
   SUBDIVISION_NAMES,
   UPPERCASE_PLACE_CODES,
 } from "./places.ts";
-import { REGION_PHRASES, regionName, regionsForCountry, regionsFromLocation } from "./regions.ts";
+import {
+  REGION_PHRASES,
+  REGIONS,
+  regionName,
+  regionsForCountry,
+  regionsFromLocation,
+} from "./regions.ts";
 import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "./types.ts";
 
-export function allowListLabel(settings: Settings): string {
+const NOT_IN_PICKS = "Not in your Focus picks";
+
+/** Short list of the ticked items: "Japan, Norway +3". */
+export function allowListLabel(settings: Settings, max = 2): string {
   const bits = [
     ...settings.hiddenCountryCodes.map((code) => COUNTRY_NAMES[code] ?? code),
     ...settings.hiddenRegionIds.map((id) => regionName(id)),
-    ...settings.hiddenLanguageCodes,
+    ...settings.hiddenLanguageCodes.map((code) => languageName(code)),
   ];
-  return bits.join(" · ") || "allow list";
+  if (bits.length === 0) return "your Focus picks";
+  const shown = bits.slice(0, max).join(", ");
+  return bits.length > max ? `${shown} +${bits.length - max}` : shown;
 }
 
 export function effectiveFilterMode(settings: Settings): FilterMode {
@@ -25,8 +37,12 @@ export function effectiveFilterMode(settings: Settings): FilterMode {
 }
 
 export type MatchDecision = {
+  /** Why the post matches a pick, in plain words; null when it does not. */
   hit: string | null;
+  /** Something about the post or author was known (so no hit means "not a match"). */
   decided: boolean;
+  /** X tagged the post itself as having no language (photo, link, emoji or mentions only). */
+  noLanguage?: boolean;
 };
 
 export function actionReason(decision: MatchDecision, settings: Settings): string | null {
@@ -36,12 +52,32 @@ export function actionReason(decision: MatchDecision, settings: Settings): strin
     case "hide":
       return decision.hit;
     case "only":
-      return decision.hit ? null : `outside · ${allowListLabel(settings)}`;
+      return focusReason(decision, settings);
     default: {
       const _never: never = mode;
       return _never;
     }
   }
+}
+
+/**
+ * Focus mode ("Only show") keeps proven matches and sets everything else aside:
+ * - a match for any pick keeps the post;
+ * - something is known but none of it matches: set aside;
+ * - nothing is known: set aside too (the store listing promises this), with a
+ *   reason that says what was missing;
+ * - except a post X tags as having no language (photo, link, emoji) when only
+ *   languages are ticked: the language pick has nothing to judge, so it stays.
+ */
+function focusReason(decision: MatchDecision, settings: Settings): string | null {
+  if (decision.hit) return null;
+  if (decision.decided) return NOT_IN_PICKS;
+  const geoPicked = geoPicks(settings);
+  const langPicked = settings.hiddenLanguageCodes.length > 0;
+  if (decision.noLanguage && !geoPicked) return null;
+  const unknown =
+    geoPicked && langPicked ? "location and language" : geoPicked ? "location" : "language";
+  return `${NOT_IN_PICKS} (${unknown} unknown)`;
 }
 
 // ---------------------------------------------------------------------------
@@ -535,25 +571,54 @@ export function countryFromBasedIn(text: string, index: CountryIndex): string | 
   return xLabelCountries(text, index)[0] ?? null;
 }
 
-function textMatchReason(
-  text: string,
-  field: string,
-  settings: Settings,
-  index: CountryIndex,
-): string | null {
-  const codes = countriesFromLocation(text, index);
-  for (const code of codes) {
+// ---------------------------------------------------------------------------
+// Decisions
+// ---------------------------------------------------------------------------
+
+type GeoField = "place" | "basedIn" | "connectedVia" | "location";
+
+const FIELD_LABEL: Record<GeoField, string> = {
+  place: "Place",
+  basedIn: "Account based in",
+  connectedVia: "Connected via",
+  location: "Profile location",
+};
+
+function geoReason(field: GeoField, what: string): string {
+  const suffix = field === "basedIn" ? " (as shown by X)" : "";
+  return `${FIELD_LABEL[field]}: ${what}${suffix}`;
+}
+
+type GeoParse = { countries: string[]; regions: string[] };
+
+function parseGeo(text: string, field: GeoField, index: CountryIndex): GeoParse {
+  const xLabel = field === "basedIn" || field === "connectedVia";
+  const countries = xLabel ? xLabelCountries(text, index) : countriesFromLocation(text, index);
+  // A named place beats a region word in the same text ("Europe-based, Tokyo").
+  return { countries, regions: countries.length > 0 ? [] : regionsFromLocation(text) };
+}
+
+function geoDecision(parse: GeoParse, field: GeoField, settings: Settings): MatchDecision {
+  for (const code of parse.countries) {
     if (settings.hiddenCountryCodes.includes(code)) {
-      return `${field} · ${COUNTRY_NAMES[code] ?? code}`;
+      return { hit: geoReason(field, countryName(code)), decided: true };
     }
   }
-  for (const code of codes) {
-    const viaRegion = regionsForCountry(code).find((id) => settings.hiddenRegionIds.includes(id));
-    if (viaRegion) return `${field} · ${COUNTRY_NAMES[code] ?? code} · ${regionName(viaRegion)}`;
+  for (const code of parse.countries) {
+    const region = regionsForCountry(code).find((id) => settings.hiddenRegionIds.includes(id));
+    if (region) return { hit: geoReason(field, `${countryName(code)}, ${regionName(region)}`), decided: true };
   }
-  const regionHit = regionsFromLocation(text).find((id) => settings.hiddenRegionIds.includes(id));
-  if (regionHit) return `${field} · ${regionName(regionHit)}`;
-  return null;
+  const region = parse.regions.find((id) => settings.hiddenRegionIds.includes(id));
+  if (region) return { hit: geoReason(field, regionName(region)), decided: true };
+  return { hit: null, decided: parse.countries.length > 0 || parse.regions.length > 0 };
+}
+
+function countryName(code: string): string {
+  return COUNTRY_NAMES[code] ?? code;
+}
+
+function geoPicks(settings: Settings): boolean {
+  return settings.hiddenCountryCodes.length > 0 || settings.hiddenRegionIds.length > 0;
 }
 
 function emptyDecision(): MatchDecision {
@@ -563,41 +628,92 @@ function emptyDecision(): MatchDecision {
 function mergeDecision(first: MatchDecision, second: MatchDecision): MatchDecision {
   if (first.hit) return first;
   if (second.hit) return second;
-  return { hit: null, decided: first.decided || second.decided };
+  const out: MatchDecision = { hit: null, decided: first.decided || second.decided };
+  if (first.noLanguage || second.noLanguage) out.noLanguage = true;
+  return out;
 }
 
-function langDecision(lang: string | null, field: string, settings: Settings): MatchDecision {
+const languagePicksCache = new WeakMap<string[], Set<string>>();
+
+function languagePicks(settings: Settings): Set<string> {
+  const codes = settings.hiddenLanguageCodes;
+  let picks = languagePicksCache.get(codes);
+  if (!picks) {
+    picks = new Set(codes.map(normalizeLang).filter((code): code is string => code !== null));
+    languagePicksCache.set(codes, picks);
+  }
+  return picks;
+}
+
+function langDecision(
+  lang: string | null,
+  source: "post" | "account",
+  settings: Settings,
+): MatchDecision {
   if (!lang || settings.hiddenLanguageCodes.length === 0) return emptyDecision();
-  if (settings.hiddenLanguageCodes.includes(lang)) {
-    return { hit: `${field} · ${lang}`, decided: true };
+  const code = normalizeLang(lang);
+  if (!code) {
+    return source === "post" && isNoLanguageCode(lang)
+      ? { hit: null, decided: false, noLanguage: true }
+      : emptyDecision();
+  }
+  if (languagePicks(settings).has(code)) {
+    const label = source === "post" ? "Post language" : "Account language";
+    return { hit: `${label}: ${languageName(code)}`, decided: true };
   }
   return { hit: null, decided: true };
 }
 
 function textDecision(
   text: string,
-  field: string,
+  field: GeoField,
   settings: Settings,
   index: CountryIndex,
 ): MatchDecision {
-  const hit = textMatchReason(text, field, settings, index);
-  if (hit) return { hit, decided: true };
-  const geoOn = settings.hiddenCountryCodes.length > 0 || settings.hiddenRegionIds.length > 0;
-  if (!geoOn) return emptyDecision();
-  if (countriesFromLocation(text, index).length > 0) return { hit: null, decided: true };
-  if (regionsFromLocation(text).length > 0) return { hit: null, decided: true };
-  return emptyDecision();
+  if (!geoPicks(settings)) return emptyDecision();
+  return geoDecision(parseGeo(text, field, index), field, settings);
 }
 
-function firstParsedGeo(
-  texts: { text: string | null; field: string }[],
+/** The most specific regions in a list (drops parents of other listed regions). */
+function namedRegions(ids: string[]): string[] {
+  const parents = new Set(
+    ids.map((id) => REGIONS.find((region) => region.id === id)?.parent).filter(Boolean),
+  );
+  return ids.filter((id) => !parents.has(id));
+}
+
+/**
+ * Author geography, most reliable source first: X's "Account based in", then
+ * "Connected via", then the free-text profile location. When "based in" shows
+ * only a region, a country from the later fields refines it if it lies inside
+ * that region ("South Asia" + "India Android App" -> India).
+ */
+function authorGeoDecision(
+  author: UserRecord,
   settings: Settings,
   index: CountryIndex,
 ): MatchDecision {
-  for (const row of texts) {
-    if (!row.text) continue;
-    const decision = textDecision(row.text, row.field, settings, index);
-    if (decision.hit || decision.decided) return decision;
+  if (!geoPicks(settings)) return emptyDecision();
+  const basedIn = author.basedIn ? parseGeo(author.basedIn, "basedIn", index) : null;
+  if (basedIn && basedIn.countries.length > 0) return geoDecision(basedIn, "basedIn", settings);
+  const later: [GeoParse | null, GeoField][] = [
+    [author.connectedVia ? parseGeo(author.connectedVia, "connectedVia", index) : null, "connectedVia"],
+    [author.location ? parseGeo(author.location, "location", index) : null, "location"],
+  ];
+  if (basedIn && basedIn.regions.length > 0) {
+    const shown = namedRegions(basedIn.regions);
+    for (const [parse, field] of later) {
+      const inside = parse?.countries.filter((code) =>
+        regionsForCountry(code).some((id) => shown.includes(id)),
+      );
+      if (inside && inside.length > 0) return geoDecision({ countries: inside, regions: [] }, field, settings);
+    }
+    return geoDecision(basedIn, "basedIn", settings);
+  }
+  for (const [parse, field] of later) {
+    if (parse && (parse.countries.length > 0 || parse.regions.length > 0)) {
+      return geoDecision(parse, field, settings);
+    }
   }
   return emptyDecision();
 }
@@ -609,16 +725,8 @@ function authorDecision(
 ): MatchDecision {
   if (!author) return emptyDecision();
   return mergeDecision(
-    langDecision(author.lang, "account lang", settings),
-    firstParsedGeo(
-      [
-        { text: author.basedIn, field: "based in" },
-        { text: author.connectedVia, field: "connected via" },
-        { text: author.location, field: "location" },
-      ],
-      settings,
-      index,
-    ),
+    langDecision(author.lang, "account", settings),
+    authorGeoDecision(author, settings, index),
   );
 }
 
@@ -641,7 +749,7 @@ export function tweetDecision(
   if (tweet.place) {
     out = mergeDecision(out, textDecision(tweet.place, "place", settings, index));
   }
-  out = mergeDecision(out, langDecision(tweet.lang, "tweet lang", settings));
+  out = mergeDecision(out, langDecision(tweet.lang, "post", settings));
   return mergeDecision(out, authorDecision(author, settings, index));
 }
 
@@ -677,19 +785,19 @@ export function cardDecision(
     case "only": {
       if (!tweet.retweeted) return self;
       const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-      if (retweeted.hit) return { hit: `retweet · ${retweeted.hit}`, decided: true };
+      if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
       return mergeDecision(self, retweeted);
     }
     case "hide": {
       let out = self;
       if (tweet.quoted) {
         const quoted = cardDecision(tweet.quoted, users, settings, index);
-        if (quoted.hit) return { hit: `quote · ${quoted.hit}`, decided: true };
+        if (quoted.hit) return { hit: `Quotes a match: ${quoted.hit}`, decided: true };
         out = mergeDecision(out, quoted);
       }
       if (tweet.retweeted) {
         const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-        if (retweeted.hit) return { hit: `retweet · ${retweeted.hit}`, decided: true };
+        if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
         out = mergeDecision(out, retweeted);
       }
       return out;

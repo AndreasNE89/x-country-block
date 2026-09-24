@@ -195,7 +195,7 @@ describe("shouldHideTweet", () => {
         settings(["IN"]),
         index,
       ),
-    ).toBe("based in · India");
+    ).toBe("Account based in: India (as shown by X)");
   });
 
   it("should mark connected-via text when based-in is missing", () => {
@@ -206,13 +206,13 @@ describe("shouldHideTweet", () => {
         settings(["IN"]),
         index,
       ),
-    ).toBe("connected via · India");
+    ).toBe("Connected via: India");
   });
 
   it("should mark tweet place India", () => {
     expect(
       tweetMatchReason(tweet({ lang: "en", place: "Jabalpur, India" }), user(), settings(["IN"]), index),
-    ).toBe("place · India");
+    ).toBe("Place: India");
   });
 
   it("should ignore vanity profile location and use About this account", () => {
@@ -240,7 +240,7 @@ describe("shouldHideTweet", () => {
         settings(["US"]),
         real,
       ),
-    ).toBe("based in · United States");
+    ).toBe("Account based in: United States (as shown by X)");
   });
 
   it("does not hide English tweet when only a language is checked", () => {
@@ -270,7 +270,7 @@ describe("shouldHideTweet", () => {
     expect(shouldHideTweet(tweet({ lang: "en" }), undefined, onlyIndia, index)).toBe(true);
     expect(
       actionReason(tweetDecision(tweet({ lang: "en" }), undefined, onlyIndia, index), onlyIndia),
-    ).toBe("outside · India");
+    ).toBe("Not in your Focus picks (location unknown)");
     expect(
       actionReason(
         tweetDecision(tweet({ lang: "en" }), user({ basedIn: "India" }), onlyIndia, index),
@@ -557,7 +557,7 @@ describe("shouldHideTweet regions", () => {
         settings([], [], ["SOUTH_ASIA"]),
         index,
       ),
-    ).toBe("based in · South Asia");
+    ).toBe("Account based in: South Asia (as shown by X)");
   });
 
   it("should hide when a country and a continent are both ticked", () => {
@@ -573,10 +573,10 @@ describe("shouldHideTweet regions", () => {
     ).toBe(false);
     expect(
       tweetMatchReason(tweet({ lang: "en" }), user({ basedIn: "India" }), both, index),
-    ).toBe("based in · India");
+    ).toBe("Account based in: India (as shown by X)");
     expect(
       tweetMatchReason(tweet({ lang: "en" }), user({ basedIn: "Japan" }), both, index),
-    ).toBe("based in · Japan · Asia");
+    ).toBe("Account based in: Japan, Asia (as shown by X)");
   });
 
   it("hides India when South Asia is checked and Japan when Asia is checked", () => {

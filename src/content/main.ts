@@ -61,7 +61,10 @@ async function load(): Promise<void> {
     "userCache",
   ]);
   settings = parseSettings(raw);
-  if (Array.isArray(raw.userCache)) users.load(raw.userCache as UserRecord[]);
+  if (Array.isArray(raw.userCache)) {
+    const now = Date.now();
+    users.load((raw.userCache as UserRecord[]).map((row) => ({ ...row, seenAt: now })));
+  }
   invalidateUsersMap();
   forceFull = true;
 }
@@ -180,7 +183,7 @@ function rememberAuthor(author: UserRecord | undefined): void {
     (author.location && !prev?.location) ||
     (author.connectedVia && !prev?.connectedVia)
   ) {
-    users.put(author);
+    users.put(author, Date.now());
     invalidateUsersMap();
     persistUsers();
   }
@@ -321,7 +324,7 @@ function onMessage(event: MessageEvent): void {
   ) {
     return;
   }
-  for (const user of data.users) users.put(user);
+  for (const user of data.users) users.put(user, Date.now());
   for (const tweet of data.tweets) putTweet(tweet);
   invalidateUsersMap();
   persistUsers();

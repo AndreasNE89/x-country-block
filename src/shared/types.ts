@@ -24,10 +24,13 @@ export type Settings = {
 export type UserRecord = {
   userId: string;
   screenName: string | null;
+  /** Profile location. "" means X sent it blank (cleared); null means not sent. */
   location: string | null;
   basedIn: string | null;
   connectedVia: string | null;
   lang: string | null;
+  /** X's about_profile.location_accurate: false when X says "based in" may be wrong (VPN, travel). */
+  locationAccurate?: boolean | null;
 };
 
 export type TweetRecord = {
@@ -37,6 +40,9 @@ export type TweetRecord = {
   place: string | null;
   quoted: TweetRecord | null;
   retweeted: TweetRecord | null;
+  /** Quoted post id, also when X only references it (quotedRefResult, quoted_status_id_str). */
+  quotedId?: string | null;
+  retweetedId?: string | null;
 };
 
 export type CountryIndex = {

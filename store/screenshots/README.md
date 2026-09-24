@@ -29,7 +29,7 @@ toolbar badge are in it. Screenshots must show the UI people will get.
 ## Setup (all four captures)
 
 1. Build: `npm run build:prod`.
-2. Start a clean Chrome profile at 2x:
+2. Start a new Chrome profile at 2x:
 
    ```
    "C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir=%TEMP%\tamis-shots --force-device-scale-factor=2 --window-size=1280,860 --lang=en-US

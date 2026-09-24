@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { foldText } from "../src/shared/normalize.ts";
+import {
+  collapseDottedInitials,
+  flagCountryCodes,
+  foldText,
+  stripFlags,
+} from "../src/shared/normalize.ts";
 
 describe("foldText", () => {
   it("lowercases and strips punctuation", () => {
@@ -53,5 +58,39 @@ describe("foldText", () => {
 
   it("returns an empty string for emoji-only text", () => {
     expect(foldText("🌍✨")).toBe("");
+  });
+});
+
+describe("collapseDottedInitials", () => {
+  it("removes the dots and keeps the case unless asked", () => {
+    expect(collapseDottedInitials("U.S.A. and D.C.")).toBe("USA and DC");
+    expect(collapseDottedInitials("u.s.a.")).toBe("usa");
+    expect(collapseDottedInitials("u.s.a.", true)).toBe("USA");
+    expect(collapseDottedInitials("St. Louis")).toBe("St. Louis");
+  });
+});
+
+describe("flagCountryCodes", () => {
+  it("reads flag emoji as ISO codes in order", () => {
+    expect(flagCountryCodes("🇮🇳")).toEqual(["IN"]);
+    expect(flagCountryCodes("NYC 🇺🇸🇮🇳")).toEqual(["US", "IN"]);
+    expect(flagCountryCodes("🇳🇬 🇳🇬")).toEqual(["NG"]);
+  });
+
+  it("reads the England, Scotland and Wales flags as GB", () => {
+    expect(flagCountryCodes("🏴󠁧󠁢󠁥󠁮󠁧󠁿")).toEqual(["GB"]);
+    expect(flagCountryCodes("🏴󠁧󠁢󠁳󠁣󠁴󠁿")).toEqual(["GB"]);
+    expect(flagCountryCodes("🏴󠁧󠁢󠁷󠁬󠁳󠁿")).toEqual(["GB"]);
+  });
+
+  it("ignores other emoji", () => {
+    expect(flagCountryCodes("🌍✨🏳️‍🌈")).toEqual([]);
+  });
+});
+
+describe("stripFlags", () => {
+  it("removes flags and keeps the words", () => {
+    expect(stripFlags("Lagos 🇳🇬").trim()).toBe("Lagos");
+    expect(stripFlags("🏴󠁧󠁢󠁳󠁣󠁴󠁿 Glasgow").trim()).toBe("Glasgow");
   });
 });

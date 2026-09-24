@@ -192,7 +192,19 @@ export const LANGUAGES: { code: string; name: string }[] = [
  * (zxx), mentions (qam), hashtags (qht), cashtags (qct), emoji (qme, art), too short
  * (qst) or undetermined (und). "xx" covers the old LOLcat UI locale "xx-lc".
  */
-const NO_LANGUAGE = new Set(["und", "zxx", "qme", "qam", "qct", "qht", "qst", "art", "mis", "mul", "xx"]);
+const NO_LANGUAGE = new Set([
+  "und",
+  "zxx",
+  "qme",
+  "qam",
+  "qct",
+  "qht",
+  "qst",
+  "art",
+  "mis",
+  "mul",
+  "xx",
+]);
 
 /** Legacy or alternative codes -> the code LANGUAGES lists. */
 const CODE_ALIASES: Record<string, string> = {

@@ -53,7 +53,9 @@ export function flagCountryCodes(input: string): string[] {
     codes.add(letters.join(""));
   }
   for (const match of input.matchAll(TAG_FLAG)) {
-    const tag = [...match[1]!].map((ch) => String.fromCharCode(ch.codePointAt(0)! - TAG_A + 97)).join("");
+    const tag = [...match[1]!]
+      .map((ch) => String.fromCharCode(ch.codePointAt(0)! - TAG_A + 97))
+      .join("");
     codes.add(tag.slice(0, 2).toUpperCase());
   }
   return [...codes];

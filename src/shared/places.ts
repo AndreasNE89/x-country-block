@@ -349,7 +349,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Urfa|Manisa|Balıkesir|Hatay|Antakya|Kahramanmaraş|Muğla|Fethiye|Alanya|Edirne|Çanakkale|" +
     "Sivas|Tekirdağ|Aydın|Kadıköy|Beşiktaş|Üsküdar|Constantinople",
   TM: "Ashgabat|Turkmenabat",
-  AE: "Dubai|Abu Dhabi|Sharjah|Al Ain|Ajman|Ras Al Khaimah|Fujairah|Umm Al Quwain|DXB|دبي|أبوظبي|ابوظبي",
+  AE:
+    "Dubai|Abu Dhabi|Sharjah|Al Ain|Ajman|Ras Al Khaimah|Fujairah|Umm Al Quwain|DXB|دبي|أبوظبي|ابوظبي",
   UZ: "Tashkent|Samarkand|Namangan|Andijan|Bukhara|Fergana|Nukus|Toshkent",
   VN:
     "Hanoi|Ha Noi|Ho Chi Minh|Ho Chi Minh City|HCMC|Saigon|Sai Gon|Da Nang|Haiphong|Hai Phong|" +
@@ -484,7 +485,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Maui|Boulder|Fort Collins|Provo|Ogden|Missoula|Bozeman|Rapid City|Duluth|Cedar Rapids|" +
     "Iowa City|Biloxi|Gulfport|Macon|Clearwater|Fort Myers|Boca Raton|Kissimmee|Daytona Beach|" +
     "Arlington|" +
-    "Hampton Roads|Jersey Shore|Sin City|Motor City|Windy City|Big Apple|Chi-town|H-Town|Dallas-Fort Worth",
+    "Hampton Roads|Jersey Shore|Sin City|Motor City|Windy City|Big Apple|Chi-town|H-Town|" +
+    "Dallas-Fort Worth",
   CA:
     "Toronto|Montreal|Vancouver|Calgary|Edmonton|Ottawa|Winnipeg|Quebec City|Hamilton|Kitchener|" +
     "Halifax|Victoria BC|Mississauga|Brampton|Laval|Gatineau|Saskatoon|Regina|Windsor|Markham|" +

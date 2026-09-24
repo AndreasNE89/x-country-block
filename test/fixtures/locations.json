@@ -495,5 +495,15 @@
   ["Nigerian in London", ["GB"]],
   ["European in Tokyo", ["JP"]],
   ["🇺🇸🇮🇳", ["US", "IN"]],
-  ["Mumbai 🇮🇳 | NYC 🇺🇸", ["IN", "US"]]
+  ["Mumbai 🇮🇳 | NYC 🇺🇸", ["IN", "US"]],
+  ["Montréal, Canada", ["CA"]],
+  ["Genève", ["CH"]],
+  ["Besançon", ["FR"]],
+  ["Fremantle, WA", ["AU"]],
+  ["Uttar Pradesh", ["IN"]],
+  ["Munich", ["DE"]],
+  ["Brussels", ["BE"]],
+  ["Vienna", ["AT"]],
+  ["Macedonia", ["MK"]],
+  ["Nigeria", ["NG"]]
 ]

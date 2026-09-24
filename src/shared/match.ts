@@ -110,8 +110,12 @@ type Derived = {
 };
 
 const CAPITAL_ONLY = new Set(["chad"]);
-const NO_SPACE_SCRIPT =
-  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Hangul}]/u;
+const NO_SPACE_SCRIPT = new RegExp(
+  `[${["Han", "Hiragana", "Katakana", "Thai", "Lao", "Khmer", "Myanmar", "Hangul"]
+    .map((script) => `\\p{Script=${script}}`)
+    .join("")}]`,
+  "u",
+);
 const CACHE_LIMIT = 5000;
 const derivedByIndex = new WeakMap<CountryIndex, Derived>();
 
@@ -327,28 +331,27 @@ function parseLocation(text: string, derived: Derived): string[] {
  * either side are listed side by side, not one inside the other.
  */
 function parseGroup(tokens: Token[], derived: Derived): string[] {
+  const at: Cursor = { tokens, segment: 0, segmentStart: 0 };
   const items: Item[] = [];
-  let segment = 0;
-  let segmentStart = 0;
   let i = 0;
   while (i < tokens.length) {
     const token = tokens[i]!;
     const phrase = matchPhrase(tokens, i, derived);
     if (phrase) {
       const [len, entry] = phrase;
-      items.push(makeItem(entry.kind, entry.countries, i, i + len, token, segment, segmentStart, tokens, entry));
+      items.push(makeItem(at, entry.kind, entry.countries, i, i + len, entry));
       i += len;
       continue;
     }
-    if (LIST_WORDS.has(token.text) && !token.upper) {
-      segment += 1;
-      segmentStart = i + 1;
+    if (isListWord(token)) {
+      at.segment += 1;
+      at.segmentStart = i + 1;
       i += 1;
       continue;
     }
-    const code = token.upper ? codeItem(tokens, i, segment, segmentStart, items, derived) : null;
+    const code = token.upper ? codeItem(at, i, items, derived) : null;
     if (code) items.push(code);
-    else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(token, i, segment, segmentStart, tokens, derived));
+    else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(at, i, derived));
     i += 1;
   }
   return resolveItems(items);
@@ -371,27 +374,28 @@ function matchPhrase(tokens: Token[], start: number, derived: Derived): [number,
   return null;
 }
 
+/** Where the parser is in a group: the tokens and the current list segment. */
+type Cursor = { tokens: Token[]; segment: number; segmentStart: number };
+
 function makeItem(
+  at: Cursor,
   kind: Item["kind"],
   countries: string[],
   start: number,
   end: number,
-  token: Token,
-  segment: number,
-  segmentStart: number,
-  tokens: Token[],
   entry?: Entry,
 ): Item {
-  const levelStart = start === 0 || tokens[start - 1]!.level !== token.level;
+  const level = at.tokens[start]!.level;
+  const levelStart = start === 0 || at.tokens[start - 1]!.level !== level;
   return {
     kind,
     countries,
     start,
     end,
-    level: token.level,
-    segment,
-    hasPrefix: start > segmentStart,
-    afterComma: levelStart && token.level > 0 && start > 0,
+    level,
+    segment: at.segment,
+    hasPrefix: start > at.segmentStart,
+    afterComma: levelStart && level > 0 && start > 0,
     entry,
   };
 }
@@ -401,23 +405,16 @@ function makeItem(
  * ("Lagos, NG", "TX") or as the last word of a part after another word
  * ("Houston TX"), and never inside an all-caps sentence.
  */
-function codeItem(
-  tokens: Token[],
-  i: number,
-  segment: number,
-  segmentStart: number,
-  items: Item[],
-  derived: Derived,
-): Item | null {
+function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item | null {
+  const { tokens } = at;
   const token = tokens[i]!;
   const code = token.text.toUpperCase();
   if (!/^[A-Z]{2,4}$/.test(code)) return null;
+  const inPart = (t: Token | undefined) => t !== undefined && t.level === token.level && !isListWord(t);
   let partStart = i;
-  while (partStart > segmentStart && tokens[partStart - 1]!.level === token.level) partStart -= 1;
+  while (partStart > at.segmentStart && inPart(tokens[partStart - 1])) partStart -= 1;
   let partEnd = i + 1;
-  while (partEnd < tokens.length && tokens[partEnd]!.level === token.level && !isListWord(tokens[partEnd]!)) {
-    partEnd += 1;
-  }
+  while (inPart(tokens[partEnd])) partEnd += 1;
   const whole = partStart === i && partEnd === i + 1;
   const last = partEnd === i + 1;
   if (!whole) {
@@ -428,9 +425,9 @@ function codeItem(
     const afterCity = prev !== undefined && prev.end === i && prev.kind === "city";
     if (TRAILING_CODE_WORDS.has(code) && !afterCity) return null;
   }
-  const hasPrefix = i > segmentStart;
+  const hasPrefix = i > at.segmentStart;
   const make = (kind: Item["kind"], countries: string[]): Item => ({
-    ...makeItem(kind, countries, i, i + 1, token, segment, segmentStart, tokens),
+    ...makeItem(at, kind, countries, i, i + 1),
     code,
   });
 
@@ -454,25 +451,18 @@ function isListWord(token: Token): boolean {
 }
 
 /** Native names inside a token of a script written without spaces ("日本東京"). */
-function scriptItems(
-  token: Token,
-  i: number,
-  segment: number,
-  segmentStart: number,
-  tokens: Token[],
-  derived: Derived,
-): Item[] {
-  let rest = token.text;
+function scriptItems(at: Cursor, i: number, derived: Derived): Item[] {
+  let rest = at.tokens[i]!.text;
   const found: [number, Entry][] = [];
   for (const [name, entry] of derived.scriptNames) {
-    const at = rest.indexOf(name);
-    if (at < 0) continue;
-    found.push([at, entry]);
-    rest = rest.slice(0, at) + " ".repeat(name.length) + rest.slice(at + name.length);
+    const pos = rest.indexOf(name);
+    if (pos < 0) continue;
+    found.push([pos, entry]);
+    rest = rest.slice(0, pos) + " ".repeat(name.length) + rest.slice(pos + name.length);
   }
   return found
     .sort((a, b) => a[0] - b[0])
-    .map(([, entry]) => makeItem(entry.kind, entry.countries, i, i + 1, token, segment, segmentStart, tokens, entry));
+    .map(([, entry]) => makeItem(at, entry.kind, entry.countries, i, i + 1, entry));
 }
 
 function intersect(first: string[], second: string[]): string[] {
@@ -502,7 +492,8 @@ function resolveItems(items: Item[]): string[] {
       continue;
     }
     if (next.kind === "ambiguous") continue;
-    const nextIsIsoCode = next.kind === "code" && next.code !== undefined && next.countries.includes(next.code);
+    const nextIsIsoCode =
+      next.kind === "code" && next.code !== undefined && next.countries.includes(next.code);
     // A code cannot contain a state of another country ("PH, Rivers State").
     if (item.kind === "code") {
       if (!nextIsIsoCode && item.pinned === undefined) item.pinned = null;
@@ -606,7 +597,9 @@ function geoDecision(parse: GeoParse, field: GeoField, settings: Settings): Matc
   }
   for (const code of parse.countries) {
     const region = regionsForCountry(code).find((id) => settings.hiddenRegionIds.includes(id));
-    if (region) return { hit: geoReason(field, `${countryName(code)}, ${regionName(region)}`), decided: true };
+    if (region) {
+      return { hit: geoReason(field, `${countryName(code)}, ${regionName(region)}`), decided: true };
+    }
   }
   const region = parse.regions.find((id) => settings.hiddenRegionIds.includes(id));
   if (region) return { hit: geoReason(field, regionName(region)), decided: true };
@@ -706,7 +699,9 @@ function authorGeoDecision(
       const inside = parse?.countries.filter((code) =>
         regionsForCountry(code).some((id) => shown.includes(id)),
       );
-      if (inside && inside.length > 0) return geoDecision({ countries: inside, regions: [] }, field, settings);
+      if (inside && inside.length > 0) {
+        return geoDecision({ countries: inside, regions: [] }, field, settings);
+      }
     }
     return geoDecision(basedIn, "basedIn", settings);
   }

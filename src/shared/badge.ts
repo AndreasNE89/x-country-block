@@ -1,5 +1,9 @@
 export const BADGE_MSG = "xcb-badge" as const;
 
+/** Marigold reads as information rather than an alarm and stays apart from the teal icon. */
+export const BADGE_BACKGROUND_COLOR = "#FFB638";
+export const BADGE_TEXT_COLOR = "#14201F";
+
 export type BadgeMessage = {
   type: typeof BADGE_MSG;
   count: number;

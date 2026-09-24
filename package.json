@@ -1,11 +1,17 @@
 {
   "name": "x-country-block",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "pretest": "node scripts/check-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check-version": "node scripts/check-version.mjs",
     "build": "node scripts/build.mjs",
     "build:prod": "node scripts/build.mjs --prod",
     "build:firefox": "node scripts/build.mjs --firefox",

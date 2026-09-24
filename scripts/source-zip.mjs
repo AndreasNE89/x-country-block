@@ -2,9 +2,10 @@ import { deflateRawSync } from "node:zlib";
 import { mkdir, readFile, readdir, stat, writeFile, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertVersions } from "./lib/versions.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const pkg = { version: await assertVersions(root) };
 
 const includeDirs = ["src", "scripts", "test", "icons", "docs"];
 const includeFiles = [

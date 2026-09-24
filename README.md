@@ -28,7 +28,7 @@ AMO upload zip (minified):
 npm run build:firefox:prod
 ```
 
-Output: `release/x-country-block-0.1.2-firefox.zip`
+Output: `release/x-country-block-0.2.0-firefox.zip`
 
 ## AMO source code submission
 
@@ -40,7 +40,7 @@ Pack source for upload:
 npm run source:zip
 ```
 
-Output: `release/x-country-block-0.1.2-source.zip` (TypeScript source, build scripts, no `node_modules/` or built JS).
+Output: `release/x-country-block-0.2.0-source.zip` (TypeScript source, build scripts, no `node_modules/` or built JS).
 
 Open x.com, open the popup. Check a country, a region (South Asia, West Asia, Asia, …), or a language. Matching cards disappear. Tick **Only show posts from ticked items** to invert: keep those, hide the rest. Only show with nothing ticked shows everything. Uncheck: they come back without refresh.
 

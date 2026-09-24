@@ -19,7 +19,7 @@ npm --version    # 10.x or higher
 
 ## Step-by-step: reproduce submitted Firefox build
 
-These steps produce `release/x-country-block-0.1.2-firefox.zip`, which should match the uploaded add-on byte-for-byte (same version `0.1.2` in `package.json`).
+These steps produce `release/x-country-block-0.2.0-firefox.zip`, which should match the uploaded add-on byte-for-byte (same version `0.2.0` in `package.json`).
 
 1. **Extract** this source archive to a directory.
 
@@ -43,9 +43,9 @@ These steps produce `release/x-country-block-0.1.2-firefox.zip`, which should ma
 
 5. **Output files:**
    - Built extension (unzipped): `dist-firefox/`
-   - AMO upload zip: `release/x-country-block-0.1.2-firefox.zip`
+   - AMO upload zip: `release/x-country-block-0.2.0-firefox.zip`
 
-6. **Verify:** unzip `release/x-country-block-0.1.2-firefox.zip`. Root must contain `manifest.json`, `background.js`, `content.js`, `hook.js`, `popup.js`, `popup.html`, `popup.css`, `paid-page.js`, and `icons/`.
+6. **Verify:** unzip `release/x-country-block-0.2.0-firefox.zip`. Root must contain `manifest.json`, `background.js`, `content.js`, `hook.js`, `popup.js`, `popup.html`, `popup.css`, `paid-page.js`, and `icons/`.
 
 ## Build script
 

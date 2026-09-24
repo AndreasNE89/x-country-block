@@ -3,13 +3,14 @@ import { mkdir, copyFile, readFile, readdir, stat, writeFile, unlink } from "nod
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import { assertVersions } from "./lib/versions.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const prod = process.argv.includes("--prod");
 const firefox = process.argv.includes("--firefox");
 const dist = join(root, firefox ? "dist-firefox" : "dist");
 const manifestName = firefox ? "manifest.firefox.json" : "manifest.json";
-const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const pkg = { version: await assertVersions(root) };
 
 await mkdir(dist, { recursive: true });
 

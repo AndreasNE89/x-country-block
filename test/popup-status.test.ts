@@ -94,7 +94,7 @@ describe("highlightHelp", () => {
   it("should follow the mode", () => {
     expect(highlightHelp(parseSettings({}))).toBe("Outline matches so you can check before hiding.");
     expect(highlightHelp(parseSettings({ filterMode: "only", onlyShowPaid: true }))).toBe(
-      "Outline posts outside your picks instead of setting them aside.",
+      "Outline the rest instead of setting it aside.",
     );
   });
 });

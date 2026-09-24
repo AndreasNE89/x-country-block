@@ -68,6 +68,6 @@ export function pageNote(page: PageState): PageNote | null {
 
 export function highlightHelp(settings: Settings): string {
   return settings.filterMode === "only" && settings.onlyShowUnlocked
-    ? "Outline posts outside your picks instead of setting them aside."
+    ? "Outline the rest instead of setting it aside."
     : "Outline matches so you can check before hiding.";
 }

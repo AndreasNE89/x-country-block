@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "X Country Block",
+  "name": "Tamis: Country & Language Filter for X",
+  "short_name": "Tamis",
   "version": "0.2.0",
-  "description": "Block posts on X from countries, regions, and languages you choose.",
+  "description": "Filter your X feed by country, region, or post language via X’s “Account based in” label. Hide, highlight, or show only your picks.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://x.com/*",
@@ -21,7 +22,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "X Country Block",
+    "default_title": "Tamis",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

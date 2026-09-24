@@ -105,6 +105,30 @@ describe("UserPersister (F12, C05)", () => {
     expect(() => persister.flush()).not.toThrow();
   });
 
+  it("removes a stored row whose location X now sends blank (F13)", () => {
+    const { persister, writes } = setup();
+    persister.setAllowed(true);
+    persister.setStored([
+      row({ userId: "30", location: "Lagos, Nigeria", seenAt: NOW - 1000 }),
+      row({ userId: "31", location: "Accra", basedIn: "Ghana", seenAt: NOW - 1000 }),
+    ]);
+    persister.note(row({ userId: "30", location: "" }));
+    persister.note(row({ userId: "31", location: "", basedIn: "Ghana" }));
+    persister.flush();
+    const stored = writes[0] as StoredUser[];
+    expect(stored.map((r) => r.userId)).toEqual(["31"]);
+    expect(stored[0]).toMatchObject({ location: "", basedIn: "Ghana", seenAt: NOW });
+  });
+
+  it("lets a blank location replace a pending one from the same tab (F13)", () => {
+    const { persister, area } = setup();
+    persister.setAllowed(true);
+    persister.note(row({ userId: "30", location: "Lagos, Nigeria" }));
+    persister.note(row({ userId: "30", location: "" }));
+    persister.flush();
+    expect(area.set).not.toHaveBeenCalled();
+  });
+
   it("queues only rows UserCache reports as changed", () => {
     const { persister, runTimers, area } = setup();
     persister.setAllowed(true);

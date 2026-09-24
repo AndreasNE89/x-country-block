@@ -339,6 +339,37 @@ describe("account cache", () => {
     window.dispatchEvent(new Event("pagehide"));
     expect(h.area.set).toHaveBeenCalledTimes(1);
   });
+
+  it("removes a stored location the account has cleared, for later tabs too (F13)", async () => {
+    const lagos = { ...user({ userId: "30", screenName: "ngacct", location: "Lagos, Nigeria" }), seenAt: NOW - 1000 };
+    page(article("1", "ngacct"));
+    const a = await start({ hiddenCountryCodes: ["NG"], userCache: [lagos] });
+    await a.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("Nigeria");
+    a.post([user({ userId: "30", screenName: "ngacct", location: "" })], [tweet({ tweetId: "1", authorId: "30" })]);
+    await a.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    a.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(a.area.set).toHaveBeenCalled();
+    expect((a.area.data.userCache as UserRecord[]).map((u) => u.userId)).not.toContain("30");
+
+    // A new tab loads what tab A stored.
+    a.controller.stop();
+    page(article("1", "ngacct"));
+    const b = await start(structuredClone(a.area.data));
+    await b.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("does not write rows that never had a location", async () => {
+    page("");
+    const h = await start({ hiddenCountryCodes: ["IN"] });
+    h.post([user({ userId: "31", screenName: "quiet", location: "" })], []);
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).not.toHaveBeenCalled();
+  });
 });
 
 describe("About sheet (C01)", () => {

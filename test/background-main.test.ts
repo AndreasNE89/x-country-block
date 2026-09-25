@@ -131,7 +131,7 @@ describe("background legacy ExtensionPay cleanup", () => {
     const { api, installedListeners } = await loadBackground({ sync: false });
     installedListeners[0]({ reason: "update", previousVersion: "0.1.0" });
     await flush();
-    expect(api.storage.local.remove).toHaveBeenCalledWith(keys);
+    expect(api.storage.local.remove).toHaveBeenCalledWith([...keys, "onlyShowUnlocked"]);
   });
 
   it("should never touch the user's picks or purchase", async () => {

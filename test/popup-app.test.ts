@@ -655,7 +655,7 @@ describe("active tab status", () => {
 
   it("should offer a reload when the content script does not answer", async () => {
     const { api } = await open({ hiddenLanguageCodes: ["ja"] }, { tab: { id: 3, url: "https://x.com/home" }, ping: undefined });
-    expect($("page-note-text").textContent).toBe("Reload this tab to use the latest version of Tamis.");
+    expect($("page-note-text").textContent).toBe("Reload this tab to apply your Tamis settings.");
     expect($("page-action").textContent).toBe("Reload");
     $("page-action").focus();
     $("page-action").click();

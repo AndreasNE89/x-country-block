@@ -54,8 +54,8 @@ export function pageNote(page: PageState): PageNote | null {
       return { text: "Open x.com to see it work.", action: null };
     case "no-answer":
       // No answer means no Tamis in this tab yet (fresh install, access just granted) or an
-      // older one still running after an update. Reloading loads the installed version either way.
-      return { text: "Reload this tab to use the latest version of Tamis.", action: "reload" };
+      // older one still running after an update. The wording holds in all three cases.
+      return { text: "Reload this tab to apply your Tamis settings.", action: "reload" };
     case "reloading":
       return { text: "Reloading this tab…", action: null };
     case "checking":

@@ -91,3 +91,14 @@ export function parseStoredUsers(raw: unknown, now: number, ttlMs = USER_TTL_MS)
   }
   return out;
 }
+
+/** userId -> seenAt of a raw stored copy, without validating the rows (a cheap diff). */
+export function storedSeenAt(raw: unknown): Map<string, number> {
+  const seen = new Map<string, number>();
+  if (!Array.isArray(raw)) return seen;
+  for (const row of raw) {
+    if (!isObject(row) || typeof row.userId !== "string" || typeof row.seenAt !== "number") continue;
+    seen.set(row.userId, row.seenAt);
+  }
+  return seen;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { UserPersister } from "../src/content/user-store.ts";
+import { CONFIRM_MS, UserPersister } from "../src/content/user-store.ts";
 import { type StoredUser, UserCache, USER_TTL_MS } from "../src/shared/cache.ts";
 
 const NOW = 1_800_000_000_000;
@@ -16,7 +16,7 @@ function row(partial: Partial<StoredUser> & Pick<StoredUser, "userId">): StoredU
   };
 }
 
-function setup() {
+function setup(now: () => number = () => NOW) {
   const writes: unknown[] = [];
   const area = {
     set: vi.fn(async (items: Record<string, unknown>) => {
@@ -26,7 +26,7 @@ function setup() {
   const timers: (() => void)[] = [];
   const persister = new UserPersister({
     area,
-    now: () => NOW,
+    now,
     setTimer: (fn) => timers.push(fn),
     clearTimer: () => {
       timers.length = 0;
@@ -139,5 +139,64 @@ describe("UserPersister (F12, C05)", () => {
     persister.note(cache.put(user, NOW + 1000));
     runTimers();
     expect(area.set).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("two tabs writing at the same moment (R15)", () => {
+  const ids = (value: unknown) => (value as StoredUser[]).map((r) => r.userId).sort();
+
+  /** Tabs A and B each write before hearing of the other's write; storage keeps B's. */
+  function race(now: () => number = () => NOW) {
+    const a = setup(now);
+    const b = setup(now);
+    for (const tab of [a, b]) {
+      tab.persister.setAllowed(true);
+      tab.persister.setStored([row({ userId: "1", location: "Oslo", seenAt: NOW - 1000 })]);
+    }
+    a.persister.note(row({ userId: "10", location: "Lima" }));
+    b.persister.note(row({ userId: "11", location: "Accra" }));
+    a.persister.flush();
+    b.persister.flush();
+    const [first, second] = [a.writes[0], b.writes[0]];
+    expect(ids(second)).toEqual(["1", "11"]); // A's row is gone from storage
+    // storage.onChanged reaches both tabs afterwards, in write order.
+    for (const tab of [a, b]) {
+      tab.persister.setStored(first);
+      tab.persister.setStored(second);
+    }
+    return { a, b };
+  }
+
+  it("writes a row again when another tab's write dropped it", () => {
+    const { a, b } = race();
+    a.runTimers();
+    b.runTimers();
+    expect(a.writes).toHaveLength(2);
+    expect(ids(a.writes[1])).toEqual(["1", "10", "11"]);
+    // B's row is in storage (its own write came back last): B does not write again.
+    expect(b.writes).toHaveLength(1);
+  });
+
+  it("stops checking a little after its write", () => {
+    let now = NOW;
+    const { a } = race(() => now);
+    now = NOW + CONFIRM_MS + 1;
+    a.runTimers();
+    expect(a.writes).toHaveLength(1);
+  });
+
+  it("removes a cleared location again when a stale write brings it back (F13)", () => {
+    const a = setup();
+    a.persister.setAllowed(true);
+    const lagos = row({ userId: "30", location: "Lagos, Nigeria", seenAt: NOW - 1000 });
+    a.persister.setStored([lagos]);
+    a.persister.note(row({ userId: "30", location: "" }));
+    a.persister.flush();
+    expect(ids(a.writes[0])).toEqual([]);
+    a.persister.setStored(a.writes[0]);
+    a.persister.setStored([lagos]); // another tab, writing from an older copy
+    a.runTimers();
+    expect(a.writes).toHaveLength(2);
+    expect(ids(a.writes[1])).toEqual([]);
   });
 });

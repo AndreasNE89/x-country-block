@@ -1,4 +1,5 @@
 import { isPingResponse, PING_MSG } from "../shared/messages.ts";
+import { PAID_PAGE_MATCH } from "../shared/stripe.ts";
 import type { PageState } from "./status.ts";
 
 /** The manifest's host permissions; permissions.request may only ask for these. */
@@ -67,6 +68,21 @@ export async function probePage(api: TabApi, timeoutMs = PING_TIMEOUT_MS): Promi
   return isPingResponse(reply)
     ? { kind: "ready", tabId: tab.id, count: reply.count }
     : { kind: "no-answer", tabId: tab.id };
+}
+
+/**
+ * False only when the browser says Tamis may not run on its thank-you page, where a
+ * payment unlocks Focus mode (a per-site toggle turned off). Unknown counts as allowed.
+ * Chrome and Firefox both answer for the exact content-script pattern.
+ */
+export async function paidPageAllowed(api: typeof chrome): Promise<boolean> {
+  const permissions = api.permissions;
+  if (typeof permissions?.contains !== "function") return true;
+  try {
+    return (await permissions.contains({ origins: [PAID_PAGE_MATCH] })) !== false;
+  } catch {
+    return true;
+  }
 }
 
 /** TabApi backed by the extension APIs, feature-checked for Firefox and older Chrome. */

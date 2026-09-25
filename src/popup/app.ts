@@ -4,7 +4,7 @@ import type { FilterMode, Settings } from "../shared/types.ts";
 import { addHandle, removeHandle } from "./accounts.ts";
 import { catalogRows, PICK_KINDS, type PickKind } from "./catalog.ts";
 import { visibleOptionRows } from "./option-rows.ts";
-import { extensionTabApi, probePage, X_ORIGINS } from "./page.ts";
+import { extensionTabApi, paidPageAllowed, probePage, X_ORIGINS } from "./page.ts";
 import {
   type Pick,
   PICK_FIELD,
@@ -87,6 +87,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
     proEnded: $("pro-ended"),
     proBody: $("pro-body"),
     proPrice: $("pro-price"),
+    proHint: $("pro-hint"),
     proPay: $<HTMLButtonElement>("pro-pay"),
     proTrial: $<HTMLButtonElement>("pro-trial"),
     proActions: $("pro-actions"),
@@ -132,6 +133,8 @@ export function startPopup(options: PopupOptions): PopupHandle {
   let reloadUntil = 0;
   let undo: Record<PickField, string[]> | null = null;
   let changedEarly = false;
+  // Tamis may not run on its thank-you page, so a payment would not unlock on its own.
+  let paidPageBlocked = false;
 
   // --- storage -------------------------------------------------------------
 
@@ -275,6 +278,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
     ui.proCard.hidden = view.card === null;
     doc.body.classList.toggle("card-open", view.card !== null);
     ui.proEnded.hidden = !view.card?.ended;
+    ui.proHint.hidden = !view.card || !paidPageBlocked;
     // After a used-up trial the notice says enough; keep the card short.
     ui.proBody.hidden = Boolean(view.card?.ended);
     ui.proTrial.hidden = !view.card?.showTrial;
@@ -668,6 +672,11 @@ export function startPopup(options: PopupOptions): PopupHandle {
   );
 
   const probed = refreshPage().catch(() => undefined);
+  const paidPageChecked = paidPageAllowed(api).then((allowed) => {
+    if (disposed || allowed) return;
+    paidPageBlocked = true;
+    paint();
+  });
 
   const timer =
     pollMs > 0
@@ -679,7 +688,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
       : undefined;
 
   return {
-    ready: Promise.all([load, probed]).then(() => undefined),
+    ready: Promise.all([load, probed, paidPageChecked]).then(() => undefined),
     dispose: () => {
       disposed = true;
       events.abort();

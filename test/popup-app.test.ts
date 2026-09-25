@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startPopup, type PopupHandle } from "../src/popup/app.ts";
-import { STRIPE_PAYMENT_LINK } from "../src/shared/stripe.ts";
+import { PAID_PAGE_MATCH, STRIPE_PAYMENT_LINK } from "../src/shared/stripe.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_700_000_000_000;
@@ -23,6 +23,8 @@ type Options = {
   snapshotGet?: boolean;
   /** A browser without the permissions API. */
   noPermissions?: boolean;
+  /** Whether Tamis may run on its thank-you page (defaults to yes). */
+  paidPage?: boolean;
 };
 
 function makeStore(initial: Raw, holdGet: boolean, snapshotGet = false) {
@@ -75,7 +77,9 @@ function makeApi(store: ReturnType<typeof makeStore>, options: Options) {
     permissions: options.noPermissions
       ? undefined
       : {
-          contains: vi.fn(async () => options.access ?? true),
+          contains: vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
+            origins.includes(PAID_PAGE_MATCH) ? (options.paidPage ?? true) : (options.access ?? true),
+          ),
           request: vi.fn(async () => true),
         },
     action: {},
@@ -293,6 +297,18 @@ describe("Focus mode", () => {
     expect($("pro-pay").textContent).toBe("Unlock $5.99");
     expect($("pro-trial").textContent).toBe("Try free for 7 days");
     expect(visible("pro-trial")).toBe(true);
+  });
+
+  it("should say so on the card when Tamis may not run on its thank-you page", async () => {
+    await open();
+    $("mode-only").click();
+    expect(visible("pro-hint")).toBe(false);
+    handle?.dispose();
+    await open({}, { paidPage: false });
+    expect(visible("pro-hint")).toBe(false);
+    $("mode-only").click();
+    expect(visible("pro-hint")).toBe(true);
+    expect($("pro-hint").textContent).toContain("Restore");
   });
 
   it("should open Stripe from the Unlock button", async () => {

@@ -1,6 +1,24 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { confirmPaidPage, PAID_FAILED_TEXT, PAID_UNLOCKED_TEXT } from "../src/paid-page.ts";
 import { STRIPE_PAID_MESSAGE } from "../src/shared/license.ts";
+import { PAID_PAGE_MATCH } from "../src/shared/stripe.ts";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+describe("PAID_PAGE_MATCH", () => {
+  it("should be the paid-page content-script match in both manifests", () => {
+    for (const file of ["manifest.json", "manifest.firefox.json"]) {
+      const manifest = JSON.parse(readFileSync(join(ROOT, file), "utf8")) as {
+        content_scripts: { matches: string[]; js: string[] }[];
+      };
+      const paid = manifest.content_scripts.find((entry) => entry.js.includes("paid-page.js"));
+      expect(paid?.matches, file).toEqual([PAID_PAGE_MATCH]);
+    }
+  });
+});
 
 describe("confirmPaidPage", () => {
   beforeEach(() => {

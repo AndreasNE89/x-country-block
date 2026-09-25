@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { extensionTabApi, isXUrl, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
+import { extensionTabApi, isXUrl, paidPageAllowed, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
+import { PAID_PAGE_MATCH } from "../src/shared/stripe.ts";
 
 function api(overrides: Partial<TabApi> = {}): TabApi {
   return {
@@ -81,6 +82,22 @@ describe("probePage", () => {
       tabs: { query: async () => [{ id: 9 }], sendMessage: vi.fn() },
     } as unknown as typeof chrome;
     expect(await extensionTabApi(chromeApi).hasAccess()).toBe(false);
+  });
+
+  it("should tell when the thank-you page is off limits, and assume it is not otherwise", async () => {
+    const withContains = (contains: unknown) => ({ permissions: { contains } }) as unknown as typeof chrome;
+    const blocked = vi.fn(async () => false);
+    expect(await paidPageAllowed(withContains(blocked))).toBe(false);
+    expect(blocked).toHaveBeenCalledWith({ origins: [PAID_PAGE_MATCH] });
+    expect(await paidPageAllowed(withContains(async () => true))).toBe(true);
+    expect(
+      await paidPageAllowed(
+        withContains(async () => {
+          throw new Error("Invalid match pattern");
+        }),
+      ),
+    ).toBe(true);
+    expect(await paidPageAllowed({} as unknown as typeof chrome)).toBe(true);
   });
 
   it("should assume access when the permissions API fails", async () => {

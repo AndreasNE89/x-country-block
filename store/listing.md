@@ -71,8 +71,11 @@ Tamis was previously called X Country Block. Not affiliated with or endorsed by 
 https://andreasne89.github.io/x-country-block/privacy.html
 ```
 
-Served by GitHub Pages from `docs/privacy.html`. Keep this path: it is also
-the Stripe success page that unlocks Focus mode.
+Served by GitHub Pages from the site repo `AndreasNE89/AndreasNE89.github.io`,
+file `x-country-block/privacy.html` (this repo has Pages turned off).
+`docs/privacy.html` here is the source: copy it there whenever it changes,
+and before submitting a release whose disclosures changed. Keep the path: it
+is also the Stripe success page that unlocks Focus mode.
 
 ### Support
 

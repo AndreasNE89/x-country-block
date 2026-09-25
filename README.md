@@ -131,7 +131,7 @@ screenshots listed in `store/listing.md` must exist first.
 | `src/background/` | Toolbar badge and the Focus mode unlock |
 | `src/popup/` | Popup UI |
 | `src/shared/` | Matching, settings, parsing, country, region and language data |
-| `docs/privacy.html` | Privacy policy and Stripe success page (GitHub Pages) |
+| `docs/privacy.html` | Privacy policy and Stripe success page. Source only: publish by copying it to `x-country-block/privacy.html` in `AndreasNE89/AndreasNE89.github.io` |
 | `scripts/` | Build, packaging, version check, brand art and store screenshots |
 | `test/`, `scripts/test/` | Unit tests (vitest) |
 

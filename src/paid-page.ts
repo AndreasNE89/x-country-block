@@ -1,4 +1,6 @@
-// Runs on the Stripe success page (docs/privacy.html on GitHub Pages).
+// Runs on the Stripe success page: the privacy page (source docs/privacy.html,
+// published from the AndreasNE89.github.io site repo). It may be an older copy
+// without the styled #paid-note, so the note is created when missing.
 import { STRIPE_PAID_MESSAGE } from "./shared/license.ts";
 import { isStripeSuccessUrl } from "./shared/stripe.ts";
 

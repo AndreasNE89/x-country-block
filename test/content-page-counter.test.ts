@@ -30,6 +30,34 @@ describe("PageCounter (F55)", () => {
     expect(counter.count).toBe(0);
   });
 
+  it.each([
+    ["the media viewer", "/alice/status/1/photo/1"],
+    ["an About sheet", "/bob/about"],
+    ["the composer", "/compose/post"],
+    ["the display dialog", "/i/display"],
+    ["a profile photo", "/bob/photo"],
+  ])("keeps the count behind %s that X opens over the page (R2)", (_what, overlay) => {
+    const counter = new PageCounter();
+    counter.enterPage("/home");
+    counter.track("t:1", true);
+    counter.track("t:2", true);
+    expect(counter.enterPage(overlay)).toBe(false);
+    expect(counter.count).toBe(2);
+    expect(counter.enterPage("/home")).toBe(false);
+    expect(counter.count).toBe(2);
+  });
+
+  it("counts an overlay route loaded directly as a page of its own", () => {
+    const counter = new PageCounter();
+    expect(counter.enterPage("/alice/status/1/photo/1")).toBe(true);
+    counter.track("t:1", true);
+    expect(counter.enterPage("/alice/status/1")).toBe(false);
+    expect(counter.count).toBe(1);
+    // Settings pages replace the column: a new page.
+    expect(counter.enterPage("/settings/account")).toBe(true);
+    expect(counter.count).toBe(0);
+  });
+
   it("reports the count only when it changed", () => {
     const counter = new PageCounter();
     expect(counter.takeUpdate()).toBe(0);

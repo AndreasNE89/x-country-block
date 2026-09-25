@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_RECORDS, readHookMessage } from "../src/content/hook-message.ts";
 import { parseStoredUsers, sanitizeTweet, sanitizeUser } from "../src/content/records.ts";
 import { USER_TTL_MS } from "../src/shared/cache.ts";
-import { HOOK_SOURCE } from "../src/shared/types.ts";
+import { HOOK_SOURCE, HOOK_VERSION } from "../src/shared/types.ts";
 
 const NOW = 1_800_000_000_000;
 
@@ -15,7 +15,7 @@ function message(data: unknown, init: { origin?: string; source?: unknown } = {}
 }
 
 function batch(users: unknown[], tweets: unknown[] = []) {
-  return { source: HOOK_SOURCE, type: "graphql", users, tweets };
+  return { source: HOOK_SOURCE, type: "graphql", v: HOOK_VERSION, users, tweets };
 }
 
 const USER = {
@@ -45,6 +45,12 @@ describe("readHookMessage (F11)", () => {
     expect(readHookMessage(message({ ...batch([USER]), type: "nope" }), window)).toBeNull();
     expect(readHookMessage(message({ source: HOOK_SOURCE, type: "graphql", users: {} }), window)).toBeNull();
     expect(readHookMessage(message("x-country-block"), window)).toBeNull();
+  });
+
+  it("ignores a hook from an older build still running in the page (R40)", () => {
+    const { v: _v, ...untagged } = batch([USER]);
+    expect(readHookMessage(message(untagged), window)).toBeNull();
+    expect(readHookMessage(message({ ...batch([USER]), v: 1 }), window)).toBeNull();
   });
 
   it("drops malformed rows but keeps the good ones", () => {
@@ -81,11 +87,11 @@ describe("record sanitizers", () => {
     expect(sanitizeTweet({ tweetId: "1", authorId: "u-1" })?.authorId).toBeNull();
   });
 
-  it("reads stored rows: drops junk and expired rows, dates legacy rows now", () => {
+  it("reads stored rows: drops junk, expired rows and rows from before 0.2.0 (R12, R41)", () => {
     const rows = parseStoredUsers(
       [
         { ...USER, userId: "1", seenAt: NOW - 1000 },
-        { ...USER, userId: "2" },
+        { ...USER, userId: "2", basedIn: "Nigeria lol" },
         { ...USER, userId: "3", seenAt: NOW - USER_TTL_MS - 1 },
         { userId: 5 },
         "junk",
@@ -94,7 +100,6 @@ describe("record sanitizers", () => {
     );
     expect(rows.map((r) => [r.userId, r.seenAt])).toEqual([
       ["1", NOW - 1000],
-      ["2", NOW],
     ]);
     expect(parseStoredUsers({ not: "a list" }, NOW)).toEqual([]);
   });

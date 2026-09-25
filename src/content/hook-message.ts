@@ -1,4 +1,4 @@
-import { HOOK_SOURCE, type TweetRecord, type UserRecord } from "../shared/types.ts";
+import { HOOK_SOURCE, HOOK_VERSION, type TweetRecord, type UserRecord } from "../shared/types.ts";
 import { sanitizeList, sanitizeTweet, sanitizeUser } from "./records.ts";
 
 /** More records than one X GraphQL page carries; anything past this is dropped. */
@@ -18,7 +18,7 @@ export function readHookMessage(event: MessageLike, win: Window): HookData | nul
   const data: unknown = event.data;
   if (!data || typeof data !== "object") return null;
   const obj = data as Record<string, unknown>;
-  if (obj.source !== HOOK_SOURCE || obj.type !== "graphql") return null;
+  if (obj.source !== HOOK_SOURCE || obj.type !== "graphql" || obj.v !== HOOK_VERSION) return null;
   if (!Array.isArray(obj.users) || !Array.isArray(obj.tweets)) return null;
   const users = sanitizeList(obj.users, sanitizeUser, MAX_RECORDS);
   const tweets = sanitizeList(obj.tweets, (row) => sanitizeTweet(row), MAX_RECORDS);

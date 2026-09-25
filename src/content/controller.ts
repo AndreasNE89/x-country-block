@@ -1,5 +1,5 @@
 import { BADGE_MSG } from "../shared/badge.ts";
-import { UserCache } from "../shared/cache.ts";
+import { mergeStoredRows, type StoredUser, UserCache } from "../shared/cache.ts";
 import { defaultCountryIndex } from "../shared/countries.ts";
 import {
   aboutRouteHandle,
@@ -7,6 +7,7 @@ import {
   type AboutSignals,
   type CardPaint,
   clearAllPaint,
+  ensureMarkStyles,
   findNotificationRows,
   findProfileIdentity,
   findTweetArticles,
@@ -42,8 +43,8 @@ import {
 } from "./decide.ts";
 import { readHookMessage } from "./hook-message.ts";
 import { PageCounter } from "./page-counter.ts";
-import { parseStoredUsers } from "./records.ts";
-import { captureAnchor, holdAnchor, scrollerFor, startsAboveViewBottom } from "./scroll-anchor.ts";
+import { parseStoredUsers, storedSeenAt } from "./records.ts";
+import { type Anchor, captureAnchor, holdAnchor, scrollerFor, startsAboveViewBottom } from "./scroll-anchor.ts";
 import { matchingActive, SettingsState } from "./settings-state.ts";
 import { TweetStore } from "./tweet-store.ts";
 import { UserPersister } from "./user-store.ts";
@@ -192,7 +193,7 @@ export class ContentController {
     if (this.tick !== null) (this.deps.clearRepeat ?? ((h) => win.clearInterval(h as number)))(this.tick);
     this.persister.setAllowed(false);
     try {
-      clearAllPaint(doc);
+      this.restoreAll();
     } catch {
       // nothing else to do
     }
@@ -213,15 +214,38 @@ export class ContentController {
     if (area) {
       try {
         const raw = await area.get([...SETTINGS_KEYS, "userCache"]);
-        this.state.load(raw, this.now());
-        this.users.load(parseStoredUsers(raw.userCache, this.now()));
-        this.persister.setStored(raw.userCache);
+        const now = this.now();
+        this.state.load(raw, now);
+        const rows = mergeStoredRows(parseStoredUsers(raw.userCache, now), [], now);
+        this.users.load(rows);
+        this.persister.setStored(rows);
         area.onChanged.addListener(this.onStorageChanged);
+        this.pruneStored(area, raw.userCache, rows);
       } catch {
         // fail open: defaults filter nothing
       }
     }
     this.settingsChanged();
+  }
+
+  /**
+   * Write the stored accounts back without what the cache does not keep: expired rows, rows
+   * without a location signal, rows from builds before 0.2.0 and anything past PERSIST_LIMIT.
+   * This runs whether or not a filter is on, since it only deletes, and only when something was
+   * dropped, so tabs that start together do not overwrite fresher writes for nothing. Nothing is
+   * written from a private window.
+   */
+  private pruneStored(area: StorageArea, raw: unknown, kept: StoredUser[]): void {
+    if (this.deps.incognito || raw === undefined) return;
+    if (Array.isArray(raw) && raw.length === kept.length) return;
+    try {
+      const done = kept.length > 0 ? area.set({ userCache: kept }) : area.remove("userCache");
+      void done.catch(() => {
+        // extension context gone: the next tab prunes
+      });
+    } catch {
+      // extension context invalidated
+    }
   }
 
   private orphaned(): boolean {
@@ -264,9 +288,31 @@ export class ContentController {
 
   private readonly onStorageChanged = (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>): void => {
     if (this.stopped) return;
-    if (changes.userCache) this.persister.setStored(changes.userCache.newValue);
+    const cache = changes.userCache;
+    if (cache) {
+      this.persister.setStored(cache.newValue);
+      if (this.absorbStored(cache.newValue, cache.oldValue)) {
+        this.gen += 1;
+        if (this.active()) this.schedule();
+      }
+    }
     if (this.state.applyChanges(changes, this.now())) this.settingsChanged();
   };
+
+  /**
+   * Take in what another tab saved (an About page opened there, say), so this tab filters by it
+   * without a reload. Only rows that differ from the previous stored copy are parsed; this tab's
+   * own writes come back with the seenAt it already holds and change nothing.
+   */
+  private absorbStored(next: unknown, prev: unknown): boolean {
+    if (!Array.isArray(next)) return false;
+    const before = storedSeenAt(prev);
+    const changed = next.filter((row: unknown) => {
+      const { userId, seenAt } = (row ?? {}) as { userId?: unknown; seenAt?: unknown };
+      return typeof userId !== "string" || before.get(userId) !== seenAt;
+    });
+    return changed.length > 0 && this.users.absorb(parseStoredUsers(changed, this.now()));
+  }
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (this.stopped) return;
@@ -347,11 +393,13 @@ export class ContentController {
     const { doc, win } = this.deps;
     try {
       if (!this.active()) {
-        clearAllPaint(doc);
+        this.restoreAll();
         this.counter.reset();
         this.sendBadge();
         return;
       }
+      // A style an earlier build left in this tab (Firefox updates under open tabs) is replaced.
+      ensureMarkStyles(doc, false);
       const pathname = win.location.pathname;
       if (this.counter.enterPage(pathname)) this.gen += 1;
       this.refreshAbout(pathname);
@@ -406,7 +454,6 @@ export class ContentController {
   }
 
   private paintCards(items: CardItem[], ctx: PageContext): void {
-    const { win, doc } = this.deps;
     const changes: Change[] = [];
     for (const item of items) {
       try {
@@ -425,19 +472,49 @@ export class ContentController {
         // fail open for this card
       }
     }
-    if (changes.length === 0) return;
+    this.applyChanges(items, changes);
+  }
 
+  /**
+   * Show every card again (paused, nothing ticked, the Focus trial over, or the script stopping)
+   * through the same anchored path as any other paint, so the post being read stays in place;
+   * then clear whatever else carries paint (the profile header, rows outside the collected set,
+   * cells hidden by builds before 0.2.0).
+   */
+  private restoreAll(): void {
+    const { doc, win } = this.deps;
+    try {
+      const items = this.collect(win.location.pathname);
+      const changes: Change[] = items
+        .filter((item) => !isPainted(item.el, NO_PAINT, null))
+        .map((item) => ({ el: item.el, paint: NO_PAINT, key: null }));
+      this.applyChanges(items, changes);
+    } catch {
+      // fail open: cleared below without holding the view
+    }
+    clearAllPaint(doc);
+  }
+
+  /** Paint `changes`, holding the post being read in place when cards above it change height. */
+  private applyChanges(items: CardItem[], changes: Change[]): void {
+    if (changes.length === 0) return;
+    const { win, doc } = this.deps;
     // Cards below the visible area change without anything moving on screen; only when a card
     // above or in the reading area changes height is the post being read held in place.
     const shifting = changes.filter(
       (c) => heightClass(c.el) !== paintHeightClass(c.paint) && startsAboveViewBottom(layoutBox(c.el), null, win),
     );
     const resized = shifting.map((c) => layoutBox(c.el));
-    let anchor = null;
+    let anchor: Anchor | null = null;
     if (shifting.length > 0) {
       const scroller = scrollerFor(shifting[0]!.el, win);
+      const boxes = items.map((i) => layoutBox(i.el));
       const changing = new Set(changes.map((c) => layoutBox(c.el)));
-      anchor = captureAnchor(items.map((i) => layoutBox(i.el)), changing, scroller, win);
+      // Hold a post that stays as it is. When every post in view changes (a screen of Focus
+      // mode's slim rows coming back), hold the top-most one that keeps a box: what changes
+      // above it then moves off-screen instead of pushing it down.
+      const vanishing = new Set(changes.filter((c) => c.paint.kind === "hide").map((c) => layoutBox(c.el)));
+      anchor = captureAnchor(boxes, changing, scroller, win) ?? captureAnchor(boxes, vanishing, scroller, win);
     }
     for (const change of changes) {
       try {

@@ -138,9 +138,27 @@ describe("tweetVerdict", () => {
     });
     const sources = world([vpn], [tweet({ tweetId: "1", authorId: "30" })]);
     const card = mount(`<article><a href="/vpn/status/1">x</a></article>`);
-    expect(tweetVerdict(card, CTX, sources, hideNG, index).reason).toMatch(/Nigeria.* \(may be inaccurate\)$/);
+    // One note, not "(as shown by X) (may be inaccurate)" (R5).
+    expect(tweetVerdict(card, CTX, sources, hideNG, index).reason).toBe(
+      "Account based in: Nigeria (as shown by X, may be inaccurate)",
+    );
     const sure = world([{ ...vpn, locationAccurate: true }], [tweet({ tweetId: "1", authorId: "30" })]);
     expect(tweetVerdict(card, CTX, sure, hideNG, index).reason).not.toContain("inaccurate");
+  });
+
+  it("puts the doubt inside the note of a quoted match, and after a Focus reason (R5)", () => {
+    const vpn = user({ userId: "30", screenName: "vpn", basedIn: "Nigeria", locationAccurate: false });
+    const sources = world(
+      [vpn, olav],
+      [tweet({ tweetId: "2", authorId: "30" }), tweet({ tweetId: "1", authorId: "11", quotedId: "2" })],
+    );
+    const card = mount(`<article><a href="/olav/status/1">x</a></article>`);
+    expect(tweetVerdict(card, CTX, sources, hideNG, index).reason).toBe(
+      "Quotes a match: Account based in: Nigeria (as shown by X, may be inaccurate)",
+    );
+    const own = world([vpn], [tweet({ tweetId: "3", authorId: "30" })]);
+    const post = mount(`<article><a href="/vpn/status/3">x</a></article>`);
+    expect(tweetVerdict(post, CTX, own, onlyNO, index).reason).toBe("Not in your Focus picks (may be inaccurate)");
   });
 });
 

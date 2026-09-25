@@ -84,6 +84,24 @@ export class UserCache {
     return worthSaving ? row : null;
   }
 
+  /**
+   * Take in rows another tab saved (storage.onChanged). A row is used only when it was saved
+   * after the one in memory, and then its fields win; it keeps its own seenAt, so it is not
+   * reported as worth saving again. Returns true when any field changed.
+   */
+  absorb(stored: StoredUser[]): boolean {
+    let changed = false;
+    for (const row of stored) {
+      const prev = this.rows.get(row.userId);
+      if (prev && prev.seenAt >= row.seenAt) continue;
+      const merged: StoredUser = { ...mergeUser(prev, row), seenAt: row.seenAt };
+      if (!prev || !sameFields(prev, merged)) changed = true;
+      this.insert(merged);
+    }
+    this.evict();
+    return changed;
+  }
+
   /** Add stored rows. Rows already in memory are fresher, so their fields win. */
   load(stored: StoredUser[]): void {
     const current = [...this.rows.values()];

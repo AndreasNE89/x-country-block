@@ -348,27 +348,43 @@ export function brandReason(reason: string): string {
 
 const FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
-function ensureMarkStyles(doc: Document): void {
-  if (doc.getElementById(MARK_STYLE_ID)) return;
+export const MARK_CSS = [
+  `[${HIDE_ATTR}]:not([${SLIM_ATTR}]){display:none!important}`,
+  // A hidden post leaves its timeline cell, whose 1px separator would stack into a grey band
+  // on a page where every post is hidden.
+  `[data-testid="cellInnerDiv"]:has(article[${HIDE_ATTR}]:not([${SLIM_ATTR}]))>div{border-bottom-width:0!important}`,
+  `[${MARK_ATTR}]{outline:2px solid ${HIGHLIGHT_COLOR}!important;outline-offset:-2px!important}`,
+  // Only-show: a slim row per set-aside post keeps X's loader below the fold, so X does not
+  // fetch page after page into an empty-looking timeline, and says why the post is missing.
+  `[${SLIM_ATTR}]{display:block!important;min-height:0!important;height:auto!important;padding:0!important;pointer-events:none!important;cursor:default!important}`,
+  `[${SLIM_ATTR}]>*{display:none!important}`,
+  `[${SLIM_ATTR}]::before{content:attr(title);display:block;padding:4px 16px;font:400 12px/16px ${FONT};color:#536471;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`,
+  `html[${DARK_ATTR}] [${SLIM_ATTR}]::before{color:#8B98A5}`,
+  // X's post <article> is a flex row around one content column. Wrapping it and giving the
+  // label a full-width box puts the label on its own line under the post; in a column or block
+  // parent the same width simply fills the row.
+  `[${MARK_ATTR}]:has(>.${MARK_LABEL_CLASS}){flex-wrap:wrap!important}`,
+  `.${MARK_LABEL_CLASS}{flex:none;box-sizing:border-box;width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 12px 10px;padding:4px 8px;border-radius:6px;background:#FFB638;color:#14201F;font:500 12px/16px ${FONT}}`,
+  `.${MARK_LABEL_CLASS} button{all:unset;cursor:pointer;font-weight:600;text-decoration:underline;color:#14201F}`,
+  `.${MARK_LABEL_CLASS} button:focus-visible{outline:2px solid #14201F;outline-offset:2px}`,
+].join("");
+
+/**
+ * Add the stylesheet for hidden, slim and marked cards. A sheet with the same id left by an
+ * earlier build (Firefox keeps it when it updates the add-on under an open tab, then runs this
+ * build there) is brought up to date, so its old rules cannot hide slim rows or unstyle labels.
+ * With `create` false, only such a sheet is updated.
+ */
+export function ensureMarkStyles(doc: Document, create = true): void {
+  const current = doc.getElementById(MARK_STYLE_ID);
+  if (current) {
+    if (current.textContent !== MARK_CSS) current.textContent = MARK_CSS;
+    return;
+  }
+  if (!create) return;
   const style = doc.createElement("style");
   style.id = MARK_STYLE_ID;
-  style.textContent = [
-    `[${HIDE_ATTR}]:not([${SLIM_ATTR}]){display:none!important}`,
-    `[${MARK_ATTR}]{outline:2px solid ${HIGHLIGHT_COLOR}!important;outline-offset:-2px!important}`,
-    // Only-show: a slim row per set-aside post keeps X's loader below the fold, so X does not
-    // fetch page after page into an empty-looking timeline, and says why the post is missing.
-    `[${SLIM_ATTR}]{display:block!important;min-height:0!important;height:auto!important;padding:0!important;pointer-events:none!important;cursor:default!important}`,
-    `[${SLIM_ATTR}]>*{display:none!important}`,
-    `[${SLIM_ATTR}]::before{content:attr(title);display:block;padding:4px 16px;font:400 12px/16px ${FONT};color:#536471;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`,
-    `html[${DARK_ATTR}] [${SLIM_ATTR}]::before{color:#8B98A5}`,
-    // X's post <article> is a flex row around one content column. Wrapping it and giving the
-    // label a full-width box puts the label on its own line under the post; in a column or block
-    // parent the same width simply fills the row.
-    `[${MARK_ATTR}]:has(>.${MARK_LABEL_CLASS}){flex-wrap:wrap!important}`,
-    `.${MARK_LABEL_CLASS}{flex:none;box-sizing:border-box;width:calc(100% - 24px);display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0 12px 10px;padding:4px 8px;border-radius:6px;background:#FFB638;color:#14201F;font:500 12px/16px ${FONT}}`,
-    `.${MARK_LABEL_CLASS} button{all:unset;cursor:pointer;font-weight:600;text-decoration:underline;color:#14201F}`,
-    `.${MARK_LABEL_CLASS} button:focus-visible{outline:2px solid #14201F;outline-offset:2px}`,
-  ].join("");
+  style.textContent = MARK_CSS;
   doc.documentElement.appendChild(style);
 }
 

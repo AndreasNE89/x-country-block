@@ -1,4 +1,12 @@
 export const HOOK_SOURCE = "x-country-block" as const;
+/**
+ * Hook messages carry this, and the content script reads only messages with the same value, so
+ * records a hook from an older build posts (Firefox leaves it running in a tab open across an
+ * update) are not merged in. Raise it when the records' meaning changes.
+ */
+export const HOOK_VERSION = 2 as const;
+/** Posted once by a hook when it installs, so hooks of earlier builds in the same page stand down. */
+export const HOOK_INSTALLED = "hook-installed" as const;
 
 export type FilterMode = "hide" | "only";
 
@@ -59,6 +67,7 @@ export type ParsedGraphQL = {
 export type HookMessage = {
   source: typeof HOOK_SOURCE;
   type: "graphql";
+  v: typeof HOOK_VERSION;
   tweets: TweetRecord[];
   users: UserRecord[];
 };

@@ -303,6 +303,25 @@ describe("badge and ping (F55)", () => {
     await h.frame();
     expect(h.badges().at(-1)).toBe(1);
   });
+
+  it("keeps the count while X shows an About sheet over the timeline (R2)", async () => {
+    page(article("1", "carol") + article("2", "carol") + article("3", "carol") + article("4", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.frame();
+    expect(h.ping()).toMatchObject({ count: 4 });
+    // X unmounts two cells the user scrolled past, then opens the sheet over the timeline.
+    el("a1").parentElement!.remove();
+    el("a2").parentElement!.remove();
+    window.history.pushState({}, "", "/someone/about");
+    document.body.insertAdjacentHTML("beforeend", `<div role="dialog"><span>About this account</span></div>`);
+    await h.frame();
+    expect(h.ping()).toMatchObject({ count: 4 });
+    window.history.pushState({}, "", "/home");
+    document.querySelector('[role="dialog"]')!.remove();
+    await h.frame();
+    expect(h.ping()).toMatchObject({ count: 4 });
+    expect(h.badges()).not.toContain(2);
+  });
 });
 
 describe("account cache", () => {

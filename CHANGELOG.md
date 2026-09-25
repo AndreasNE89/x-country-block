@@ -42,15 +42,77 @@ All notable changes to Tamis (formerly X Country Block). Versions match
 
 ### Fixes and features
 
-See the 0.2.0 pull request. <!-- Integrator: list the user-facing fixes and features here. -->
+New in the popup:
+
+- Redesigned popup in light and dark: Filtering switch (pause without losing
+  your picks), one-line status with the count on the current tab, Hide /
+  Only show control, "Highlight instead of hide", a tray of your picks with
+  Clear all, tab counts, and a privacy footer.
+- "Always show these accounts": accounts you add are never hidden or
+  highlighted. Highlighted posts offer a one-tap "Always show @handle".
+- Search ignores accents and knows common other names ("usa", "uk",
+  "turkiye", "ivory coast", "latam", "farsi", "bokmal").
+- The language list shows the 68 languages X tags posts with; Norwegian is
+  one row (X tags all Norwegian as `no`; older nb/nn picks move to it).
+- Tells you when a tab needs a reload, when you are not on x.com, and when
+  Firefox has not granted access to x.com, with a button for each.
+- Focus mode (Pro): tapping Only show while locked opens an explanation card
+  instead of jumping to checkout; a "Trial · N days left" chip; buying stays
+  possible during the trial; an "Already bought? Restore Focus mode" link;
+  a trial start in the future no longer unlocks.
+- When the trial ends, filtering pauses and the popup says so. Before, the
+  saved Only-show list silently turned into a hide list.
+- The Stripe success page now confirms the unlock instead of closing.
+  Leftover ExtensionPay data from 0.1.0 is removed on update.
+
+Matching:
+
+- Profile locations are read far more accurately: ordinary words are never
+  country codes ("In the clouds" is no longer India, "LA" is Los Angeles),
+  "City, ST" reads as a US town unless the code belongs to the city's own
+  country ("Jaipur, IN" is India), phrases are not re-read ("Rio de Janeiro"),
+  US state names beat same-named countries after a place ("Atlanta,
+  Georgia"), and "South America" is no longer the United States.
+- Accents fold instead of being deleted; flag emoji and native-language
+  country names are recognised; cities for every country above about one
+  million people.
+- New regions: North America, Latin America & Caribbean, Caribbean, Central
+  America, South America, Middle East, North Africa, Sub-Saharan Africa,
+  European Union, Antarctica. Every country sits in at least one region.
+- X's language codes are normalised (in, iw, ckb, zh-CN, hi-Latn, pt-BR,
+  nb/nn), so Indonesian, Hebrew, Kurdish and Chinese can be filtered.
+  Photo, link and emoji posts are not set aside when only languages are
+  ticked in Only show.
+- Reasons are plain words ("Tamis · Post language: Portuguese",
+  "Account based in: Japan (as shown by X)").
+- About 500 times faster per post.
+
+On the page:
+
+- Matching posts below the screen are hidden before you reach them, so the
+  feed no longer jumps while you read; the last reply or search result is
+  filtered too.
+- Your own posts and the post you opened directly are never hidden.
+- The "About this account" reader only reads X's real About sheet, so reply
+  text can no longer set someone's country.
+- Reposts are judged by the original author; like and repost notifications
+  by the account that acted; quotes referenced by id are read.
+- Account lists (Who to follow, followers) are filtered.
+- The toolbar badge counts distinct posts on the page and uses marigold.
+- Much lighter on storage and CPU: the profile cache is saved at most every
+  few seconds, merged across tabs, keeps only accounts with a location,
+  expires after 30 days, and is not written in private windows or while no
+  filter is active. No full re-scan on every scroll.
+- Page messages are checked for origin and shape, and an extension update
+  no longer leaves old tabs half-working.
 
 ## 0.1.2 - 2026-09-24
 
-- Version bump for store resubmission.
+- Focus mode checkout moved from ExtensionPay to a Stripe Payment Link.
 
 ## 0.1.1 - 2026-09-03
 
-- Focus mode ("Only show") checkout through a Stripe Payment Link.
+- Focus mode ("Only show") checkout through ExtensionPay (Stripe).
 - Reads the 2026 location fields in X's data, so country filters and Only
   show work on the current feed.
 

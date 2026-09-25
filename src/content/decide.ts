@@ -22,6 +22,16 @@ import {
 import type { CountryIndex, Settings, TweetRecord, UserRecord } from "../shared/types.ts";
 
 export const INACCURATE_NOTE = " (may be inaccurate)";
+/** The note match.ts puts after an "Account based in" reason; the doubt joins it, not a second one. */
+const SHOWN_BY_X = " (as shown by X)";
+const SHOWN_BY_X_DOUBTED = " (as shown by X, may be inaccurate)";
+
+/** Add the doubt note to a reason: inside its "(as shown by X)" when it has one (the last one). */
+export function withDoubtNote(reason: string): string {
+  const at = reason.lastIndexOf(SHOWN_BY_X);
+  if (at < 0) return reason + INACCURATE_NOTE;
+  return reason.slice(0, at) + SHOWN_BY_X_DOUBTED + reason.slice(at + SHOWN_BY_X.length);
+}
 
 export type CardKind = "tweet" | "notification" | "user";
 
@@ -138,7 +148,7 @@ class UsersView extends Map<string, UserRecord> {
 }
 
 /**
- * The action reason, with " (may be inaccurate)" when it rests on an "Account based in" value X
+ * The action reason, with "may be inaccurate" when it rests on an "Account based in" value X
  * itself flags as possibly wrong (VPN, travel): deciding without that value gives another result.
  */
 function reasonWithDoubt(
@@ -150,7 +160,7 @@ function reasonWithDoubt(
   const reason = actionReason(decision, settings);
   if (!reason || !anyDoubted) return reason;
   const without = decide(true);
-  return without.hit !== decision.hit || without.decided !== decision.decided ? reason + INACCURATE_NOTE : reason;
+  return without.hit !== decision.hit || without.decided !== decision.decided ? withDoubtNote(reason) : reason;
 }
 
 export function tweetVerdict(

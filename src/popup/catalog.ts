@@ -1,5 +1,5 @@
 import { COUNTRY_ALIASES, COUNTRY_ISO3, COUNTRY_NAMES } from "../shared/countries.ts";
-import { LANGUAGES, languageName, X_LANGUAGE_CODES } from "../shared/languages.ts";
+import { LANGUAGE_ALIASES, LANGUAGES, languageName, normalizeLang, X_LANGUAGE_CODES } from "../shared/languages.ts";
 import { REGIONS, regionName } from "../shared/regions.ts";
 import { foldSearch, type SearchRow } from "./search.ts";
 
@@ -8,27 +8,11 @@ export type PickKind = "languages" | "countries" | "regions";
 
 export const PICK_KINDS: readonly PickKind[] = ["languages", "countries", "regions"];
 
-// Other names people type for a language: endonyms written in Latin script and common synonyms.
-const LANGUAGE_ALIASES: Record<string, string[]> = {
-  de: ["deutsch"],
-  da: ["dansk"],
-  es: ["espanol", "castellano"],
-  fa: ["farsi"],
-  fi: ["suomi"],
-  fr: ["francais"],
-  id: ["bahasa indonesia"],
-  it: ["italiano"],
-  ms: ["bahasa melayu"],
-  nl: ["nederlands", "flemish"],
-  no: ["norsk", "bokmal", "nynorsk"],
-  pa: ["panjabi"],
-  pl: ["polski"],
-  ps: ["pushto"],
-  pt: ["portugues"],
-  sv: ["svenska"],
-  tl: ["filipino", "pilipino"],
-  tr: ["turkce"],
-  zh: ["mandarin", "cantonese", "putonghua"],
+// Search-only names the shared table does not list yet. Same shape as LANGUAGE_ALIASES;
+// once shared/languages.ts has them, these lines can go.
+const EXTRA_LANGUAGE_ALIASES: Record<string, string> = {
+  castellano: "es",
+  putonghua: "zh",
 };
 
 // Extra search words not already in REGIONS[].phrases.
@@ -68,13 +52,19 @@ function regionRows(): SearchRow[] {
 
 // Only languages X actually tags posts with: a pick X never emits could never match.
 // Older picks outside this list still show as removable chips in the tray.
+// Search keys come from the matcher's own alias table, so the popup finds every name it understands.
 function languageRows(): SearchRow[] {
+  const aliasesByCode = new Map<string, string[]>();
+  for (const [alias, code] of Object.entries({ ...EXTRA_LANGUAGE_ALIASES, ...LANGUAGE_ALIASES })) {
+    const target = normalizeLang(code) ?? code;
+    aliasesByCode.set(target, [...(aliasesByCode.get(target) ?? []), alias]);
+  }
   return LANGUAGES.filter((row) => X_LANGUAGE_CODES.has(row.code)).map((row) => ({
     id: row.code,
     label: row.name,
     code: row.code,
     codes: uniqueFolded([row.code]),
-    keys: uniqueFolded([row.name, ...(LANGUAGE_ALIASES[row.code] ?? [])]),
+    keys: uniqueFolded([row.name, ...(aliasesByCode.get(row.code) ?? [])]),
   }));
 }
 

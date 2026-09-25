@@ -1,5 +1,5 @@
 import { COUNTRY_ALIASES, COUNTRY_ISO3, COUNTRY_NAMES } from "../shared/countries.ts";
-import { LANGUAGES, languageName, normalizeLang } from "../shared/languages.ts";
+import { LANGUAGES, languageName, X_LANGUAGE_CODES } from "../shared/languages.ts";
 import { REGIONS, regionName } from "../shared/regions.ts";
 import { foldSearch, type SearchRow } from "./search.ts";
 
@@ -66,10 +66,10 @@ function regionRows(): SearchRow[] {
   }));
 }
 
-// Rows whose code is an alias of another row (nb, nn -> no) are left out: ticking them
-// would store a pick that settings.ts folds into the canonical code anyway.
+// Only languages X actually tags posts with: a pick X never emits could never match.
+// Older picks outside this list still show as removable chips in the tray.
 function languageRows(): SearchRow[] {
-  return LANGUAGES.filter((row) => normalizeLang(row.code) === row.code).map((row) => ({
+  return LANGUAGES.filter((row) => X_LANGUAGE_CODES.has(row.code)).map((row) => ({
     id: row.code,
     label: row.name,
     code: row.code,

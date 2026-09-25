@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { catalogRows, pickLabel } from "../src/popup/catalog.ts";
 import { visibleOptionRows } from "../src/popup/option-rows.ts";
 import { foldSearch, matchRank } from "../src/popup/search.ts";
+import { X_LANGUAGE_CODES } from "../src/shared/languages.ts";
 
 function ids(kind: "languages" | "countries" | "regions", query: string, selected: string[] = []): string[] {
   return visibleOptionRows(catalogRows(kind), selected, query).map((row) => row.id);
@@ -115,5 +116,16 @@ describe("catalog", () => {
     expect(pickLabel("languages", "nb")).toBe("Norwegian Bokmål");
     expect(pickLabel("regions", "WEST_ASIA")).toBe("West Asia");
     expect(pickLabel("countries", "ZZ")).toBe("ZZ");
+  });
+});
+
+describe("language rows", () => {
+  it("should list only languages X tags posts with", () => {
+    const codes = catalogRows("languages").map((row) => row.id);
+    expect(codes).toContain("ja");
+    expect(codes).toContain("no");
+    expect(codes).not.toContain("ab");
+    expect(codes).not.toContain("nb");
+    expect(codes.length).toBe(X_LANGUAGE_CODES.size);
   });
 });

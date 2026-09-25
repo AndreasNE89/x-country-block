@@ -136,6 +136,8 @@ describe("countriesFromLocation", () => {
     expect(parse("Tbilisi, Georgia")).toEqual(["GE"]);
     expect(parse("Macon, Georgia")).toEqual(["US"]);
     expect(parse("Georgia")).toEqual([]);
+    expect(parse("South Georgia")).toEqual(["US"]);
+    expect(parse("South Georgia and the South Sandwich Islands")).toEqual(["GS"]);
     expect(countryFromBasedIn("Georgia", real)).toBe("GE");
   });
 
@@ -147,6 +149,9 @@ describe("countriesFromLocation", () => {
     expect(parse("Dominican Republic")).toEqual(["DO"]);
     expect(parse("Niger")).toEqual(["NE"]);
     expect(parse("Nigeria")).toEqual(["NG"]);
+    expect(parse("Port Harcourt, Niger Delta")).toEqual(["NG"]);
+    expect(parse("Jersey")).toEqual(["JE"]);
+    expect(parse("South Jersey")).toEqual(["US"]);
     expect(parse("Sudan")).toEqual(["SD"]);
     expect(parse("South Sudan")).toEqual(["SS"]);
   });

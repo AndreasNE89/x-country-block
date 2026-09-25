@@ -505,5 +505,18 @@
   ["Brussels", ["BE"]],
   ["Vienna", ["AT"]],
   ["Macedonia", ["MK"]],
-  ["Nigeria", ["NG"]]
+  ["Nigeria", ["NG"]],
+  ["South Georgia", ["US"]],
+  ["North Georgia", ["US"]],
+  ["Valdosta, South Georgia", ["US"]],
+  ["South Georgia and the South Sandwich Islands", ["GS"]],
+  ["Port Harcourt, Niger Delta", ["NG"]],
+  ["Niger Delta, Nigeria", ["NG"]],
+  ["Niger Delta", ["NG"]],
+  ["South South, Nigeria", ["NG"]],
+  ["Niamey, Niger", ["NE"]],
+  ["North Jersey", ["US"]],
+  ["South Jersey", ["US"]],
+  ["Central Jersey", ["US"]],
+  ["Saint Helier, Jersey", ["JE"]]
 ]

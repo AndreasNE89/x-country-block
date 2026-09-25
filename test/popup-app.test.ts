@@ -698,6 +698,14 @@ describe("tray, tabs and search", () => {
 });
 
 describe("always-shown accounts", () => {
+  it("should put the Add form above the account chips, so a long list never pushes it out of view", async () => {
+    await open({ allowedHandles: ["a", "b", "c"] });
+    const form = $("handle-form");
+    const handles = $("handles");
+    expect(form.compareDocumentPosition(handles) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(form.compareDocumentPosition($("handle-error")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("should add, reject and remove handles", async () => {
     const { api } = await open();
     const input = $<HTMLInputElement>("handle-input");

@@ -172,10 +172,14 @@ button:disabled {
   transform: translateX(12px);
 }
 
-/* Everything between the header and the tabs; scrolls on its own if a card makes it tall. */
+/*
+ * Everything between the header and the tabs. It keeps its height: the accounts section gives
+ * up room first (see .accounts), so the pick chips are never cut in half by a second scroller.
+ * Only an open Focus mode card lets it shrink and scroll.
+ */
 
 .top {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -472,6 +476,7 @@ body.is-paused .status-card {
   max-height: 52px;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   list-style: none;
 }
@@ -479,6 +484,12 @@ body.is-paused .status-card {
 .tray .chips {
   flex: 1;
   min-width: 0;
+}
+
+/* A chip is never wider than its list: long names ellipsize and the × stays in view. */
+.chips li {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .chip {
@@ -502,6 +513,7 @@ body.is-paused .status-card {
 }
 
 .chip-x {
+  flex: none;
   color: var(--muted);
   font-size: 13px;
   line-height: 1;
@@ -562,6 +574,10 @@ body.is-paused .status-card {
 /* While the Focus mode card is open, let the list give up more room than usual. */
 body.card-open .panel {
   min-height: 72px;
+}
+
+body.card-open .top {
+  flex-shrink: 1;
 }
 
 #search {
@@ -662,13 +678,22 @@ body.card-open .panel {
 
 /* Always-shown accounts */
 
+/*
+ * One scroll area for the whole section (the Add form sits first, so it stays in view).
+ * The large shrink factor makes it give up room long before .top has to.
+ */
 .accounts {
-  flex: 0 1 auto;
+  flex: 0 100 auto;
   min-height: 28px;
   max-height: 180px;
   margin: 0 12px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
+}
+
+.accounts .chips {
+  max-height: none;
+  overflow: visible;
 }
 
 .accounts summary {

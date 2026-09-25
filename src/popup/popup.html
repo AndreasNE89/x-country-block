@@ -130,15 +130,15 @@
     <details id="accounts" class="accounts">
       <summary>Always show these accounts <span id="accounts-count" class="muted"></span></summary>
       <div class="accounts-body">
-        <p class="help">Their posts are never hidden or highlighted.</p>
-        <ul id="handles" class="chips"></ul>
         <form id="handle-form" class="handle-form" novalidate>
           <label for="handle-input" class="sr-only">Account to always show</label>
           <input id="handle-input" type="text" placeholder="@handle" autocomplete="off" spellcheck="false"
-            aria-describedby="handle-error" />
+            aria-describedby="handle-error handle-help" />
           <button type="submit" class="btn btn-small btn-ghost">Add</button>
         </form>
         <p id="handle-error" class="error" hidden></p>
+        <p id="handle-help" class="help">Their posts are never hidden or highlighted.</p>
+        <ul id="handles" class="chips"></ul>
       </div>
     </details>
 

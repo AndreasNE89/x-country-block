@@ -201,7 +201,7 @@ device.
 ```
 Tamis (formerly X Country Block) filters posts on x.com by country, region and language, using only data X has already loaded; it makes no network requests.
 
-Build: see BUILD.md in the source archive (npm ci, then npm run build:firefox:prod). The zip rebuilds byte-for-byte with Node.js 22.
+Build: see BUILD.md in the source archive (npm ci, then npm run build:firefox:prod). With Node.js 22.23.2, the version in BUILD.md, the zip rebuilds byte-for-byte. With another Node.js version the extracted files are identical, but the compressed bytes can differ (see BUILD.md step 5).
 
 Focus mode is a one-time Stripe payment. After checkout Stripe redirects to https://andreasne89.github.io/x-country-block/privacy.html?paid=1, where the paid-page.js content script tells the background script to unlock Focus mode locally. To test Focus mode without paying, start the free 7-day trial from the popup.
 ```

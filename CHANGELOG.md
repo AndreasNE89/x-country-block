@@ -29,7 +29,9 @@ All notable changes to Tamis (formerly X Country Block). Versions match
 - Builds start from an empty output folder and fail if it holds a file the
   manifest and popup do not reference, so no leftover bundle can ship.
 - Deterministic zips: sorted entries and one fixed, valid timestamp. The
-  Firefox zip rebuilds byte-for-byte from the source archive with Node.js 22.
+  Firefox zip rebuilds byte-for-byte from the source archive with the same
+  Node.js release (22.23.2); other releases give the same files, but the
+  compressed bytes can differ.
 - The Chrome package is now `x-country-block-0.2.0-chrome.zip`.
 - The source archive holds only what is needed to rebuild and test.
 - Version check across package files, manifests, README, BUILD and this

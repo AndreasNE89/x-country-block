@@ -390,9 +390,21 @@ function parseLocation(text: string, derived: Derived): string[] {
 }
 
 /**
+ * A world city's small US namesake (Paris, Texas; Berlin, New Hampshire). The US
+ * flag is the most common heritage or solidarity flag on X, and "London | USA"
+ * lists two places as often as it names one, so only a US state picks the namesake
+ * ("Paris - Texas", "Berlin, NH"). Names whose readings are equally common
+ * (Georgia, Jersey) are "ambiguous", not cities, and a flag still picks for them.
+ */
+function usNamesake(item: Item, country: string, via: "country" | "subdivision" | "flag"): boolean {
+  return country === "US" && via !== "subdivision" && item.kind === "city" && item.countries[0] !== "US";
+}
+
+/**
  * A group that names only one place can settle the place just before it:
  * - a country or state settles a city when it is one of the city's readings
- *   ("Cali - Colombia", "Hyderabad | Sindh");
+ *   ("Cali - Colombia", "Hyderabad | Sindh"), except a bare "USA" after a world
+ *   city ("Paris | USA", see usNamesake);
  * - a lone state code of another country confirms a place there, as "City, ST"
  *   does ("Porto Alegre - RS", "Kochi - KL", "Tijuana - BC").
  * Two unrelated places stay two places ("London | Lagos", "London / LA").
@@ -407,7 +419,9 @@ function pinAcrossGroups(groups: Item[][]): void {
     const lastIsCity = last.kind === "city" || last.kind === "ambiguous";
     if (place.kind === "country" || place.kind === "subdivision") {
       const country = place.countries[0];
-      if (lastIsCity && country && last.countries.includes(country)) last.pinned ??= country;
+      if (lastIsCity && country && last.countries.includes(country) && !usNamesake(last, country, place.kind)) {
+        last.pinned ??= country;
+      }
     } else if (place.code !== undefined && !place.hasPrefix && last.kind !== "code") {
       const confirmed = intersect(countriesForForeignStateCode(place.code), readings(last))[0];
       if (!confirmed) continue;
@@ -627,7 +641,8 @@ function readings(item: Item): string[] {
  * Decide what each place in one location means: first from its right-hand
  * neighbour (resolvePair); anything still open then takes a country named
  * elsewhere in the same segment ("Springfield, IL, USA"), else a reading a flag
- * names ("Cali 🇨🇴", "NL 🇨🇦"), else its default reading.
+ * names ("Cali 🇨🇴", "NL 🇨🇦"; not a US namesake, "London 🇺🇸"), else its default
+ * reading.
  */
 function resolveItems(items: Item[], flags: string[]): string[] {
   for (let i = 0; i < items.length - 1; i += 1) resolvePair(items[i]!, items[i + 1]!);
@@ -658,7 +673,7 @@ function resolveItems(items: Item[], flags: string[]): string[] {
       const context = explicit.get(item.segment);
       code =
         item.countries.find((c) => context?.has(c)) ??
-        readings(item).find((c) => flags.includes(c)) ??
+        readings(item).find((c) => flags.includes(c) && !usNamesake(item, c, "flag")) ??
         fallback(item);
     }
     if (code) out.push(code);

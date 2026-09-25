@@ -468,6 +468,36 @@ describe("countriesFromLocation", () => {
     }
   });
 
+  it("does not let a bare USA or a US flag move a world city to its US namesake", () => {
+    for (const [text, want] of [
+      ["Paris | USA", ["FR", "US"]],
+      ["Berlin / USA", ["DE", "US"]],
+      ["London | USA", ["GB", "US"]],
+      ["Moscow | USA", ["RU", "US"]],
+      ["Lima | USA", ["PE", "US"]],
+      ["Birmingham | USA", ["GB", "US"]],
+      ["Paris - United States", ["FR", "US"]],
+      ["London 🇺🇸", ["GB"]],
+      ["Berlin 🇺🇸🇮🇱", ["DE"]],
+      ["Moscow 🇺🇸", ["RU"]],
+      ["Cairo 🇺🇸", ["EG"]],
+      ["Athens 🇺🇸", ["GR"]],
+      // A US state still settles the city; so do the words in one part.
+      ["Paris - Texas", ["US"]],
+      ["Moscow | Idaho", ["US"]],
+      ["Berlin, NH", ["US"]],
+      ["Paris, Texas, USA", ["US"]],
+      // A flag still picks between readings that are equally common.
+      ["Georgia 🇺🇸", ["US"]],
+      ["Jersey 🇺🇸", ["US"]],
+      ["Cali 🇺🇸", ["US"]],
+      ["Cali 🇨🇴", ["CO"]],
+      ["London 🇨🇦", ["CA"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("keeps every place in a multi-location text (F19)", () => {
     expect(parse("Lagos, Nigeria. Follow me")).toEqual(["NG"]);
     expect(parse("India | DM me")).toEqual(["IN"]);

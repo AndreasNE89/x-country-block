@@ -274,6 +274,17 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     );
   });
 
+  it("keeps a world city when a US flag or a bare USA follows it", () => {
+    expect(reason({}, { location: "Berlin 🇺🇸🇮🇱" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Berlin 🇺🇸🇮🇱" }, settings({ regions: ["EUROPE"] }))).toBe(
+      "Profile location: Germany, Europe",
+    );
+    expect(reason({}, { location: "Moscow 🇺🇸" }, settings({ countries: ["RU"] }))).toBe(
+      "Profile location: Russia",
+    );
+    expect(reason({}, { location: "Paris | USA" }, settings({ countries: ["FR"] }, "only"))).toBeNull();
+  });
+
   it("reads Brazilian state codes after a dash, slash or town as Brazil (R29)", () => {
     expect(reason({}, { location: "Porto Alegre - RS" }, settings({ regions: ["EUROPE"] }))).toBeNull();
     expect(reason({}, { location: "Salvador/BA" }, settings({ regions: ["EUROPE"] }))).toBeNull();

@@ -548,3 +548,30 @@ describe("stored accounts from earlier versions (R12, R13, R34, R41)", () => {
   });
 });
 
+describe("accounts another tab saved (R11)", () => {
+  it("filters by what another tab saved, without a reload or a write back", async () => {
+    page(article("1", "u5"));
+    const h = await start({ hiddenCountryCodes: ["IN"] });
+    h.post([user({ userId: "50", screenName: "u5" })], [tweet({ tweetId: "1", authorId: "50" })]);
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    // A second later tab A opened @u5's About page and saved what X said there.
+    h.setNow(NOW + 2000);
+    await h.area.set({ userCache: [saved(user({ userId: "50", screenName: "u5", basedIn: "India" }), NOW + 1000)] });
+    await h.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("India");
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an older copy another tab wrote", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.frame();
+    await h.area.set({ userCache: [saved({ ...carol, location: "Oslo, Norway" }, NOW - 5_000)] });
+    await h.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("India");
+  });
+});
+

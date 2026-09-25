@@ -131,6 +131,32 @@ describe("UserCache", () => {
     expect(cache.get("b")?.location).toBe("Paris");
   });
 
+  it("absorbs rows another tab saved later, and only those (R11)", () => {
+    const cache = new UserCache(10);
+    cache.put(user({ userId: "a", screenName: "a", location: "Austin, TX" }), NOW);
+    cache.put(user({ userId: "b", location: "Oslo" }), NOW);
+    const changed = cache.absorb([
+      stored({ userId: "a", screenName: "a", basedIn: "India", seenAt: NOW + 10 }),
+      stored({ userId: "b", location: "Lagos", seenAt: NOW - 10 }),
+      stored({ userId: "c", screenName: "Cee", location: "Lima", seenAt: NOW + 5 }),
+    ]);
+    expect(changed).toBe(true);
+    expect(cache.peek("a")).toMatchObject({ location: "Austin, TX", basedIn: "India", seenAt: NOW + 10 });
+    // An older copy (a stale write from another tab) never replaces what this tab saw.
+    expect(cache.peek("b")).toMatchObject({ location: "Oslo", seenAt: NOW });
+    expect(cache.byScreenName("cee")?.location).toBe("Lima");
+    // Absorbed rows keep their seenAt, so a sighting soon after is not worth saving again.
+    expect(cache.put(user({ userId: "a", screenName: "a", location: "Austin, TX" }), NOW + 20)).toBeNull();
+  });
+
+  it("reports no change when another tab saved the same fields (its own write coming back)", () => {
+    const cache = new UserCache(10);
+    const row = cache.put(user({ userId: "a", location: "Oslo" }), NOW)!;
+    expect(cache.absorb([row])).toBe(false);
+    expect(cache.absorb([{ ...row, seenAt: NOW + 1 }])).toBe(false);
+    expect(cache.peek("a")?.seenAt).toBe(NOW + 1);
+  });
+
   it("round-trips dump/load", () => {
     const cache = new UserCache(10);
     cache.put(user({ userId: "a", location: "A" }), NOW);

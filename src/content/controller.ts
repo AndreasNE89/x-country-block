@@ -42,8 +42,8 @@ import {
 } from "./decide.ts";
 import { readHookMessage } from "./hook-message.ts";
 import { PageCounter } from "./page-counter.ts";
-import { parseStoredUsers } from "./records.ts";
-import { captureAnchor, holdAnchor, scrollerFor, startsAboveViewBottom } from "./scroll-anchor.ts";
+import { parseStoredUsers, storedSeenAt } from "./records.ts";
+import { type Anchor, captureAnchor, holdAnchor, scrollerFor, startsAboveViewBottom } from "./scroll-anchor.ts";
 import { matchingActive, SettingsState } from "./settings-state.ts";
 import { TweetStore } from "./tweet-store.ts";
 import { UserPersister } from "./user-store.ts";
@@ -287,9 +287,31 @@ export class ContentController {
 
   private readonly onStorageChanged = (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>): void => {
     if (this.stopped) return;
-    if (changes.userCache) this.persister.setStored(changes.userCache.newValue);
+    const cache = changes.userCache;
+    if (cache) {
+      this.persister.setStored(cache.newValue);
+      if (this.absorbStored(cache.newValue, cache.oldValue)) {
+        this.gen += 1;
+        if (this.active()) this.schedule();
+      }
+    }
     if (this.state.applyChanges(changes, this.now())) this.settingsChanged();
   };
+
+  /**
+   * Take in what another tab saved (an About page opened there, say), so this tab filters by it
+   * without a reload. Only rows that differ from the previous stored copy are parsed; this tab's
+   * own writes come back with the seenAt it already holds and change nothing.
+   */
+  private absorbStored(next: unknown, prev: unknown): boolean {
+    if (!Array.isArray(next)) return false;
+    const before = storedSeenAt(prev);
+    const changed = next.filter((row: unknown) => {
+      const { userId, seenAt } = (row ?? {}) as { userId?: unknown; seenAt?: unknown };
+      return typeof userId !== "string" || before.get(userId) !== seenAt;
+    });
+    return changed.length > 0 && this.users.absorb(parseStoredUsers(changed, this.now()));
+  }
 
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (this.stopped) return;

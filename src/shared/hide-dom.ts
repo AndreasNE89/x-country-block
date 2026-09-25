@@ -350,6 +350,9 @@ const FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
 export const MARK_CSS = [
   `[${HIDE_ATTR}]:not([${SLIM_ATTR}]){display:none!important}`,
+  // A hidden post leaves its timeline cell, whose 1px separator would stack into a grey band
+  // on a page where every post is hidden.
+  `[data-testid="cellInnerDiv"]:has(article[${HIDE_ATTR}]:not([${SLIM_ATTR}]))>div{border-bottom-width:0!important}`,
   `[${MARK_ATTR}]{outline:2px solid ${HIGHLIGHT_COLOR}!important;outline-offset:-2px!important}`,
   // Only-show: a slim row per set-aside post keeps X's loader below the fold, so X does not
   // fetch page after page into an empty-looking timeline, and says why the post is missing.

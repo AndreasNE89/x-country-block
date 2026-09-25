@@ -151,6 +151,18 @@ describe("paintCard", () => {
     expect(document.getElementById("xcb-mark-style")?.textContent).toBe(MARK_CSS);
   });
 
+  it("drops the separator of a hidden post's timeline cell, not of a slim row (R14)", () => {
+    document.body.innerHTML = `
+      <div data-testid="cellInnerDiv"><div id="hidden-wrap"><div><article id="hidden"><a href="/a/status/1">x</a></article></div></div></div>
+      <div data-testid="cellInnerDiv"><div id="slim-wrap"><div><article id="slim"><a href="/a/status/2">x</a></article></div></div></div>
+      <div data-testid="cellInnerDiv"><div id="shown-wrap"><div><article><a href="/a/status/3">x</a></article></div></div></div>`;
+    paintCard(document.getElementById("hidden")!, { kind: "hide", reason: "r" }, "t:1");
+    paintCard(document.getElementById("slim")!, { kind: "slim", reason: "r" }, "t:2");
+    const rule = MARK_CSS.split("}").find((r) => r.includes("border-bottom-width:0"))!;
+    const selector = rule.slice(0, rule.indexOf("{"));
+    expect([...document.querySelectorAll(selector)].map((el) => el.id)).toEqual(["hidden-wrap"]);
+  });
+
   it("flags X's dark themes for the slim row text", () => {
     document.body.style.backgroundColor = "rgb(21, 32, 43)";
     syncThemeFlag(document);

@@ -98,6 +98,13 @@ describe("background Stripe unlock", () => {
     await flush();
     expect(api.storage.local.set).not.toHaveBeenCalled();
   });
+
+  it("should ignore a paid message whose sender has no URL", async () => {
+    const { api, messageListeners } = await loadBackground();
+    messageListeners[0]({ type: STRIPE_PAID_MESSAGE }, {}, vi.fn());
+    await flush();
+    expect(api.storage.local.set).not.toHaveBeenCalled();
+  });
 });
 
 describe("background legacy ExtensionPay cleanup", () => {

@@ -62,7 +62,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (isStripePaidMessage(message)) {
     const from = sender.url ?? sender.tab?.url;
-    if (from && !isStripeSuccessUrl(from)) return;
+    if (!from || !isStripeSuccessUrl(from)) return;
     // Keep the tab open: the page shows the confirmation once this answers.
     markPaid().then(
       () => sendResponse({ ok: true }),

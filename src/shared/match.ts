@@ -403,12 +403,27 @@ function usNamesake(item: Item, country: string, via: "country" | "subdivision" 
 }
 
 /**
+ * The readings of a place that a lone US, Canadian or Australian code after it can
+ * confirm. A US state code confirms only the place's own country ("Seattle / WA"),
+ * since NY, LA and DC also stand for cities ("London / NY" lists two places); a
+ * province code, which does not, confirms any reading ("London - ON", "Sydney /
+ * NS"), and so does any code after a name with equally common readings ("Georgia
+ * / GA").
+ */
+function provinceReadings(item: Item, code: string): string[] {
+  if (item.kind === "ambiguous" || !US_STATE_CODES.has(code)) return readings(item);
+  return item.countries.slice(0, 1);
+}
+
+/**
  * A group that names only one place can settle the place just before it:
  * - a country or state settles a city when it is one of the city's readings
  *   ("Cali - Colombia", "Hyderabad | Sindh"), except a bare "USA" after a world
  *   city ("Paris | USA", see usNamesake);
- * - a lone state code of another country confirms a place there, as "City, ST"
- *   does ("Porto Alegre - RS", "Kochi - KL", "Tijuana - BC").
+ * - a lone state code confirms a place there, as "City, ST" does: another
+ *   country's ("Porto Alegre - RS", "Kochi - KL", "Tijuana - BC"), or a US,
+ *   Canadian or Australian one ("Regina - SK", "London - ON", "Perth / WA", see
+ *   provinceReadings).
  * Two unrelated places stay two places ("London | Lagos", "London / LA").
  */
 function pinAcrossGroups(groups: Item[][]): void {
@@ -425,7 +440,9 @@ function pinAcrossGroups(groups: Item[][]): void {
         last.pinned ??= country;
       }
     } else if (place.code !== undefined && !place.hasPrefix && last.kind !== "code") {
-      const confirmed = intersect(countriesForForeignStateCode(place.code), readings(last))[0];
+      const confirmed =
+        intersect(countriesForForeignStateCode(place.code), readings(last))[0] ??
+        intersect(countriesForSubdivisionCode(place.code), provinceReadings(last, place.code))[0];
       if (!confirmed) continue;
       place.pinned = confirmed;
       if (lastIsCity) last.pinned ??= confirmed;

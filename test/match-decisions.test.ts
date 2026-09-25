@@ -322,6 +322,12 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();
   });
+
+  it("reads 'NL' and 'SK' after a Canadian place as the province", () => {
+    expect(reason({}, { location: "Regina - SK" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "St. John's - NL" }, settings({ countries: ["NL"] }))).toBeNull();
+    expect(reason({}, { location: "Regina - SK" }, settings({ countries: ["CA"] }, "only"))).toBeNull();
+  });
 });
 
 describe("reason wording (F59)", () => {

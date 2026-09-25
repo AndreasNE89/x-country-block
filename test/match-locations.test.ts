@@ -326,6 +326,36 @@ describe("countriesFromLocation", () => {
     }
   });
 
+  it("reads a province or state code after a dash or slash by the place before it", () => {
+    for (const [text, want] of [
+      ["Regina - SK", ["CA"]],
+      ["Regina / SK", ["CA"]],
+      ["Saskatoon - SK", ["CA"]],
+      ["St. John's - NL", ["CA"]],
+      ["St John's / NL", ["CA"]],
+      ["Newfoundland - NL", ["CA"]],
+      ["Toronto | NL", ["CA"]],
+      ["Canada - NL", ["CA"]],
+      ["London - ON", ["CA"]],
+      ["Victoria - BC", ["CA"]],
+      ["Sydney / NS", ["CA"]],
+      ["Perth / WA", ["AU"]],
+      ["Georgia / GA", ["US"]],
+      // Not a province of that place: the code keeps its own reading.
+      ["Amsterdam - NL", ["NL"]],
+      ["Bratislava / SK", ["SK"]],
+      ["Lima - PE", ["PE"]],
+      ["NL", ["NL"]],
+      ["SK", ["SK"]],
+      // US codes that stand for cities too: a second place, not the namesake.
+      ["London / LA", ["GB", "US"]],
+      ["London / NY", ["GB", "US"]],
+      ["Paris / PA", ["FR"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("knows mid-size Brazilian cities before a state code (R29)", () => {
     for (const text of [
       "Vitória, ES",

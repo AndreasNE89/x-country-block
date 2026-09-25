@@ -1,19 +1,21 @@
-// Renders store screenshots 1, 3 and 4 from the real production popup.
+// Renders the five store screenshots in one layout.
 //
 //   node scripts/store-screenshots.mjs
 //
-// Builds dist/ with --prod, loads dist/popup.html (popup.js and popup.css
-// inlined) under a stubbed extension API seeded with each shot's settings,
-// screenshots it at 2x in headless Chrome, and composes it on the 1280x800
-// brand canvas as an opaque PNG in store/screenshots/. Each shot first
-// checks the popup's own status text, so a popup change that alters what a
-// shot shows fails here instead of producing a wrong image.
+// Builds dist/ with --prod. Screenshots 1, 3, 4 and 5 load dist/popup.html
+// (popup.js and popup.css inlined) under a stubbed extension API seeded
+// with each shot's settings, capture it at 2x in headless Chrome, and place
+// it on the 1280x800 brand canvas. Each first checks the popup's own status
+// text, so a popup change that alters what a shot shows fails here instead
+// of producing a wrong image. Screenshot 2 places your blurred capture of
+// x.com (store/screenshots/highlight-capture.png) on the same canvas, and is
+// skipped until that file exists. Output: opaque PNGs in store/screenshots/.
 //
 // Like render-brand.mjs it needs Chrome (CHROME_PATH, or a usual install
-// path) and network access to Google Fonts for Inter. Screenshot 2 is a
-// hand-made capture of x.com and screenshot 5 comes from render-brand.mjs;
-// see store/screenshots/README.md.
+// path) and network access to Google Fonts for Inter. See
+// store/screenshots/README.md.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,6 +25,7 @@ import { decodePng, encodePng } from "./lib/png.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const at = (...parts) => join(root, ...parts);
+const show = (path) => relative(root, path).split("\\").join("/");
 
 const WIDTH = 1280;
 const HEIGHT = 800;
@@ -31,12 +34,19 @@ const CAPTURE_SCALE = 2;
 // Popup CSS px to canvas px.
 const SHOW_SCALE = 1.3;
 const MINUTE = 60_000;
+const FINE_PRINT = "Works on x.com and twitter.com. Not affiliated with or endorsed by X Corp.";
+// Where screenshot 2's capture sits: right of the copy column, clear of the fine print.
+const CAPTURE_BOX = { left: 640, top: 40, right: WIDTH - 40, bottom: HEIGHT - 40 };
+// What the band runs behind: the ticked rows, or the privacy line at the foot of the popup.
+const BAND_TARGETS = { ticked: "#list li.is-on", footer: "body > footer" };
 
 /**
- * `storage` seeds chrome.storage.local (a function gives a value relative
- * to now), `count` is what the active x.com tab reports, and `expect` is the
- * popup text that proves the state is right before anything is captured.
- * A "\n" in `sub` is a line break.
+ * Popup shots: `storage` seeds chrome.storage.local (a function gives a
+ * value relative to now), `count` is what the active x.com tab reports,
+ * `expect` is the popup text that proves the state is right before anything
+ * is captured, `band` picks what the band runs behind, and `focus` is the
+ * id of a control that must show its keyboard focus ring. Screenshot 2 has
+ * a `capture` file instead. A "\n" in `sub` is a line break.
  */
 const SHOTS = [
   {
@@ -50,6 +60,16 @@ const SHOTS = [
     tab: "languages",
     count: 14,
     expect: { status: "Hiding Japanese, Portuguese", count: "14 on this tab" },
+  },
+  {
+    n: 2,
+    slug: "highlight",
+    scheme: "light",
+    headline: "Highlight first. Hide when you're sure.",
+    sub: "See exactly what matched, and why. Free.",
+    points: ["An outline and a note on each match", "“Always show @handle” in one tap", "Only you see the notes"],
+    capture: "store/screenshots/highlight-capture.png",
+    fine: "Accounts blurred for privacy. Not affiliated with or endorsed by X Corp.",
   },
   {
     n: 3,
@@ -79,6 +99,26 @@ const SHOTS = [
     tab: "regions",
     count: 23,
     expect: { status: "Showing only Europe", count: "23 set aside" },
+  },
+  {
+    n: 5,
+    slug: "privacy",
+    scheme: "light",
+    headline: "Private by design.",
+    sub: "Tamis only uses what X already loaded in your tab.",
+    points: [
+      "Runs in your browser",
+      "No extra requests to X",
+      "No Tamis account, no analytics",
+      "No flags on anyone's name",
+      "Pause anytime",
+    ],
+    storage: { hiddenLanguageCodes: ["ja", "pt"], filterMode: "hide", markOnly: true },
+    tab: "languages",
+    count: 14,
+    expect: { status: "Highlighting matches for Japanese, Portuguese", count: "14 on this tab" },
+    band: "footer",
+    focus: "enabled",
   },
 ];
 
@@ -117,6 +157,7 @@ const THEMES = {
 };
 
 const escapeHtml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const pngSrc = (png) => `data:image/png;base64,${png.toString("base64")}`;
 
 /** A stand-in for the extension APIs the popup uses, seeded with one shot's state. */
 function stubScript({ storage, count, version }) {
@@ -171,6 +212,11 @@ function stubScript({ storage, count, version }) {
 </script>`;
 }
 
+// Puts each part of the popup on its own transparent layer, so Chrome draws
+// its text with greyscale antialiasing, as on the canvas, instead of
+// coloured subpixel fringes that depend on the machine. Nothing moves.
+const GREYSCALE_TEXT = "body>*{will-change:transform}";
+
 /** dist/popup.html with its stylesheet and script inlined, after the stub. */
 function inlinePopup(html, { css, js, stub }) {
   const link = '<link rel="stylesheet" href="popup.css" />';
@@ -180,7 +226,7 @@ function inlinePopup(html, { css, js, stub }) {
   }
   const safeJs = js.replace(/<\/script/gi, "<\\/script");
   return html
-    .replace(link, () => `<style>${css}</style>`)
+    .replace(link, () => `<style>${css}\n${GREYSCALE_TEXT}</style>`)
     .replace(script, () => `${stub}\n<script>${safeJs}</script>`);
 }
 
@@ -199,12 +245,11 @@ function brandMark(wm, theme) {
 }
 
 /**
- * One 1280x800 store screenshot: copy on the left; on the right the popup
- * under its toolbar button, and a marigold band (the mark's kept row)
- * running behind it at the height of the ticked rows.
+ * The right half of a popup shot: the popup under its toolbar button, and
+ * a band in the mark's kept-row colour running behind it at the height of
+ * `band` (popup CSS px).
  */
-function composition(shot, capture, { wm, icon, ticked }) {
-  const theme = THEMES[shot.scheme];
+function popupSide(shot, theme, capture, { icon, band }) {
   const popup = {
     width: Math.round(POPUP.width * SHOW_SCALE),
     height: Math.round(POPUP.height * SHOW_SCALE),
@@ -212,16 +257,56 @@ function composition(shot, capture, { wm, icon, ticked }) {
   popup.x = WIDTH - 104 - popup.width;
   popup.y = HEIGHT - 34 - popup.height;
   const button = { size: 48, x: popup.x + popup.width - 12 - 48, y: popup.y - 12 - 48 };
-  const band = {
+  const strip = {
     x: popup.x - 64,
-    y: popup.y + Math.round(ticked.top * SHOW_SCALE),
-    height: Math.round((ticked.bottom - ticked.top) * SHOW_SCALE),
+    y: popup.y + Math.round(band.top * SHOW_SCALE),
+    height: Math.round((band.bottom - band.top) * SHOW_SCALE),
   };
+  return {
+    css: `.band{position:absolute;left:${strip.x}px;top:${strip.y}px;right:0;height:${strip.height}px;border-radius:${strip.height / 2}px 0 0 ${strip.height / 2}px;background:${theme.bandColor};opacity:${theme.band}}
+.popup{position:absolute;left:${popup.x}px;top:${popup.y}px;width:${popup.width}px;height:${popup.height}px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px ${theme.frame},${theme.shadow}}
+.popup img{display:block;width:100%;height:100%}
+.button{position:absolute;left:${button.x}px;top:${button.y}px;width:${button.size}px;height:${button.size}px;border-radius:12px;background:${theme.button};box-shadow:0 0 0 1px ${theme.frame},0 2px 6px rgba(11,51,54,.12)}
+.button img{position:absolute;left:8px;top:8px;width:28px;height:28px}
+.badge{position:absolute;right:4px;bottom:5px;min-width:17px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:4px;background:#FFB638;color:#14201F;font:600 10px/15px Inter,sans-serif;text-align:center;box-shadow:0 0 0 1.5px ${theme.button}}`,
+    under: `<div class="band"></div>`,
+    over: `<div class="button"><img alt="" src="${pngSrc(icon)}"><span class="badge">${shot.count}</span></div>
+<div class="popup"><img alt="" src="${pngSrc(capture)}"></div>`,
+  };
+}
+
+/** The right half of screenshot 2: your capture, at most 1x, fitted into CAPTURE_BOX. */
+function captureSide(theme, capture) {
+  const { width, height } = decodePng(capture);
+  const box = { width: CAPTURE_BOX.right - CAPTURE_BOX.left, height: CAPTURE_BOX.bottom - CAPTURE_BOX.top };
+  const scale = Math.min(box.width / width, box.height / height, 1 / CAPTURE_SCALE);
+  const shown = { width: Math.round(width * scale), height: Math.round(height * scale) };
+  const x = CAPTURE_BOX.left + Math.round((box.width - shown.width) / 2);
+  const y = CAPTURE_BOX.top + Math.round((box.height - shown.height) / 2);
+  return {
+    scale,
+    css: `.capture{position:absolute;left:${x}px;top:${y}px;width:${shown.width}px;height:${shown.height}px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px ${theme.frame},${theme.shadow}}
+.capture img{display:block;width:100%;height:100%}`,
+    under: "",
+    over: `<div class="capture"><img alt="" src="${pngSrc(capture)}"></div>`,
+  };
+}
+
+/**
+ * One 1280x800 store screenshot: the Tamis mark and wordmark at the top
+ * left, the headline, sub-line and points centred on the left, the fine
+ * print at the bottom left, and `side` on the right. Text sits on its own
+ * transparent layer (will-change) so Chrome draws it with greyscale
+ * antialiasing instead of coloured subpixel fringes.
+ */
+function composition(shot, side, { wm }) {
+  const theme = THEMES[shot.scheme];
   const sub = shot.sub.split("\n").map(escapeHtml).join("<br>");
   const points = shot.points.map((point) => `<li>${escapeHtml(point)}</li>`).join("");
   return `<!doctype html><html><head><meta charset="utf-8">${INTER_LINK}<style>
 html,body{margin:0;width:${WIDTH}px;height:${HEIGHT}px;overflow:hidden;background:${theme.canvas}}
 body{position:relative;font-family:Inter,sans-serif;color:${theme.ink};-webkit-font-smoothing:antialiased}
+.brand,.copy,.fine,.badge{will-change:transform}
 .brand{position:absolute;left:88px;top:64px}
 .brand svg{display:block}
 .copy{position:absolute;left:88px;top:0;bottom:0;width:520px;display:flex;flex-direction:column;justify-content:center;padding-top:24px}
@@ -231,30 +316,25 @@ ul{list-style:none;margin:44px 0 0;padding:0}
 li{position:relative;padding-left:48px;margin:0 0 20px;font-weight:500;font-size:21px;line-height:1.3}
 li:last-child{margin-bottom:0}
 li::before{content:"";position:absolute;left:0;top:9px;width:28px;height:10px;border-radius:5px;background:${theme.accent}}
-.band{position:absolute;left:${band.x}px;top:${band.y}px;right:0;height:${band.height}px;border-radius:${band.height / 2}px 0 0 ${band.height / 2}px;background:${theme.bandColor};opacity:${theme.band}}
-.popup{position:absolute;left:${popup.x}px;top:${popup.y}px;width:${popup.width}px;height:${popup.height}px;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px ${theme.frame},${theme.shadow}}
-.popup img{display:block;width:100%;height:100%}
-.button{position:absolute;left:${button.x}px;top:${button.y}px;width:${button.size}px;height:${button.size}px;border-radius:12px;background:${theme.button};box-shadow:0 0 0 1px ${theme.frame},0 2px 6px rgba(11,51,54,.12)}
-.button img{position:absolute;left:8px;top:8px;width:28px;height:28px}
-.badge{position:absolute;right:4px;bottom:5px;min-width:17px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:4px;background:#FFB638;color:#14201F;font:600 10px/15px Inter,sans-serif;text-align:center;box-shadow:0 0 0 1.5px ${theme.button}}
+${side.css}
 .fine{position:absolute;left:88px;bottom:32px;font-weight:500;font-size:14px;color:${theme.muted}}
 </style></head><body>
-<div class="band"></div>
+${side.under}
 <div class="brand">${brandMark(wm, theme)}</div>
 <div class="copy">
   <h1>${escapeHtml(shot.headline)}</h1>
   <p class="sub">${sub}</p>
   <ul>${points}</ul>
 </div>
-<div class="button"><img alt="" src="data:image/png;base64,${icon.toString("base64")}"><span class="badge">${shot.count}</span></div>
-<div class="popup"><img alt="" src="data:image/png;base64,${capture.toString("base64")}"></div>
-<div class="fine">Works on x.com and twitter.com. Not affiliated with or endorsed by X Corp.</div>
+${side.over}
+<div class="fine">${escapeHtml(shot.fine ?? FINE_PRINT)}</div>
 </body></html>`;
 }
 
 /**
- * Waits for the popup to show the shot's state, opens the shot's tab and
- * returns where the ticked rows sit (popup CSS px).
+ * Waits for the popup to show the shot's state, opens the shot's tab,
+ * focuses `shot.focus` if set, and returns where the band's target sits
+ * (popup CSS px).
  */
 async function settle(page, shot) {
   const read = () =>
@@ -288,22 +368,27 @@ async function settle(page, shot) {
   if (state.test) problems.push("the development-only Test unlock button is visible");
   if (problems.length > 0) throw new Error(`Screenshot ${shot.n} shows the wrong state: ${problems.join("; ")}`);
 
-  const ticked = JSON.parse(
+  const focus = shot.focus ? JSON.stringify(shot.focus) : "null";
+  const band = JSON.parse(
     await page.evaluate(`(async () => {
       document.getElementById("tab-${shot.tab}").click();
       document.activeElement?.blur?.();
+      const focus = ${focus} && document.getElementById(${focus});
+      focus?.focus();
       await new Promise((resolve) => setTimeout(resolve, 400));
-      const rows = [...document.querySelectorAll("#list li.is-on")].map((li) => li.getBoundingClientRect());
+      const rects = [...document.querySelectorAll(${JSON.stringify(BAND_TARGETS[shot.band ?? "ticked"])})].map((node) => node.getBoundingClientRect());
       return JSON.stringify({
         selected: document.getElementById("tab-${shot.tab}").getAttribute("aria-selected"),
-        top: Math.min(...rows.map((rect) => rect.top)),
-        bottom: Math.max(...rows.map((rect) => rect.bottom)),
+        ring: focus ? focus.matches(":focus-visible") && getComputedStyle(focus).outlineStyle !== "none" : null,
+        top: Math.min(...rects.map((rect) => rect.top)),
+        bottom: Math.max(...rects.map((rect) => rect.bottom)),
       });
     })()`),
   );
-  if (ticked.selected !== "true") throw new Error(`Screenshot ${shot.n}: the ${shot.tab} tab did not open`);
-  if (!Number.isFinite(ticked.top)) throw new Error(`Screenshot ${shot.n}: no ticked row in the ${shot.tab} list`);
-  return ticked;
+  if (band.selected !== "true") throw new Error(`Screenshot ${shot.n}: the ${shot.tab} tab did not open`);
+  if (shot.focus && band.ring !== true) throw new Error(`Screenshot ${shot.n}: #${shot.focus} shows no focus ring`);
+  if (!Number.isFinite(band.top)) throw new Error(`Screenshot ${shot.n}: nothing to put the band behind (${shot.band ?? "ticked"})`);
+  return band;
 }
 
 console.log("Production build");
@@ -317,19 +402,31 @@ const icon = await readFile(at("dist/icons/icon48.png"));
 
 await withChrome(async (page) => {
   for (const shot of SHOTS) {
-    console.log(`Screenshot ${shot.n}: ${shot.headline}`);
-    const stub = stubScript({ storage: seed(shot.storage), count: shot.count, version });
-    await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: shot.scheme }] });
-    await page.load(inlinePopup(html, { css, js, stub }), { ...POPUP, scale: CAPTURE_SCALE });
-    const ticked = await settle(page, shot);
-    const capture = await page.screenshot(POPUP);
+    let side;
+    if (shot.capture) {
+      const file = at(shot.capture);
+      if (!existsSync(file)) {
+        console.log(`Screenshot ${shot.n} skipped: save your capture as ${shot.capture} first`);
+        continue;
+      }
+      side = captureSide(THEMES[shot.scheme], await readFile(file));
+      console.log(`Screenshot ${shot.n}: ${shot.headline} (${show(file)} at ${Math.round(side.scale * CAPTURE_SCALE * 100)}%)`);
+    } else {
+      console.log(`Screenshot ${shot.n}: ${shot.headline}`);
+      const stub = stubScript({ storage: seed(shot.storage), count: shot.count, version });
+      await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: shot.scheme }] });
+      await page.load(inlinePopup(html, { css, js, stub }), { ...POPUP, scale: CAPTURE_SCALE });
+      const band = await settle(page, shot);
+      const capture = await page.screenshot(POPUP);
+      await page.send("Emulation.setEmulatedMedia", { features: [] });
+      side = popupSide(shot, THEMES[shot.scheme], capture, { icon, band });
+    }
 
-    await page.send("Emulation.setEmulatedMedia", { features: [] });
-    await page.load(composition(shot, capture, { wm, icon, ticked }), { width: WIDTH, height: HEIGHT, fonts: INTER_FONTS });
+    await page.load(composition(shot, side, { wm }), { width: WIDTH, height: HEIGHT, fonts: INTER_FONTS });
     const png = encodePng(decodePng(await page.screenshot({ width: WIDTH, height: HEIGHT })), { alpha: false });
     const out = at("store/screenshots", `screenshot-${shot.n}-${shot.slug}-1280x800.png`);
     await mkdir(dirname(out), { recursive: true });
     await writeFile(out, png);
-    console.log(`  ${relative(root, out).split("\\").join("/")}`);
+    console.log(`  ${show(out)}`);
   }
 });

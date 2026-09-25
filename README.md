@@ -114,12 +114,13 @@ tests and builds.
 (`store/listing.md`). `node scripts/render-brand.mjs` regenerates
 `brand/`, `icons/` and `store/` images with headless Chrome; see
 [brand/README.md](brand/README.md). `node scripts/store-screenshots.mjs`
-renders store screenshots 1, 3 and 4 from the production popup.
+renders the five store screenshots into `store/screenshots/`: 1, 3, 4 and
+5 from the production popup, 2 from your capture of x.com.
 
-Before updating the store listings, re-run
-`node scripts/store-screenshots.mjs` and capture screenshot 2 on x.com as
-described in [store/screenshots/README.md](store/screenshots/README.md).
-All five screenshots listed in `store/listing.md` must exist first.
+Before updating the store listings, capture screenshot 2 on x.com and run
+`node scripts/store-screenshots.mjs`, as described in
+[store/screenshots/README.md](store/screenshots/README.md). All five
+screenshots listed in `store/listing.md` must exist first.
 
 ## Layout
 

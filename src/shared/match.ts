@@ -4,9 +4,12 @@ import { collapseDottedInitials, flagCountryCodes, foldText, stripFlags } from "
 import {
   AMBIGUOUS_PLACES,
   CITY_ALT_COUNTRIES,
+  CITY_OWN_CODES,
+  countriesForForeignStateCode,
   countriesForSubdivisionCode,
   SUBDIVISION_NAMES,
   UPPERCASE_PLACE_CODES,
+  US_STATE_CODES,
 } from "./places.ts";
 import {
   REGION_PHRASES,
@@ -95,6 +98,8 @@ type Entry = {
   afterPlace?: string | null;
   /** Only when written with a capital letter ("Chad", not "chad"). */
   capitalOnly?: boolean;
+  /** Cities: their own province code, which is also a US state code ("Palermo, PA"). */
+  ownCode?: string;
 };
 
 type Derived = {
@@ -131,7 +136,9 @@ function derive(index: CountryIndex): Derived {
   // must not leave "america" for the US alias), then cities, then names.
   for (const key of REGION_PHRASES.keys()) phrases.set(key, { kind: "region", countries: [] });
   for (const [key, code] of index.cities) {
-    phrases.set(key, { kind: "city", countries: [code, ...(alts.get(key) ?? [])] });
+    const entry: Entry = { kind: "city", countries: [code, ...(alts.get(key) ?? [])] };
+    if (CITY_OWN_CODES[key]) entry.ownCode = CITY_OWN_CODES[key];
+    phrases.set(key, entry);
   }
   for (const [key, code] of index.names) {
     const amb = ambiguous.get(key);
@@ -198,6 +205,8 @@ type Item = {
   afterComma: boolean;
   entry?: Entry;
   code?: string;
+  /** Codes only: countries whose state code it also is ("TN" is Tamil Nadu too). */
+  foreign?: string[];
   /** Set by a neighbour: the country it resolves to, or null to drop it. */
   pinned?: string | null;
 };
@@ -417,12 +426,13 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   while (inPart(tokens[partEnd])) partEnd += 1;
   const whole = partStart === i && partEnd === i + 1;
   const last = partEnd === i + 1;
+  const prev = items[items.length - 1];
+  const adjacent = prev !== undefined && prev.end === i && prev.kind !== "region" ? prev : null;
+  const afterCity = adjacent?.kind === "city";
   if (!whole) {
     if (!last) return null;
     const part = tokens.slice(partStart, partEnd);
     if (part.every((t) => t.upper)) return null;
-    const prev = items[items.length - 1];
-    const afterCity = prev !== undefined && prev.end === i && prev.kind === "city";
     if (TRAILING_CODE_WORDS.has(code) && !afterCity) return null;
   }
   const hasPrefix = i > at.segmentStart;
@@ -441,9 +451,17 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   }
   const states = countriesForSubdivisionCode(code);
   const iso2 = code.length === 2 && derived.iso2.has(code) ? code : null;
-  if (!iso2 && states.length === 0) return null;
+  const countries = iso2 ? [...states, iso2] : states;
+  const foreign = countriesForForeignStateCode(code).filter((c) => !countries.includes(c));
+  if (countries.length === 0) {
+    // Another country's state code only confirms the place before it ("La Paz, BCS").
+    const confirmed = adjacent ? intersect(foreign, readings(adjacent)) : [];
+    return confirmed.length > 0 ? make("code", confirmed) : null;
+  }
   if (!hasPrefix && whole && STANDALONE_CODE_WORDS.has(code)) return null;
-  return make("code", iso2 ? [...states, iso2] : states);
+  const item = make("code", countries);
+  if (foreign.length > 0) item.foreign = foreign;
+  return item;
 }
 
 function isListWord(token: Token): boolean {
@@ -469,37 +487,18 @@ function intersect(first: string[], second: string[]): string[] {
   return first.filter((code) => second.includes(code));
 }
 
+/** Every country a place can mean, including the foreign state readings of a code. */
+function readings(item: Item): string[] {
+  return item.foreign ? [...item.countries, ...item.foreign] : item.countries;
+}
+
 /**
- * Decide what each place in one location means, using its neighbours:
- * - a city or ambiguous name followed by a state or country ("Paris, Texas",
- *   "Atlanta, Georgia", "London, ON") takes the reading they share; if none is
- *   shared, a state or country name wins over the city ("London, Kentucky"), while
- *   a known city wins over a bare country code ("Mumbai, MH", "Durban, SA");
- * - anything still open takes a country named elsewhere in the same segment
- *   ("Springfield, IL, USA"), else its default reading.
+ * Decide what each place in one location means: first from its right-hand
+ * neighbour (resolvePair); anything still open then takes a country named
+ * elsewhere in the same segment ("Springfield, IL, USA"), else its default reading.
  */
 function resolveItems(items: Item[]): string[] {
-  for (let i = 0; i < items.length - 1; i += 1) {
-    const item = items[i]!;
-    const next = items[i + 1]!;
-    if (item.segment !== next.segment) continue;
-    if (item.kind !== "city" && item.kind !== "ambiguous" && item.kind !== "code") continue;
-    if (next.kind === "city" || next.kind === "region") continue;
-    const shared = intersect(item.countries, next.countries);
-    if (shared.length > 0) {
-      if (item.countries.length > 1 || item.kind !== "code") item.pinned ??= shared[0]!;
-      if (next.countries.length > 1) next.pinned ??= shared[0]!;
-      continue;
-    }
-    if (next.kind === "ambiguous") continue;
-    const nextIsIsoCode =
-      next.kind === "code" && next.code !== undefined && next.countries.includes(next.code);
-    // A code cannot contain a state of another country ("PH, Rivers State").
-    if (item.kind === "code") {
-      if (!nextIsIsoCode && item.pinned === undefined) item.pinned = null;
-    } else if (nextIsIsoCode) next.pinned = null;
-    else if (item.pinned === undefined) item.pinned = null;
-  }
+  for (let i = 0; i < items.length - 1; i += 1) resolvePair(items[i]!, items[i + 1]!);
 
   const explicit = new Map<number, Set<string>>();
   const settled = (item: Item): string | null | undefined => {
@@ -527,6 +526,77 @@ function resolveItems(items: Item[]): string[] {
     if (code) out.push(code);
   }
   return out;
+}
+
+/**
+ * Two neighbouring places in one segment, such as "City, State":
+ * - a reading they share wins for both ("Atlanta, Georgia", "London, ON",
+ *   "Chennai, TN" as Tamil Nadu, "Tijuana, BC" as Baja California), and so does a
+ *   city's own province code ("Palermo, PA");
+ * - a city before a US state code is the US town of that name ("Venice, CA",
+ *   "Oxford, MS"), since "City, ST" is the usual way to write a US place and many
+ *   US towns share a name with a city abroad;
+ * - a city before a state or country name is in that place ("London, Kentucky",
+ *   "Oxford, Georgia"), while a known city wins over a country code that is not a
+ *   US state ("Durban, SA");
+ * - a country or state name before a state code is a town named after it
+ *   ("Lebanon, PA", "Poland, OH");
+ * - a city abbreviation after another place is not a second place ("Kochi, KL",
+ *   Kerala), and a code cannot hold a state of another country ("PH, Rivers State").
+ */
+function resolvePair(item: Item, next: Item): void {
+  if (item.segment !== next.segment || item.kind === "region" || next.kind === "region") return;
+  if (next.code !== undefined && next.code === item.entry?.ownCode) {
+    item.pinned ??= item.countries[0]!;
+    next.pinned = item.countries[0]!;
+    return;
+  }
+  const shared = intersect(readings(item), readings(next));
+  if (next.kind === "city") {
+    if (next.code !== undefined && shared.length === 0) next.pinned = null;
+    return;
+  }
+  if (shared.length > 0) {
+    if (item.kind !== "code" || readings(item).length > 1) item.pinned ??= shared[0]!;
+    if (readings(next).length > 1) next.pinned ??= shared[0]!;
+    return;
+  }
+  const nextCode = next.kind === "code" ? next.code : undefined;
+  const nextIsIsoCode = nextCode !== undefined && next.countries.includes(nextCode);
+  switch (item.kind) {
+    case "country":
+    case "subdivision": {
+      const state = nextCode ? countriesForSubdivisionCode(nextCode)[0] : undefined;
+      if (state) {
+        item.pinned = null;
+        next.pinned = state;
+      }
+      return;
+    }
+    case "code":
+      if (!nextIsIsoCode) item.pinned ??= null;
+      return;
+    case "city":
+    case "ambiguous":
+      break;
+    default: {
+      const _never: never = item.kind;
+      return _never;
+    }
+  }
+  if (next.kind === "ambiguous") {
+    const after = next.entry?.afterPlace;
+    if (item.kind === "city" && after) {
+      item.pinned ??= null;
+      next.pinned ??= after;
+    }
+    return;
+  }
+  if (nextCode !== undefined && US_STATE_CODES.has(nextCode)) {
+    item.pinned ??= null;
+    next.pinned ??= "US";
+  } else if (nextIsIsoCode) next.pinned = null;
+  else item.pinned ??= null;
 }
 
 function fallback(item: Item): string | null {

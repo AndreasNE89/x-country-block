@@ -610,6 +610,7 @@ export const CITY_ALT_COUNTRIES: Record<string, string[]> = {
   guadalajara: ["ES"],
   merida: ["VE", "ES"],
   leon: ["ES", "NI"],
+  "la paz": ["MX"],
   granada: ["NI"],
   cartagena: ["ES"],
   cuenca: ["ES"],
@@ -695,6 +696,47 @@ export const UPPERCASE_PLACE_CODES: Record<string, string> = {
   BLR: "IN",
   HYD: "IN",
   KHI: "PK",
+};
+
+/**
+ * State abbreviations of other countries that people write after a city there
+ * ("Chennai, TN", "Belém, PA", "Tijuana, BC"). They only confirm a city of that
+ * country; alone or after an unknown place they keep their usual reading. Odisha's
+ * old code OR is left out: "Madras, OR" is a town in Oregon.
+ */
+const STATE_CODES_BY_COUNTRY: Record<string, string> = {
+  IN:
+    "AP|AR|AS|BR|CG|CT|DL|GA|GJ|HP|HR|JH|JK|KA|KL|MH|ML|MN|MP|MZ|NL|OD|PB|RJ|SK|TG|TN|TR|TS|" +
+    "UP|UT|WB",
+  BR: "AC|AL|AM|AP|BA|CE|DF|ES|GO|MA|MG|MS|MT|PA|PB|PE|PI|PR|RJ|RN|RO|RR|RS|SC|SE|SP|TO",
+  MX: "AGS|BC|BCS|CHIH|COAH|GTO|JAL|NL|OAX|PUE|QRO|QROO|SIN|SLP|SON|VER|YUC",
+};
+
+const FOREIGN_STATE_CODES = new Map<string, string[]>();
+for (const [iso2, list] of Object.entries(STATE_CODES_BY_COUNTRY)) {
+  for (const code of splitList(list)) {
+    FOREIGN_STATE_CODES.set(code, [...(FOREIGN_STATE_CODES.get(code) ?? []), iso2]);
+  }
+}
+
+/** Countries outside the US, Canada and Australia that use this state code ("TN" -> IN). */
+export function countriesForForeignStateCode(code: string): string[] {
+  return FOREIGN_STATE_CODES.get(code) ?? [];
+}
+
+/**
+ * Italian province codes written after their own city ("Palermo (PA)", "Milano,
+ * MI"). They are also US state codes, and many US towns share a name with an Italian
+ * city ("Venice, CA", "Milan, MI"), so they count only after that very spelling.
+ */
+export const CITY_OWN_CODES: Record<string, string> = {
+  cagliari: "CA",
+  catania: "CT",
+  messina: "ME",
+  milano: "MI",
+  modena: "MO",
+  palermo: "PA",
+  trento: "TN",
 };
 
 export function countryForSubdivisionCode(code: string): string | null {

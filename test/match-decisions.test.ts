@@ -222,6 +222,25 @@ describe("profile locations end to end (F04, F05, F19)", () => {
       reason({ lang: "en" }, { location: "Karachi, Pakistan | Dallas, TX" }, settings({ countries: ["PK"] })),
     ).toBe("Profile location: Pakistan");
   });
+
+  it("reads a US town named after a city abroad as the US", () => {
+    expect(reason({ lang: "en" }, { location: "Venice, CA" }, settings({ countries: ["IT"] }))).toBeNull();
+    expect(reason({ lang: "en" }, { location: "Vienna, VA, USA" }, settings({ countries: ["AT"] }))).toBeNull();
+    expect(
+      reason({ lang: "en" }, { location: "Oxford, MS" }, settings({ countries: ["US"] }, "only")),
+    ).toBeNull();
+  });
+
+  it("keeps Nigerian and Mexican places in their country", () => {
+    expect(
+      reason({ lang: "en" }, { location: "Port Harcourt, Niger Delta" }, settings({ countries: ["NG"] }, "only")),
+    ).toBeNull();
+    expect(reason({ lang: "en" }, { location: "Tijuana, B.C." }, settings({ countries: ["CA"] }))).toBeNull();
+    expect(reason({ lang: "en" }, { location: "Kochi, KL" }, settings({ countries: ["MY"] }))).toBeNull();
+    expect(
+      reason({ lang: "en" }, { location: "Valdosta, South Georgia" }, settings({ regions: ["LATIN_AMERICA"] })),
+    ).toBeNull();
+  });
 });
 
 describe("reason wording (F59)", () => {

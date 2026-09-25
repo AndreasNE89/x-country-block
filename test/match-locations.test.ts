@@ -82,6 +82,43 @@ describe("countriesFromLocation", () => {
     expect(parse("Chennai, TN")).toEqual(["IN"]);
   });
 
+  it("reads a city before a US state code as the US town of that name", () => {
+    expect(parse("Venice, CA")).toEqual(["US"]);
+    expect(parse("Oxford, MS")).toEqual(["US"]);
+    expect(parse("Warsaw, IN")).toEqual(["US"]);
+    expect(parse("Delhi, LA")).toEqual(["US"]);
+    expect(parse("Milan, MI")).toEqual(["US"]);
+    expect(parse("Vienna, VA, USA")).toEqual(["US"]);
+    expect(parse("Oxford, Georgia")).toEqual(["US"]);
+  });
+
+  it("reads a country or state name before a state code as a US town", () => {
+    expect(parse("Lebanon, PA")).toEqual(["US"]);
+    expect(parse("Mexico, MO")).toEqual(["US"]);
+    expect(parse("Poland, OH")).toEqual(["US"]);
+    expect(parse("India, MH")).toEqual(["IN"]);
+    expect(parse("Canada, BC")).toEqual(["CA"]);
+  });
+
+  it("still reads a state code of the city's own country by the city", () => {
+    expect(parse("Chennai, TN")).toEqual(["IN"]);
+    expect(parse("Panaji, GA")).toEqual(["IN"]);
+    expect(parse("Belém, PA")).toEqual(["BR"]);
+    expect(parse("Tijuana, B.C.")).toEqual(["MX"]);
+    expect(parse("La Paz, BCS")).toEqual(["MX"]);
+    expect(parse("Palermo (PA)")).toEqual(["IT"]);
+    expect(parse("Milano, MI")).toEqual(["IT"]);
+    // Alone or after an unknown place, such a code keeps its usual reading.
+    expect(parse("Somewhere, BC")).toEqual(["CA"]);
+    expect(parse("KA")).toEqual([]);
+  });
+
+  it("drops a city abbreviation that disagrees with the place before it", () => {
+    expect(parse("Kochi, KL")).toEqual(["IN"]);
+    expect(parse("Petaling Jaya, KL")).toEqual(["MY"]);
+    expect(parse("KL")).toEqual(["MY"]);
+  });
+
   it("uses the documented default for an unknown city before a colliding code", () => {
     // US "City, ST" is the common form; a few codes lean to the country or stay open.
     expect(parse("Carmel, IN")).toEqual(["US"]);

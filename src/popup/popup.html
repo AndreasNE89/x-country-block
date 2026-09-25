@@ -27,7 +27,7 @@
       </svg>
       <h1 class="brand">Tamis</h1>
       <div class="power">
-        <span id="enabled-label">Filtering</span>
+        <label id="enabled-label" for="enabled">Filtering</label>
         <button type="button" id="enabled" class="switch" role="switch" aria-checked="true"
           aria-labelledby="enabled-label" disabled data-needs-load></button>
       </div>
@@ -95,10 +95,10 @@
       </section>
 
       <div class="switch-row">
-        <div class="switch-text">
+        <label class="switch-text" for="mark-only">
           <span id="mark-label">Highlight instead of hide</span>
           <span id="mark-help" class="help">Outline matches so you can check before hiding.</span>
-        </div>
+        </label>
         <button type="button" id="mark-only" class="switch" role="switch" aria-checked="false"
           aria-labelledby="mark-label" aria-describedby="mark-help" disabled data-needs-load></button>
       </div>

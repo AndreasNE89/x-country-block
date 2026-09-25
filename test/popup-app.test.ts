@@ -307,6 +307,20 @@ describe("single-key writes", () => {
     expect($("status").textContent).toBe("Paused. Your picks are saved.");
   });
 
+  it("should toggle a switch from its label text too", async () => {
+    const { api } = await open({ hiddenLanguageCodes: ["pt"] });
+    $("mark-label").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenLastCalledWith({ markOnly: true });
+    $("mark-help").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenLastCalledWith({ markOnly: false });
+    $("enabled-label").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenLastCalledWith({ enabled: false });
+    expect(api.storage.local.set).toHaveBeenCalledTimes(3);
+  });
+
   it("should pause and resume with the Filtering switch", async () => {
     const { api } = await open({ hiddenLanguageCodes: ["pt"] });
     $("enabled").click();

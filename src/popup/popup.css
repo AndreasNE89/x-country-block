@@ -450,6 +450,12 @@ body.is-paused .status-card {
   flex-direction: column;
 }
 
+/* The text next to a switch toggles it too (a <label for> the switch button). */
+.power label,
+.switch-text {
+  cursor: pointer;
+}
+
 .help {
   font-size: 11px;
   color: var(--muted);

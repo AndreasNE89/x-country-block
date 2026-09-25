@@ -37,8 +37,9 @@ All notable changes to Tamis (formerly X Country Block). Versions match
   compressed bytes can differ.
 - The Chrome package is now `x-country-block-0.2.0-chrome.zip`.
 - The source archive holds only what is needed to rebuild and test.
-- Version check across package files, manifests, README, BUILD and this
-  changelog, run before tests and builds.
+- Version check across package files, manifests, README, BUILD, this
+  changelog and the store listing's package names, run before tests and
+  builds.
 - The Chrome manifest declares `minimum_chrome_version` 120 and no longer
   carries stray Firefox-only settings.
 - GitHub Actions CI: tests, type check, `npm audit`, both packages and the

@@ -26,6 +26,8 @@ straight away, with no reload.
 - 250 countries and territories, 20 regions and the 69 languages X
   detects, with search. A region covers every country in it.
 - The toolbar badge shows how many posts on the page are filtered.
+- Pause filtering with one switch; your picks are kept. Accounts you add
+  to "Always show these accounts" are never hidden or highlighted.
 - Works on the home timeline, search, profiles and notifications.
 - **Focus mode** (Pro, $5.99 once, 7-day free trial): show only posts from
   the places and languages you tick and set the rest aside. Payment is a
@@ -109,7 +111,13 @@ tests and builds.
 `brand/` holds the logo masters and `store/` the store art and copy
 (`store/listing.md`). `node scripts/render-brand.mjs` regenerates
 `brand/`, `icons/` and `store/` images with headless Chrome; see
-[brand/README.md](brand/README.md).
+[brand/README.md](brand/README.md). `node scripts/store-screenshots.mjs`
+renders store screenshots 1, 3 and 4 from the production popup.
+
+Before updating the store listings, re-run
+`node scripts/store-screenshots.mjs` and capture screenshot 2 on x.com as
+described in [store/screenshots/README.md](store/screenshots/README.md).
+All five screenshots listed in `store/listing.md` must exist first.
 
 ## Layout
 
@@ -121,7 +129,7 @@ tests and builds.
 | `src/popup/` | Popup UI |
 | `src/shared/` | Matching, settings, parsing, country, region and language data |
 | `docs/privacy.html` | Privacy policy and Stripe success page (GitHub Pages) |
-| `scripts/` | Build, packaging, version check and brand rendering |
+| `scripts/` | Build, packaging, version check, brand art and store screenshots |
 | `test/`, `scripts/test/` | Unit tests (vitest) |
 
 Tamis is not affiliated with or endorsed by X Corp.

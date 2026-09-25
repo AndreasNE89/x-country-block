@@ -14,7 +14,9 @@ or X marks anywhere in the artwork.
 
 Generated files, `icons/*.png` and `store/*.png` all come from
 `node scripts/render-brand.mjs`. Change the code in `scripts/brand/`, not
-the output. The script needs Chrome (set `CHROME_PATH` if it is not in a
+the output. Store screenshots 1, 3 and 4 (`store/screenshots/*.png`) come
+from `node scripts/store-screenshots.mjs`, which captures the production
+popup and places it on the same canvas and palette. The script needs Chrome (set `CHROME_PATH` if it is not in a
 usual place) and network access to Google Fonts for Inter. Pass
 `--check sheet.png` to also get the 16/32 px icon on light and dark
 toolbars, with and without a badge.

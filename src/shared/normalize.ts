@@ -46,6 +46,26 @@ export function collapseDottedInitials(input: string, upper = false): string {
   });
 }
 
+// A compass initial before a capitalised name: "N. Korea", "SE Asia", "C. America".
+// Not inside a word or after an apostrophe ("LET'S GO").
+const COMPASS = /(?<![\p{L}\p{N}.'’])(NE|NW|SE|SW|N|S|E|W|C)(?:\.\s*|\s+)(?=\p{Lu})/gu;
+const COMPASS_WORDS: Record<string, string> = {
+  N: "North",
+  S: "South",
+  E: "East",
+  W: "West",
+  C: "Central",
+  NE: "Northeast",
+  NW: "Northwest",
+  SE: "Southeast",
+  SW: "Southwest",
+};
+
+/** Spell out compass initials: "N. Korea" -> "North Korea", "SE Asia" -> "Southeast Asia". */
+export function expandCompassInitials(input: string): string {
+  return input.replace(COMPASS, (_match, initial: string) => `${COMPASS_WORDS[initial]} `);
+}
+
 // A flag emoji is a pair of regional indicator symbols, one per letter of the ISO code.
 const FLAG_PAIR = /[\u{1F1E6}-\u{1F1FF}]{2}/gu;
 // England, Scotland and Wales use a black flag followed by tag letters ("gbeng").

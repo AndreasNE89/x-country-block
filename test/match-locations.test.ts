@@ -147,6 +147,9 @@ describe("countriesFromLocation", () => {
     expect(parse("N. Ireland")).toEqual(["GB"]);
     expect(parse("S. Africa")).toEqual(["ZA"]);
     expect(parse("Plan B")).toEqual([]);
+    // Region names are not the US ("C. America" once read as "America").
+    expect(parse("C. America")).toEqual([]);
+    expect(parse("S. America")).toEqual([]);
   });
 
   it("uses the documented default for an unknown city before a colliding code", () => {

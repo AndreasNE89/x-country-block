@@ -1,5 +1,5 @@
 import { COUNTRY_NAMES } from "./countries.ts";
-import { foldText } from "./normalize.ts";
+import { collapseDottedInitials, expandCompassInitials, foldText } from "./normalize.ts";
 
 export type RegionDef = {
   id: string;
@@ -518,7 +518,7 @@ export function regionsFromLocation(text: string): string[] {
 
 function parseRegions(text: string): string[] {
   const ids: string[] = text.includes(EU_FLAG) ? ["EU", "EUROPE"] : [];
-  const folded = foldText(text);
+  const folded = foldText(expandCompassInitials(collapseDottedInitials(text, true)));
   if (folded) {
     const tokens = folded.split(" ");
     let i = 0;

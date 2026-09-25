@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   collapseDottedInitials,
+  expandCompassInitials,
   flagCountryCodes,
   foldText,
   stripFlags,
@@ -86,6 +87,23 @@ describe("collapseDottedInitials", () => {
     expect(collapseDottedInitials("u.s.a.")).toBe("usa");
     expect(collapseDottedInitials("u.s.a.", true)).toBe("USA");
     expect(collapseDottedInitials("St. Louis")).toBe("St. Louis");
+  });
+});
+
+describe("expandCompassInitials", () => {
+  it("spells out a compass initial before a capitalised name", () => {
+    expect(expandCompassInitials("N. Korea")).toBe("North Korea");
+    expect(expandCompassInitials("S Africa")).toBe("South Africa");
+    expect(expandCompassInitials("SE Asia")).toBe("Southeast Asia");
+    expect(expandCompassInitials("C. America")).toBe("Central America");
+    expect(expandCompassInitials("Seoul, S.Korea")).toBe("Seoul, South Korea");
+  });
+
+  it("leaves other single letters alone", () => {
+    expect(expandCompassInitials("LET'S GO")).toBe("LET'S GO");
+    expect(expandCompassInitials("U.S. Navy")).toBe("U.S. Navy");
+    expect(expandCompassInitials("Lincoln, NE")).toBe("Lincoln, NE");
+    expect(expandCompassInitials("s korea")).toBe("s korea");
   });
 });
 

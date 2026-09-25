@@ -126,6 +126,18 @@ describe("regionsFromLocation", () => {
     expect(sorted(regionsFromLocation("Southern Africa"))).toEqual(["AFRICA", "SUB_SAHARAN_AFRICA"]);
   });
 
+  it("reads compass initials before a region name", () => {
+    expect(sorted(regionsFromLocation("SE Asia"))).toEqual(["ASIA", "SOUTHEAST_ASIA"]);
+    expect(sorted(regionsFromLocation("S. Asia"))).toEqual(["ASIA", "SOUTH_ASIA"]);
+    expect(sorted(regionsFromLocation("W. Africa"))).toEqual(["AFRICA", "SUB_SAHARAN_AFRICA"]);
+    expect(sorted(regionsFromLocation("S. America"))).toEqual(["AMERICAS", "LATIN_AMERICA", "SOUTH_AMERICA"]);
+    expect(sorted(regionsFromLocation("C. America"))).toEqual([
+      "AMERICAS",
+      "CENTRAL_AMERICA",
+      "LATIN_AMERICA",
+    ]);
+  });
+
   it("does not read heritage adjectives as places", () => {
     expect(regionsFromLocation("Asian American, NYC")).toEqual([]);
     expect(regionsFromLocation("African American")).toEqual([]);

@@ -624,5 +624,9 @@
   ["N. Ireland", ["GB"]],
   ["S. Africa", ["ZA"]],
   ["N. Carolina", ["US"]],
-  ["W. Virginia", ["US"]]
+  ["W. Virginia", ["US"]],
+  ["C. America", []],
+  ["S. America", []],
+  ["SE Asia", []],
+  ["Seoul, S.Korea", ["KR"]]
 ]

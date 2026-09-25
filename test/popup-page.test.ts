@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { isXUrl, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
+import { extensionTabApi, isXUrl, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
 
 function api(overrides: Partial<TabApi> = {}): TabApi {
   return {
@@ -58,6 +58,29 @@ describe("probePage", () => {
   it("should time out a ping that never answers", async () => {
     const hang = () => new Promise<unknown>(() => undefined);
     expect(await probePage(api({ ping: hang }), 10)).toEqual({ kind: "no-answer", tabId: 4 });
+  });
+
+  it("should ping when only x.com or only twitter.com is granted", async () => {
+    for (const granted of [["https://x.com/*"], ["https://twitter.com/*"]]) {
+      const contains = vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
+        origins.every((origin) => granted.includes(origin)),
+      );
+      const sendMessage = vi.fn(async () => ({ ok: true, count: 5, version: "0.2.0" }));
+      const chromeApi = {
+        permissions: { contains, request: vi.fn() },
+        tabs: { query: async () => [{ id: 9, url: "https://x.com/home" }], sendMessage },
+      } as unknown as typeof chrome;
+      expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "ready", tabId: 9, count: 5 });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("should report no access when neither X host is granted", async () => {
+    const chromeApi = {
+      permissions: { contains: async () => false, request: vi.fn() },
+      tabs: { query: async () => [{ id: 9 }], sendMessage: vi.fn() },
+    } as unknown as typeof chrome;
+    expect(await extensionTabApi(chromeApi).hasAccess()).toBe(false);
   });
 
   it("should assume access when the permissions API fails", async () => {

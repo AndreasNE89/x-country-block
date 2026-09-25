@@ -72,9 +72,15 @@ export async function probePage(api: TabApi, timeoutMs = PING_TIMEOUT_MS): Promi
 /** TabApi backed by the extension APIs, feature-checked for Firefox and older Chrome. */
 export function extensionTabApi(api: typeof chrome): TabApi {
   return {
+    // Either X host is enough: contains() is all-or-nothing, and a user who turned off the
+    // twitter.com toggle (which only redirects to x.com) still has a working Tamis on x.com.
     hasAccess: async () => {
-      if (typeof api.permissions?.contains !== "function") return true;
-      return api.permissions.contains({ origins: X_ORIGINS });
+      const permissions = api.permissions;
+      if (typeof permissions?.contains !== "function") return true;
+      for (const origin of X_ORIGINS) {
+        if (await permissions.contains({ origins: [origin] })) return true;
+      }
+      return false;
     },
     activeTab: async () => {
       const [tab] = await api.tabs.query({ active: true, currentWindow: true });

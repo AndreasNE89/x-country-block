@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { COUNTRY_NAMES } from "../src/shared/countries.ts";
+import { COUNTRY_NAMES, defaultCountryIndex } from "../src/shared/countries.ts";
+import { countriesFromLocation } from "../src/shared/match.ts";
 import {
   REGION_IDS,
   REGIONS,
@@ -119,6 +120,27 @@ describe("regionsFromLocation", () => {
     expect(sorted(regionsFromLocation("Middle East"))).toEqual(["ASIA", "MIDDLE_EAST", "WEST_ASIA"]);
     expect(sorted(regionsFromLocation("Europe"))).toEqual(["EUROPE"]);
     expect(regionsFromLocation("Asia")).toEqual(["ASIA"]);
+  });
+
+  it("reads other-language and informal region names (R33)", () => {
+    for (const text of ["Europa", "Scandinavia", "Skandinavien", "Nordics", "Nordic countries", "Balkans"]) {
+      expect(regionsFromLocation(text), text).toEqual(["EUROPE"]);
+    }
+    for (const text of ["Asie", "Asien"]) expect(regionsFromLocation(text), text).toEqual(["ASIA"]);
+    for (const text of ["Afrique", "Afrika"]) expect(regionsFromLocation(text), text).toEqual(["AFRICA"]);
+    for (const text of ["European Union", "Unión Europea", "Europäische Union", "Union européenne"]) {
+      expect(regionsFromLocation(text), text).toEqual(["EU"]);
+    }
+    for (const text of ["Gulf States", "Persian Gulf", "Arabian Gulf", "GCC"]) {
+      expect(sorted(regionsFromLocation(text)), text).toEqual(["ASIA", "MIDDLE_EAST", "WEST_ASIA"]);
+    }
+    // "Gulf" alone is also the US Gulf Coast.
+    expect(regionsFromLocation("Gulf Coast")).toEqual([]);
+    expect(regionsFromLocation("The Gulf")).toEqual([]);
+    // A country or city still wins over the region word.
+    expect(countriesFromLocation("Berlin, Europa", defaultCountryIndex())).toEqual(["DE"]);
+    expect(countriesFromLocation("Suid-Afrika", defaultCountryIndex())).toEqual(["ZA"]);
+    expect(countriesFromLocation("Südafrika", defaultCountryIndex())).toEqual(["ZA"]);
   });
 
   it("prefers the longest phrase", () => {

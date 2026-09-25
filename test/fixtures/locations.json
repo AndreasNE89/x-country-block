@@ -795,5 +795,11 @@
   ["Zagreb HR", ["HR"]],
   ["Split, HR", ["HR"]],
   ["Dhaka BD", ["BD"]],
-  ["Stockholm SE", ["SE"]]
+  ["Stockholm SE", ["SE"]],
+  ["Berlin, Europa", ["DE"]],
+  ["Südafrika", ["ZA"]],
+  ["Suid-Afrika", ["ZA"]],
+  ["Europa", []],
+  ["Scandinavia", []],
+  ["Gulf Breeze, FL", ["US"]]
 ]

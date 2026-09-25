@@ -816,6 +816,7 @@ export const COUNTRY_ALIASES: Record<string, string> = {
   mzansi: "ZA",
   "suid-afrika": "ZA",
   sudáfrica: "ZA",
+  südafrika: "ZA",
   "dr congo": "CD",
   drc: "CD",
   rdc: "CD",

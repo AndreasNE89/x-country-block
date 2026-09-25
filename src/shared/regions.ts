@@ -23,7 +23,7 @@ export const REGIONS: RegionDef[] = [
     id: "ASIA",
     name: "Asia",
     parent: null,
-    phrases: ["asia"],
+    phrases: ["asia", "asie", "asien"],
     countries: [],
   },
   {
@@ -37,7 +37,17 @@ export const REGIONS: RegionDef[] = [
     id: "WEST_ASIA",
     name: "West Asia",
     parent: "ASIA",
-    phrases: ["west asia", "western asia", "middle east", "near east", "mideast"],
+    phrases: [
+      "west asia",
+      "western asia",
+      "middle east",
+      "near east",
+      "mideast",
+      "gulf states",
+      "persian gulf",
+      "arabian gulf",
+      "gcc",
+    ],
     countries: existing([
       "AE",
       "AM",
@@ -84,7 +94,16 @@ export const REGIONS: RegionDef[] = [
     id: "MIDDLE_EAST",
     name: "Middle East",
     parent: null,
-    phrases: ["middle east", "near east", "mideast"],
+    // The Gulf states by name; "Gulf" alone is also the US Gulf Coast.
+    phrases: [
+      "middle east",
+      "near east",
+      "mideast",
+      "gulf states",
+      "persian gulf",
+      "arabian gulf",
+      "gcc",
+    ],
     countries: existing([
       "AE",
       "BH",
@@ -108,7 +127,7 @@ export const REGIONS: RegionDef[] = [
     id: "AFRICA",
     name: "Africa",
     parent: null,
-    phrases: ["africa"],
+    phrases: ["africa", "afrique", "afrika"],
     countries: [],
   },
   {
@@ -194,7 +213,17 @@ export const REGIONS: RegionDef[] = [
     id: "EUROPE",
     name: "Europe",
     parent: null,
-    phrases: ["europe"],
+    // Scandinavia, the Nordics and the Balkans name parts of Europe but no region of
+    // their own, so they count as Europe.
+    phrases: [
+      "europe",
+      "europa",
+      "scandinavia",
+      "skandinavien",
+      "nordics",
+      "nordic countries",
+      "balkans",
+    ],
     countries: existing([
       "AD",
       "AL",
@@ -255,7 +284,7 @@ export const REGIONS: RegionDef[] = [
     id: "EU",
     name: "European Union",
     parent: null,
-    phrases: ["european union"],
+    phrases: ["european union", "unión europea", "europäische union", "union européenne"],
     countries: existing([
       "AT",
       "BE",

@@ -294,6 +294,11 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "Santiago, RD" }, settings({ countries: ["CL"] }))).toBeNull();
   });
 
+  it("reads 'Europa' and 'Scandinavia' as Europe (R33)", () => {
+    expect(reason({}, { location: "Europa" }, settings({ regions: ["EUROPE"] }))).toBe("Profile location: Europe");
+    expect(reason({}, { location: "Scandinavia" }, settings({ regions: ["EUROPE"] }, "only"))).toBeNull();
+  });
+
   it("reads a bare 'NL' as the Netherlands (R30)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();

@@ -236,6 +236,7 @@ button:disabled {
 
 .page-note span {
   flex: 1;
+  text-wrap: balance;
 }
 
 body.is-paused .status-card {

@@ -2,34 +2,151 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>X Country Block</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Tamis</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
-  <body>
-    <p id="status"></p>
-    <label id="mark-only-row">
-      <input id="mark-only" type="checkbox" />
-      Mark matches — do not hide
-    </label>
-    <div id="pro-block">
-      <label id="only-from-row">
-        <input id="only-from" type="checkbox" />
-        Only show posts from ticked items
-        <span id="pro-tag">Pro · $5.99</span>
-      </label>
-      <div id="pro-actions">
-        <button type="button" id="pro-pay">Unlock $5.99</button>
-        <button type="button" id="pro-trial">7-day trial</button>
-        <button type="button" id="pro-test" hidden>Test unlock</button>
+  <body aria-busy="true">
+    <header class="bar">
+      <svg class="mark" width="24" height="24" viewBox="8 8 112 112" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="mark-tile" x1="0" y1="8" x2="0" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#33959A" />
+            <stop offset="1" stop-color="#1C676D" />
+          </linearGradient>
+          <clipPath id="mark-disc"><circle cx="64" cy="64" r="35" /></clipPath>
+        </defs>
+        <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#mark-tile)" />
+        <g clip-path="url(#mark-disc)">
+          <rect x="0" y="29" width="128" height="10" fill="#FFFFFF" />
+          <rect x="0" y="44" width="128" height="10" fill="#FFFFFF" />
+          <rect x="0" y="59" width="128" height="10" fill="#FFB638" />
+          <rect x="0" y="74" width="128" height="10" fill="#FFFFFF" />
+          <rect x="0" y="89" width="128" height="10" fill="#FFFFFF" />
+        </g>
+      </svg>
+      <h1 class="brand">Tamis</h1>
+      <div class="power">
+        <label id="enabled-label" for="enabled">Filtering</label>
+        <button type="button" id="enabled" class="switch" role="switch" aria-checked="true"
+          aria-labelledby="enabled-label" disabled data-needs-load></button>
       </div>
-    </div>
-    <header>
-      <button type="button" id="tab-countries" aria-selected="true">Countries</button>
-      <button type="button" id="tab-regions" aria-selected="false">Regions</button>
-      <button type="button" id="tab-languages" aria-selected="false">Languages</button>
     </header>
-    <input id="search" type="search" placeholder="Search" autocomplete="off" />
-    <ul id="list"></ul>
+
+    <div class="top">
+      <section class="status-card" aria-label="Status">
+        <div class="status-line">
+          <p id="status" role="status">Loading your picks…</p>
+          <span id="status-count" class="count" hidden></span>
+        </div>
+        <div id="page-note" class="page-note" hidden>
+          <span id="page-note-text"></span>
+          <button type="button" id="page-action" class="btn btn-small btn-primary" hidden></button>
+        </div>
+      </section>
+
+      <div id="mode" class="mode" role="radiogroup" aria-label="Mode">
+        <button type="button" id="mode-hide" role="radio" aria-checked="true" tabindex="0" disabled
+          data-needs-load>Hide matches</button>
+        <button type="button" id="mode-only" role="radio" aria-checked="false" tabindex="-1" disabled
+          data-needs-load>Only show <span class="pill" aria-hidden="true">PRO</span><span class="sr-only">, Focus
+            mode</span></button>
+      </div>
+
+      <div id="trial-row" class="trial-row" hidden>
+        <span id="trial-chip" class="chip-accent"></span>
+        <button type="button" id="trial-buy" class="link">Unlock Focus mode</button>
+        <button type="button" id="pro-expand" class="link" aria-controls="pro-card" aria-expanded="false"
+          hidden>Unlock or switch to Hide</button>
+      </div>
+
+      <section id="pro-card" class="pro-card" aria-labelledby="pro-title" hidden>
+        <div class="pro-head">
+          <h2 id="pro-title" tabindex="-1">Focus mode <span class="pill">PRO</span></h2>
+          <button type="button" id="pro-close" class="icon-btn" aria-label="Close Focus mode offer">×</button>
+        </div>
+        <p id="pro-ended" class="notice" hidden></p>
+        <p id="pro-body"></p>
+        <p id="pro-price" class="muted"></p>
+        <p id="pro-hint" class="help" hidden>Tamis has no access to andreasne89.github.io, so after paying use
+          Restore below.</p>
+        <div id="pro-actions" class="actions">
+          <button type="button" id="pro-pay" class="btn btn-primary">Unlock Focus mode</button>
+          <button type="button" id="pro-trial" class="btn btn-ghost">Try it free</button>
+          <button type="button" id="pro-hide" class="btn btn-ghost" hidden>Switch to Hide</button>
+        </div>
+        <div id="hide-confirm" class="restore" hidden>
+          <p>Hide mode hides posts that match your picks, instead of showing only them.</p>
+          <div class="actions">
+            <button type="button" id="hide-keep" class="btn btn-small btn-primary">Hide my picks</button>
+            <button type="button" id="hide-clear" class="btn btn-small btn-ghost">Clear picks</button>
+            <button type="button" id="hide-cancel" class="btn btn-small btn-ghost">Cancel</button>
+          </div>
+        </div>
+        <button type="button" id="pro-restore" class="link link-muted" aria-expanded="false"
+          aria-controls="restore-confirm">Already bought? Restore Focus mode</button>
+        <div id="restore-confirm" class="restore" hidden>
+          <p>Restore Focus mode in this browser? Use this only if you already paid.</p>
+          <div class="actions">
+            <button type="button" id="restore-yes" class="btn btn-small btn-primary">Restore</button>
+            <button type="button" id="restore-no" class="btn btn-small btn-ghost">Cancel</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="switch-row">
+        <label class="switch-text" for="mark-only">
+          <span id="mark-label">Highlight instead of hide</span>
+          <span id="mark-help" class="help">Outline matches so you can check before hiding.</span>
+        </label>
+        <button type="button" id="mark-only" class="switch" role="switch" aria-checked="false"
+          aria-labelledby="mark-label" aria-describedby="mark-help" disabled data-needs-load></button>
+      </div>
+
+      <section id="tray" class="tray" aria-label="Your picks" hidden>
+        <ul id="chips" class="chips"></ul>
+        <p id="tray-note" class="tray-note" hidden>All picks cleared.</p>
+        <button type="button" id="clear-all" class="link">Clear all</button>
+        <button type="button" id="undo-clear" class="link" hidden>Undo</button>
+      </section>
+    </div>
+
+    <div id="tabs" class="tabs" role="tablist" aria-label="Pick from">
+      <button type="button" role="tab" id="tab-languages" aria-controls="panel" aria-selected="true" tabindex="0"
+        disabled data-needs-load>Languages</button>
+      <button type="button" role="tab" id="tab-countries" aria-controls="panel" aria-selected="false" tabindex="-1"
+        disabled data-needs-load>Countries</button>
+      <button type="button" role="tab" id="tab-regions" aria-controls="panel" aria-selected="false" tabindex="-1"
+        disabled data-needs-load>Regions</button>
+    </div>
+    <div id="panel" class="panel" role="tabpanel" aria-labelledby="tab-languages">
+      <label for="search" id="search-label" class="sr-only">Search languages</label>
+      <input id="search" type="search" placeholder="Search languages" autocomplete="off" spellcheck="false"
+        disabled data-needs-load />
+      <ul id="list" class="list" aria-labelledby="tab-languages"></ul>
+      <p id="empty" class="empty" hidden></p>
+    </div>
+
+    <details id="accounts" class="accounts">
+      <summary>Always show these accounts <span id="accounts-count" class="muted"></span></summary>
+      <div class="accounts-body">
+        <form id="handle-form" class="handle-form" novalidate>
+          <label for="handle-input" class="sr-only">Account to always show</label>
+          <input id="handle-input" type="text" placeholder="@handle" autocomplete="off" spellcheck="false"
+            aria-describedby="handle-error handle-help" />
+          <button type="submit" class="btn btn-small btn-ghost">Add</button>
+        </form>
+        <p id="handle-error" class="error" hidden></p>
+        <p id="handle-help" class="help">Their posts are never hidden or highlighted.</p>
+        <ul id="handles" class="chips"></ul>
+      </div>
+    </details>
+
+    <footer>
+      Runs in your browser · no extra requests to X ·
+      <a href="https://andreasne89.github.io/x-country-block/privacy.html" target="_blank" rel="noopener">Privacy</a>
+    </footer>
+    <p id="announce" class="sr-only" aria-live="polite"></p>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -1,11 +1,17 @@
 {
   "name": "x-country-block",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "pretest": "node scripts/check-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check-version": "node scripts/check-version.mjs",
     "build": "node scripts/build.mjs",
     "build:prod": "node scripts/build.mjs --prod",
     "build:firefox": "node scripts/build.mjs --firefox",
@@ -13,9 +19,10 @@
     "source:zip": "node scripts/source-zip.mjs"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "esbuild": "^0.25.9",
-    "happy-dom": "^18.0.1",
+    "happy-dom": "^20.14.5",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11"
   }
 }

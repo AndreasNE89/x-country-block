@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges">
+  <!-- Tamis toolbar icon, hand-pixelled on a 16 grid (render at 16 or 32). Three rows, 1px gaps, marigold middle row. -->
+  <defs>
+    <linearGradient id="tile16" x1="0" y1="0" x2="0" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#33959A"/>
+      <stop offset="1" stop-color="#1C676D"/>
+    </linearGradient>
+  </defs>
+  <rect width="16" height="16" rx="3.5" fill="url(#tile16)" shape-rendering="geometricPrecision"/>
+  <rect x="6" y="3" width="4" height="1" fill="#FFFFFF"/>
+  <rect x="4" y="4" width="8" height="1" fill="#FFFFFF"/>
+  <rect x="3" y="5" width="10" height="1" fill="#FFFFFF"/>
+  <rect x="3" y="7" width="10" height="2" fill="#FFB638"/>
+  <rect x="3" y="10" width="10" height="1" fill="#FFFFFF"/>
+  <rect x="4" y="11" width="8" height="1" fill="#FFFFFF"/>
+  <rect x="6" y="12" width="4" height="1" fill="#FFFFFF"/>
+  <g fill="#FFFFFF" fill-opacity=".45">
+    <rect x="5" y="3" width="1" height="1"/><rect x="10" y="3" width="1" height="1"/>
+    <rect x="3" y="4" width="1" height="1"/><rect x="12" y="4" width="1" height="1"/>
+    <rect x="3" y="11" width="1" height="1"/><rect x="12" y="11" width="1" height="1"/>
+    <rect x="5" y="12" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/>
+  </g>
+</svg>

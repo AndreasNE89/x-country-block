@@ -2,15 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
 import { LANGUAGES, languageCodeFromName, languageName } from "../src/shared/languages.ts";
 import { foldText } from "../src/shared/normalize.ts";
-import {
-  actionReason,
-  countriesFromLocation,
-  countryFromBasedIn,
-  shouldHideCard,
-  shouldHideTweet,
-  tweetDecision,
-  tweetMatchReason,
-} from "../src/shared/match.ts";
+import { actionReason, cardDecision, countriesFromLocation, tweetDecision } from "../src/shared/match.ts";
 import { regionsFromLocation } from "../src/shared/regions.ts";
 import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
@@ -54,14 +46,17 @@ function settings(
   filterMode: FilterMode = "hide",
 ): Settings {
   return {
+    enabled: true,
     hiddenCountryCodes: countries,
     hiddenLanguageCodes: languages,
     hiddenRegionIds: regions,
+    allowedHandles: [],
     markOnly: true,
     filterMode,
     onlyShowPaid: filterMode === "only",
     trialStartedAt: null,
     onlyShowUnlocked: filterMode === "only",
+    trialExpired: false,
   };
 }
 
@@ -87,6 +82,33 @@ function user(partial: Partial<UserRecord> = {}): UserRecord {
     lang: null,
     ...partial,
   };
+}
+
+function shouldHideTweet(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(tweetDecision(post, author, picks, countryIndex), picks) !== null;
+}
+
+function tweetMatchReason(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): string | null {
+  return tweetDecision(post, author, picks, countryIndex).hit;
+}
+
+function shouldHideCard(
+  card: TweetRecord,
+  users: Map<string, UserRecord>,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(cardDecision(card, users, picks, countryIndex), picks) !== null;
 }
 
 describe("foldText", () => {
@@ -144,14 +166,21 @@ describe("countriesFromLocation", () => {
   });
 });
 
-describe("countryFromBasedIn", () => {
+describe("Account based in", () => {
   it("maps a based-in label to one country", () => {
-    expect(countryFromBasedIn("India", index)).toBe("IN");
-    expect(countryFromBasedIn("United States", index)).toBe("US");
+    expect(tweetMatchReason(tweet(), user({ basedIn: "India" }), settings(["IN"]), index)).toBe(
+      "Account based in: India (as shown by X)",
+    );
+    expect(tweetMatchReason(tweet(), user({ basedIn: "United States" }), settings(["US"]), index)).toBe(
+      "Account based in: United States (as shown by X)",
+    );
   });
 
-  it("returns null when unknown", () => {
-    expect(countryFromBasedIn("Earth", index)).toBeNull();
+  it("decides nothing when unknown", () => {
+    expect(tweetDecision(tweet(), user({ basedIn: "Earth" }), settings(["IN"]), index)).toEqual({
+      hit: null,
+      decided: false,
+    });
   });
 });
 
@@ -192,7 +221,7 @@ describe("shouldHideTweet", () => {
         settings(["IN"]),
         index,
       ),
-    ).toBe("based in · India");
+    ).toBe("Account based in: India (as shown by X)");
   });
 
   it("should mark connected-via text when based-in is missing", () => {
@@ -203,13 +232,13 @@ describe("shouldHideTweet", () => {
         settings(["IN"]),
         index,
       ),
-    ).toBe("connected via · India");
+    ).toBe("Connected via: India");
   });
 
   it("should mark tweet place India", () => {
     expect(
       tweetMatchReason(tweet({ lang: "en", place: "Jabalpur, India" }), user(), settings(["IN"]), index),
-    ).toBe("place · India");
+    ).toBe("Place: India");
   });
 
   it("should ignore vanity profile location and use About this account", () => {
@@ -237,7 +266,7 @@ describe("shouldHideTweet", () => {
         settings(["US"]),
         real,
       ),
-    ).toBe("based in · United States");
+    ).toBe("Account based in: United States (as shown by X)");
   });
 
   it("does not hide English tweet when only a language is checked", () => {
@@ -267,7 +296,7 @@ describe("shouldHideTweet", () => {
     expect(shouldHideTweet(tweet({ lang: "en" }), undefined, onlyIndia, index)).toBe(true);
     expect(
       actionReason(tweetDecision(tweet({ lang: "en" }), undefined, onlyIndia, index), onlyIndia),
-    ).toBe("outside · India");
+    ).toBe("Not in your Focus picks (location unknown)");
     expect(
       actionReason(
         tweetDecision(tweet({ lang: "en" }), user({ basedIn: "India" }), onlyIndia, index),
@@ -400,15 +429,6 @@ describe("shouldHideCard", () => {
     expect(shouldHideCard(card, users, settings(["NG"]), index)).toBe(true);
   });
 
-  it("hides retweet using original author", () => {
-    const card = tweet({
-      authorId: "outer",
-      lang: "en",
-      retweeted: tweet({ tweetId: "3", authorId: "orig", lang: "ja" }),
-    });
-    expect(shouldHideCard(card, users, settings(["JP"]), index)).toBe(true);
-  });
-
   it("keeps parent when only a reply would match (caller passes the reply card)", () => {
     const parent = tweet({ authorId: "outer", lang: "en" });
     expect(shouldHideCard(parent, users, settings(["NG"]), index)).toBe(false);
@@ -434,14 +454,14 @@ describe("shouldHideCard", () => {
     expect(shouldHideCard(card, users, onlyAfrica, index)).toBe(true);
   });
 
-  it("should keep an Africa retweet in only-show", () => {
-    const onlyAfrica = settings([], [], ["AFRICA"], "only");
+  it("does not follow a repost wrapper: the content script passes the original post", () => {
     const card = tweet({
       authorId: "outer",
       lang: "en",
-      retweeted: tweet({ tweetId: "3", authorId: "inner", lang: "en" }),
+      retweeted: tweet({ tweetId: "3", authorId: "orig", lang: "ja" }),
     });
-    expect(shouldHideCard(card, users, onlyAfrica, index)).toBe(false);
+    expect(shouldHideCard(card, users, settings(["JP"]), index)).toBe(false);
+    expect(shouldHideCard(tweet({ authorId: "orig", lang: "ja" }), users, settings(["JP"]), index)).toBe(true);
   });
 });
 
@@ -468,7 +488,8 @@ describe("defaultCountryIndex", () => {
     expect(countriesFromLocation("Boston, MA", real)).not.toContain("MA");
     expect(countriesFromLocation("Casablanca, MA", real)).toEqual(["MA"]);
     expect(countriesFromLocation("from US", real)).toEqual(["US"]);
-    expect(countriesFromLocation("MA", real)).toEqual(["MA"]);
+    // Bare "MA" is Massachusetts as often as Morocco: it decides nothing on its own.
+    expect(countriesFromLocation("MA", real)).toEqual([]);
   });
 
   it("lists every ISO2 in COUNTRY_NAMES as a hide target", async () => {
@@ -553,7 +574,7 @@ describe("shouldHideTweet regions", () => {
         settings([], [], ["SOUTH_ASIA"]),
         index,
       ),
-    ).toBe("based in · South Asia");
+    ).toBe("Account based in: South Asia (as shown by X)");
   });
 
   it("should hide when a country and a continent are both ticked", () => {
@@ -569,10 +590,10 @@ describe("shouldHideTweet regions", () => {
     ).toBe(false);
     expect(
       tweetMatchReason(tweet({ lang: "en" }), user({ basedIn: "India" }), both, index),
-    ).toBe("based in · India");
+    ).toBe("Account based in: India (as shown by X)");
     expect(
       tweetMatchReason(tweet({ lang: "en" }), user({ basedIn: "Japan" }), both, index),
-    ).toBe("based in · Japan · Asia");
+    ).toBe("Account based in: Japan, Asia (as shown by X)");
   });
 
   it("hides India when South Asia is checked and Japan when Asia is checked", () => {

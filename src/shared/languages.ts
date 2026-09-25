@@ -1,3 +1,5 @@
+import { foldText } from "./normalize.ts";
+
 export const LANGUAGES: { code: string; name: string }[] = [
   { code: "ab", name: "Abkhazian" },
   { code: "aa", name: "Afar" },
@@ -26,6 +28,7 @@ export const LANGUAGES: { code: string; name: string }[] = [
   { code: "ca", name: "Catalan" },
   { code: "ch", name: "Chamorro" },
   { code: "ce", name: "Chechen" },
+  { code: "chr", name: "Cherokee" },
   { code: "zh", name: "Chinese" },
   { code: "cu", name: "Church Slavic" },
   { code: "cv", name: "Chuvash" },
@@ -184,19 +187,172 @@ export const LANGUAGES: { code: string; name: string }[] = [
   { code: "zu", name: "Zulu" },
 ];
 
-export function languageName(code: string): string {
-  return LANGUAGES.find((row) => row.code === code)?.name ?? code;
+/**
+ * Codes X puts on a post (or account) that mean "no language": media or links only
+ * (zxx), mentions (qam), hashtags (qht), cashtags (qct), emoji (qme, art), too short
+ * (qst) or undetermined (und). "xx" covers the old LOLcat UI locale "xx-lc".
+ */
+const NO_LANGUAGE = new Set([
+  "und",
+  "zxx",
+  "qme",
+  "qam",
+  "qct",
+  "qht",
+  "qst",
+  "art",
+  "mis",
+  "mul",
+  "xx",
+]);
+
+/** Legacy or alternative codes -> the code LANGUAGES lists. */
+const CODE_ALIASES: Record<string, string> = {
+  in: "id",
+  iw: "he",
+  ji: "yi",
+  jw: "jv",
+  ckb: "ku",
+  kmr: "ku",
+  nb: "no",
+  nn: "no",
+  fil: "tl",
+  msa: "ms",
+  mo: "ro",
+};
+
+/**
+ * Canonical language code for comparing X's tags with the user's picks:
+ * lowercase, region/script subtags dropped (zh-CN -> zh, pt-BR -> pt, hi-Latn -> hi),
+ * legacy codes mapped (in -> id, iw -> he, ckb -> ku, nb/nn -> no, fil -> tl).
+ * Returns null when the code says there is no language to judge.
+ */
+export function normalizeLang(code: string | null | undefined): string | null {
+  if (typeof code !== "string") return null;
+  const base = code.trim().toLowerCase().split(/[-_]/)[0] ?? "";
+  if (!base || NO_LANGUAGE.has(base)) return null;
+  return CODE_ALIASES[base] ?? base;
 }
 
-const LANGUAGE_NAME_TO_CODE = new Map(
-  LANGUAGES.flatMap((row) => [
-    [row.name.toLowerCase(), row.code],
-    [row.code, row.code],
-  ]),
-);
+/** True when X explicitly tagged the text as having no language (photo, link, emoji...). */
+export function isNoLanguageCode(code: string | null | undefined): boolean {
+  if (typeof code !== "string") return false;
+  const base = code.trim().toLowerCase().split(/[-_]/)[0] ?? "";
+  return NO_LANGUAGE.has(base);
+}
 
+/** Languages X detects on posts (after normalizeLang). All are in LANGUAGES. */
+export const X_LANGUAGE_CODES: ReadonlySet<string> = new Set([
+  "am", "ar", "bg", "bn", "bo", "ca", "chr", "cs", "cy", "da", "de", "dv", "el", "en",
+  "es", "et", "eu", "fa", "fi", "fr", "gu", "he", "hi", "hr", "ht", "hu", "hy", "id", "is",
+  "it", "ja", "ka", "km", "kn", "ko", "ku", "lo", "lt", "lv", "ml", "mr", "ms", "my",
+  "ne", "nl", "no", "or", "pa", "pl", "ps", "pt", "ro", "ru", "sd", "si", "sk", "sl",
+  "sr", "sv", "ta", "te", "th", "tl", "tr", "ug", "uk", "ur", "vi", "zh",
+]);
+
+/**
+ * Other names for a language -> its code: alternative English names, the labels X
+ * shows in "Translated from ...", and native names (for search).
+ */
+export const LANGUAGE_ALIASES: Record<string, string> = {
+  filipino: "tl",
+  pilipino: "tl",
+  farsi: "fa",
+  "haitian creole": "ht",
+  "central kurdish": "ku",
+  sorani: "ku",
+  "sorani kurdish": "ku",
+  "kurdish (sorani)": "ku",
+  kurmanji: "ku",
+  "myanmar (burmese)": "my",
+  sinhalese: "si",
+  oriya: "or",
+  panjabi: "pa",
+  pushto: "ps",
+  uighur: "ug",
+  dhivehi: "dv",
+  maldivian: "dv",
+  slovene: "sl",
+  mandarin: "zh",
+  cantonese: "zh",
+  "simplified chinese": "zh",
+  "traditional chinese": "zh",
+  "chinese (simplified)": "zh",
+  "chinese (traditional)": "zh",
+  bokmal: "no",
+  "norwegian bokmal": "no",
+  nynorsk: "no",
+  "norwegian nynorsk": "no",
+  moldovan: "ro",
+  flemish: "nl",
+  castilian: "es",
+  gaelic: "gd",
+  kirghiz: "ky",
+  cambodian: "km",
+  laotian: "lo",
+  "bahasa indonesia": "id",
+  "bahasa melayu": "ms",
+  "bahasa malaysia": "ms",
+  "brazilian portuguese": "pt",
+  deutsch: "de",
+  español: "es",
+  espanol: "es",
+  français: "fr",
+  italiano: "it",
+  português: "pt",
+  nederlands: "nl",
+  polski: "pl",
+  türkçe: "tr",
+  svenska: "sv",
+  norsk: "no",
+  dansk: "da",
+  suomi: "fi",
+  magyar: "hu",
+  čeština: "cs",
+  română: "ro",
+  "tiếng việt": "vi",
+  русский: "ru",
+  українська: "uk",
+  ελληνικά: "el",
+  עברית: "he",
+  العربية: "ar",
+  فارسی: "fa",
+  اردو: "ur",
+  हिन्दी: "hi",
+  हिंदी: "hi",
+  বাংলা: "bn",
+  தமிழ்: "ta",
+  తెలుగు: "te",
+  मराठी: "mr",
+  ไทย: "th",
+  日本語: "ja",
+  中文: "zh",
+  한국어: "ko",
+};
+
+const nameByCode = new Map(LANGUAGES.map((row) => [row.code, row.name]));
+
+/** English name for a code; understands X's variants ("iw", "zh-CN", "in"). */
+export function languageName(code: string): string {
+  const direct = nameByCode.get(code);
+  if (direct) return direct;
+  const canonical = normalizeLang(code);
+  return (canonical && nameByCode.get(canonical)) || code;
+}
+
+const LANGUAGE_NAME_TO_CODE = new Map<string, string>();
+for (const row of LANGUAGES) {
+  LANGUAGE_NAME_TO_CODE.set(foldText(row.name), row.code);
+  LANGUAGE_NAME_TO_CODE.set(row.code, row.code);
+}
+for (const [alias, code] of Object.entries(LANGUAGE_ALIASES)) {
+  LANGUAGE_NAME_TO_CODE.set(foldText(alias), code);
+}
+
+/** "Hindi" -> "hi", "Filipino" -> "tl", "Norwegian Bokmål" -> "no". Null when unknown. */
 export function languageCodeFromName(name: string): string | null {
-  const folded = name.trim().toLowerCase();
+  const folded = foldText(name);
   if (!folded) return null;
-  return LANGUAGE_NAME_TO_CODE.get(folded) ?? null;
+  const code = LANGUAGE_NAME_TO_CODE.get(folded);
+  return code ? normalizeLang(code) : null;
 }

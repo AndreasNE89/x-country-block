@@ -238,14 +238,15 @@ const MOUNT_FORT =
   /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L})|(mt|ft)\s+(?=\p{Ll}))/gu;
 
 /**
- * Codes that are ordinary words or slang. After another word in the same part
- * ("Follow ME", "Photo ID", "Tired AF", "Class ACT") they only count when that word
- * is a known city ("Portland ME", "Kabul AF", "Canberra ACT").
+ * Codes that are ordinary words, slang or job acronyms. After another word in the
+ * same part ("Follow ME", "Photo ID", "Tired AF", "Class ACT", "Tech PR", "Head of
+ * BD") they only count when that word is a known city ("Portland ME", "Kabul AF",
+ * "Canberra ACT", "San Juan PR"). As a whole part they still count ("Rincon, PR").
  */
 const TRAILING_CODE_WORDS = new Set([
-  "ACT", "AF", "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE",
-  "HI", "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST",
-  "TO", "TV", "UP", "WE",
+  "ACT", "AF", "AI", "AM", "AN", "AS", "AT", "BD", "BE", "BY", "DE", "DO", "ES", "GM", "GO",
+  "HE", "HI", "HR", "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM",
+  "PR", "SE", "SO", "ST", "TO", "TV", "UP", "WE",
 ]);
 /**
  * US state codes that are also words or acronyms in all-caps text ("LOVE YOU MA",

@@ -368,7 +368,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Bruges|Brugge|Leuven|Louvain|Namur|Mechelen|Hasselt",
   BA: "Sarajevo|Banja Luka|Tuzla|Mostar|Zenica",
   BG: "Sofia|Plovdiv|Varna|Burgas|София",
-  HR: "Zagreb|Rijeka|Osijek|Zadar|Dubrovnik",
+  HR: "Zagreb|Rijeka|Osijek|Zadar|Dubrovnik|Varaždin|Šibenik|Karlovac|Slavonski Brod",
   CZ: "Prague|Praha|Brno|Ostrava|Plzeň|Pilsen|Olomouc|Liberec",
   DK: "Copenhagen|København|Aarhus|Århus|Odense|Aalborg|Esbjerg",
   EE: "Tallinn|Tartu|Narva|Pärnu",
@@ -523,7 +523,9 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Puerto Plata",
   HT: "Port-au-Prince|Cap-Haïtien|Pétion-Ville|Gonaïves",
   JM: "Kingston|Montego Bay|Spanish Town|Portmore|Ocho Rios|Negril",
-  PR: "San Juan|Bayamón|Ponce|Caguas|Mayagüez",
+  PR:
+    "San Juan|Bayamón|Ponce|Caguas|Mayagüez|Guaynabo|Arecibo|Aguadilla|Humacao|Fajardo|" +
+    "Cayey|Trujillo Alto|Vega Baja|Toa Baja|Cabo Rojo|Yauco|Guayama|Manatí",
   TT: "Port of Spain|Chaguanas|Arima",
   BS: "Nassau",
   BB: "Bridgetown",

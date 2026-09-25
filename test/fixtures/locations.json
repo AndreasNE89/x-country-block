@@ -781,5 +781,19 @@
   ["Santiago, RD", ["DO"]],
   ["Santiago, DR", ["DO"]],
   ["Jersey", ["JE"]],
-  ["Jersey 🇺🇸", ["US"]]
+  ["Jersey 🇺🇸", ["US"]],
+  ["Fashion PR, NYC", ["US"]],
+  ["Tech PR", []],
+  ["Crypto PR", []],
+  ["Head of BD", []],
+  ["Senior SE", []],
+  ["San Juan PR", ["PR"]],
+  ["Caguas PR", ["PR"]],
+  ["Rincon, PR", ["PR"]],
+  ["NYC | PR", ["US", "PR"]],
+  ["PR", ["PR"]],
+  ["Zagreb HR", ["HR"]],
+  ["Split, HR", ["HR"]],
+  ["Dhaka BD", ["BD"]],
+  ["Stockholm SE", ["SE"]]
 ]

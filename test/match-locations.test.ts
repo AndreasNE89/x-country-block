@@ -343,6 +343,30 @@ describe("countriesFromLocation", () => {
     expect(parse("Doha, QA")).toEqual(["QA"]);
   });
 
+  it("reads job acronyms after a word as jobs, not places (R32)", () => {
+    for (const text of ["Tech PR", "Crypto PR", "Head of BD", "Senior SE", "HR Manager"]) {
+      expect(parse(text), text).toEqual([]);
+    }
+    expect(parse("Fashion PR, NYC")).toEqual(["US"]);
+    // After a known city, as a whole part or alone they are still places.
+    for (const [text, want] of [
+      ["San Juan PR", ["PR"]],
+      ["Caguas PR", ["PR"]],
+      ["Arecibo PR", ["PR"]],
+      ["Rincon, PR", ["PR"]],
+      ["NYC | PR", ["PR", "US"]],
+      ["PR", ["PR"]],
+      ["Zagreb HR", ["HR"]],
+      ["Split, HR", ["HR"]],
+      ["HR", ["HR"]],
+      ["Dhaka BD", ["BD"]],
+      ["BD", ["BD"]],
+      ["Stockholm SE", ["SE"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("reads N./S./E./W. before a place as North, South, East, West", () => {
     expect(parse("N. Korea")).toEqual(["KP"]);
     expect(parse("S Korea")).toEqual(["KR"]);

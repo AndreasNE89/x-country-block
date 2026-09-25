@@ -30,7 +30,8 @@ straight away, with no reload.
   to "Always show these accounts" are never hidden or highlighted.
 - Works on the home timeline, search, profiles and notifications.
 - **Focus mode** (Pro, $5.99 once, 7-day free trial): show only posts from
-  the places and languages you tick and set the rest aside. Payment is a
+  the places and languages you tick and set the rest aside; each set-aside
+  post folds to a one-line "Tamis · Not in your Focus picks". Payment is a
   Stripe Payment Link; there is no Tamis account.
 
 ## How it decides

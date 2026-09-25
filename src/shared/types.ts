@@ -22,6 +22,7 @@ export type Settings = {
   markOnly: boolean;
   filterMode: FilterMode;
   onlyShowPaid: boolean;
+  /** null also when the stored start is too far in the future to believe (see believableTrialStart). */
   trialStartedAt: number | null;
   /** Derived: paid, or trial still running. Never read from storage. */
   onlyShowUnlocked: boolean;

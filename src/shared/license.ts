@@ -26,6 +26,19 @@ export function trialStartedAtFromUnknown(value: unknown): number | null {
   return value;
 }
 
+/**
+ * The stored trial start, or null (no trial yet) when it lies further in the future than
+ * clock skew allows: the clock was ahead when the trial began and has been corrected since.
+ * Read as a used-up trial it would lock Focus mode until the clock caught up, possibly for
+ * good; read as running it would unlock until then. As no trial, the trial can be started
+ * again, which stores the current time. That needs a clock behind the stored start, so it
+ * gives nothing that setting the clock back into the trial window does not already give.
+ */
+export function believableTrialStart(trialStartedAt: number | null, now = Date.now()): number | null {
+  if (trialStartedAt === null || trialStartedAt - now > TRIAL_CLOCK_SKEW_MS) return null;
+  return trialStartedAt;
+}
+
 export function onlyShowAllowed(
   paid: boolean,
   trialStartedAt: number | null,

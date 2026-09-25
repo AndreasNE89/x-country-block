@@ -4,7 +4,7 @@ import type { Settings } from "../shared/types.ts";
 export type ProState = "paid" | "trial" | "ended" | "locked";
 
 export type ProCard = {
-  /** The free trial was used up (or its start date is not believable). */
+  /** The free trial was used up. */
   ended: boolean;
   showTrial: boolean;
   /** Only show is still selected but locked, so offer the way back to Hide. */
@@ -15,7 +15,9 @@ export type ProCard = {
 
 export type ProView = {
   state: ProState;
+  /** Open on request in every state but paid, so Restore is always within reach. */
   card: ProCard | null;
+  /** The trial's days left, while the card is not open. */
   trialChip: string | null;
   /**
    * Only show is still selected but locked, and the card is not open: a one-line
@@ -46,7 +48,7 @@ export function proView(settings: Settings, cardOpen: boolean, now = Date.now())
   return {
     state,
     card:
-      locked && cardOpen
+      state !== "paid" && cardOpen
         ? {
             ended,
             showTrial: state === "locked",
@@ -54,7 +56,8 @@ export function proView(settings: Settings, cardOpen: boolean, now = Date.now())
             notice: stuckInOnly ? STUCK_TEXT : ended ? TRIAL_ENDED_TEXT : null,
           }
         : null,
-    trialChip: state === "trial" ? trialChipText(trialDaysLeft(settings.trialStartedAt, now)) : null,
+    trialChip:
+      state === "trial" && !cardOpen ? trialChipText(trialDaysLeft(settings.trialStartedAt, now)) : null,
     stuckChip: stuckInOnly && !cardOpen ? (ended ? "Trial ended" : "Focus mode locked") : null,
   };
 }

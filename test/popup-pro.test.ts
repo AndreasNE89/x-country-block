@@ -61,10 +61,20 @@ describe("proView", () => {
   });
 
   it("should show the days left during the trial and no card", () => {
-    const trial = view({ trialStartedAt: NOW - 2 * DAY }, true);
+    const trial = view({ trialStartedAt: NOW - 2 * DAY });
     expect(trial.state).toBe("trial");
     expect(trial.card).toBeNull();
     expect(trial.trialChip).toBe("Trial · 5 days left");
+  });
+
+  it("should open the card during the trial on request, so Restore is in reach", () => {
+    // Someone who paid while the thank-you page could not unlock needs Restore before the trial ends.
+    const open = view({ trialStartedAt: NOW - 2 * DAY, filterMode: "only" }, true);
+    expect(open.state).toBe("trial");
+    expect(open.card).toEqual({ ended: false, showTrial: false, showSwitchToHide: false, notice: null });
+    // The card takes the row's place, as it does for the stuck reminder.
+    expect(open.trialChip).toBeNull();
+    expect(open.stuckChip).toBeNull();
   });
 
   it("should show nothing extra when paid", () => {
@@ -74,8 +84,12 @@ describe("proView", () => {
     expect(paid.stuckChip).toBeNull();
   });
 
-  it("should treat a trial started in the future as ended", () => {
-    expect(view({ trialStartedAt: NOW + 30 * DAY }, true).card?.ended).toBe(true);
+  it("should offer the trial again, not call it ended, when its start is in the future", () => {
+    // A clock that was ahead and was corrected must not lock the trial out for good.
+    const future = view({ trialStartedAt: NOW + 30 * DAY }, true);
+    expect(future.state).toBe("locked");
+    expect(future.card).toEqual({ ended: false, showTrial: true, showSwitchToHide: false, notice: null });
+    expect(view({ trialStartedAt: NOW + 30 * DAY, filterMode: "only" }).stuckChip).toBe("Focus mode locked");
   });
 });
 

@@ -302,6 +302,11 @@ body.is-paused .status-card {
   gap: 8px;
 }
 
+/* During the trial, Unlock and Restore sit together on the right. */
+#trial-buy {
+  margin-left: auto;
+}
+
 .chip-accent {
   padding: 2px 8px;
   border-radius: 999px;

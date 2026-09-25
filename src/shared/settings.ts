@@ -1,5 +1,5 @@
 import { normalizeLang } from "./languages.ts";
-import { onlyShowAllowed, trialStartedAtFromUnknown } from "./license.ts";
+import { believableTrialStart, onlyShowAllowed, trialStartedAtFromUnknown } from "./license.ts";
 import { REGION_IDS } from "./regions.ts";
 import type { FilterMode, Settings } from "./types.ts";
 
@@ -40,7 +40,7 @@ export function parseSettings(raw: unknown, now = Date.now()): Settings {
   if (!raw || typeof raw !== "object") return emptySettings();
   const obj = raw as Record<string, unknown>;
   const onlyShowPaid = obj.onlyShowPaid === true;
-  const trialStartedAt = trialStartedAtFromUnknown(obj.trialStartedAt);
+  const trialStartedAt = believableTrialStart(trialStartedAtFromUnknown(obj.trialStartedAt), now);
   const onlyShowUnlocked = onlyShowAllowed(onlyShowPaid, trialStartedAt, now);
   return {
     enabled: obj.enabled !== false,

@@ -107,6 +107,14 @@ describe("parseSettings", () => {
     expect(parseSettings({ trialStartedAt: now - 1000 }, now).trialExpired).toBe(false);
   });
 
+  it("reads a trial start too far in the future as no trial, not an ended one", () => {
+    const now = 1_000_000_000_000;
+    const s = parseSettings({ trialStartedAt: now + 30 * 24 * 60 * 60 * 1000 }, now);
+    expect(s.trialStartedAt).toBeNull();
+    expect(s.onlyShowUnlocked).toBe(false);
+    expect(s.trialExpired).toBe(false);
+  });
+
   it("lists every stored key it reads", () => {
     expect([...SETTINGS_KEYS]).toContain("enabled");
     expect([...SETTINGS_KEYS]).toContain("allowedHandles");

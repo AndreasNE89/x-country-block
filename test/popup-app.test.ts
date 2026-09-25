@@ -396,6 +396,58 @@ describe("Focus mode", () => {
     expect(api.tabs.create).toHaveBeenCalledWith({ url: STRIPE_PAYMENT_LINK });
   });
 
+  it("should offer Restore during the trial, behind the same confirm", async () => {
+    const { api } = await open({ trialStartedAt: NOW - 2 * DAY, filterMode: "only", hiddenCountryCodes: ["NO"] });
+    expect(visible("pro-card")).toBe(false);
+    expect(visible("trial-restore")).toBe(true);
+    expect($("trial-restore").textContent).toBe("Restore Focus mode");
+    $("trial-restore").click();
+    expect(visible("pro-card")).toBe(true);
+    expect(visible("restore-confirm")).toBe(true);
+    expect($("pro-restore").getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe($("restore-yes"));
+    // A running trial is never offered again.
+    expect(visible("pro-trial")).toBe(false);
+    expect(visible("pro-hide")).toBe(false);
+    expect(visible("trial-row")).toBe(false);
+    expect(api.storage.local.set).not.toHaveBeenCalled();
+    expect(api.tabs.create).not.toHaveBeenCalled();
+    $("restore-yes").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenCalledWith({ onlyShowPaid: true, filterMode: "only" });
+    expect(visible("pro-card")).toBe(false);
+    expect(visible("trial-row")).toBe(false);
+    expect($("status").textContent).toBe("Showing only Norway");
+  });
+
+  it("should fold the trial card back into the trial row", async () => {
+    await open({ trialStartedAt: NOW - 2 * DAY, filterMode: "only" });
+    $("trial-restore").click();
+    $("restore-no").click();
+    expect(visible("restore-confirm")).toBe(false);
+    expect(visible("pro-card")).toBe(true);
+    $("pro-close").focus();
+    $("pro-close").click();
+    expect(visible("pro-card")).toBe(false);
+    expect(visible("trial-row")).toBe(true);
+    expect($("trial-chip").textContent).toBe("Trial · 5 days left");
+    expect(document.activeElement).toBe($("trial-restore"));
+  });
+
+  it("should show the access hint during the trial instead of going straight to checkout", async () => {
+    const { api } = await open({ trialStartedAt: NOW - 2 * DAY, filterMode: "only" }, { paidPage: false });
+    expect(visible("trial-buy")).toBe(true);
+    $("trial-buy").click();
+    expect(api.tabs.create).not.toHaveBeenCalled();
+    expect(visible("pro-card")).toBe(true);
+    expect(visible("pro-hint")).toBe(true);
+    expect($("pro-hint").textContent).toContain("Restore");
+    expect(visible("pro-restore")).toBe(true);
+    expect(visible("pro-trial")).toBe(false);
+    $("pro-pay").click();
+    expect(api.tabs.create).toHaveBeenCalledWith({ url: STRIPE_PAYMENT_LINK });
+  });
+
   const ENDED = { filterMode: "only", trialStartedAt: NOW - 8 * DAY, hiddenCountryCodes: ["NO"] };
 
   it("should fold the ended card to one line so the list keeps its room", async () => {
@@ -565,14 +617,22 @@ describe("Focus mode", () => {
     expect($("announce").textContent).toBe("Focus mode trial started.");
   });
 
-  it("should not unlock with a trial start in the future", async () => {
-    await open({ trialStartedAt: NOW + 30 * DAY, filterMode: "only", hiddenCountryCodes: ["NO"] });
-    expect($("trial-chip").textContent).toBe("Trial ended");
+  it("should not unlock with a trial start in the future, but let the trial start again", async () => {
+    const { api } = await open({ trialStartedAt: NOW + 30 * DAY, filterMode: "only", hiddenCountryCodes: ["NO"] });
+    expect($("status").textContent).toBe("Focus mode is locked. Nothing is filtered right now.");
+    expect($("trial-chip").textContent).toBe("Focus mode locked");
     expect(visible("trial-buy")).toBe(false);
     $("pro-expand").click();
     expect(visible("pro-card")).toBe(true);
-    expect(visible("pro-trial")).toBe(false);
-    expect($("status").textContent).not.toContain("Showing only");
+    expect(visible("pro-ended")).toBe(true);
+    expect($("pro-ended").textContent).not.toContain("trial has ended");
+    expect(visible("pro-trial")).toBe(true);
+    $("pro-trial").click();
+    await flush();
+    // The trial runs from the corrected clock, never from the future start.
+    expect(api.storage.local.set).toHaveBeenCalledWith({ trialStartedAt: NOW, filterMode: "only" });
+    expect($("trial-chip").textContent).toBe("Trial · 7 days left");
+    expect($("status").textContent).toBe("Showing only Norway");
   });
 
   it("should restore Focus mode only after a confirm", async () => {

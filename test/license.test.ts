@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  believableTrialStart,
   isStripePaidMessage,
   LEGACY_EXTPAY_KEYS,
   ONLY_SHOW_TRIAL_DAYS,
@@ -61,6 +62,26 @@ describe("trialDaysLeft", () => {
   it("should never show more days than the trial has", () => {
     expect(trialDaysLeft(NOW + TRIAL_CLOCK_SKEW_MS, NOW)).toBe(ONLY_SHOW_TRIAL_DAYS);
     expect(ONLY_SHOW_TRIAL_DAYS).toBe(7);
+  });
+});
+
+describe("believableTrialStart", () => {
+  it("should keep a start in the past or within clock skew", () => {
+    expect(believableTrialStart(null, NOW)).toBeNull();
+    expect(believableTrialStart(NOW - 30 * DAY, NOW)).toBe(NOW - 30 * DAY);
+    expect(believableTrialStart(NOW + TRIAL_CLOCK_SKEW_MS, NOW)).toBe(NOW + TRIAL_CLOCK_SKEW_MS);
+  });
+
+  it("should count a start too far in the future as no trial, so it can start again", () => {
+    // The clock was ahead when the trial began and was corrected since: not a used-up trial.
+    expect(believableTrialStart(NOW + TRIAL_CLOCK_SKEW_MS + 1, NOW)).toBeNull();
+    expect(believableTrialStart(NOW + 400 * DAY, NOW)).toBeNull();
+  });
+
+  it("should never turn a future start into a running trial", () => {
+    const start = NOW + 400 * DAY;
+    expect(onlyShowAllowed(false, believableTrialStart(start, NOW), NOW)).toBe(false);
+    expect(trialDaysLeft(believableTrialStart(start, NOW), NOW)).toBe(0);
   });
 });
 

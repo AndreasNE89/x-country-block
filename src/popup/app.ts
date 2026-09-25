@@ -75,6 +75,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
     trialRow: $("trial-row"),
     trialChip: $("trial-chip"),
     trialBuy: $<HTMLButtonElement>("trial-buy"),
+    trialRestore: $<HTMLButtonElement>("trial-restore"),
     proExpand: $<HTMLButtonElement>("pro-expand"),
     proCard: $("pro-card"),
     proTitle: $("pro-title"),
@@ -279,12 +280,13 @@ export function startPopup(options: PopupOptions): PopupHandle {
       restoreOpen = false;
       hideConfirmOpen = false;
     }
-    // One line under the mode switch: the trial's days left, or (Only show stuck on a
-    // locked mode) a reminder with the way into the card.
+    // One line under the mode switch: the trial's days left with Unlock and Restore, or (Only
+    // show stuck on a locked mode) a reminder with the way into the card.
     const line = view.trialChip ?? view.stuckChip;
     ui.trialRow.hidden = line === null;
     ui.trialChip.textContent = line ?? "";
     ui.trialBuy.hidden = view.trialChip === null;
+    ui.trialRestore.hidden = view.trialChip === null;
     ui.proExpand.hidden = view.stuckChip === null;
     ui.proCard.hidden = view.card === null;
     doc.body.classList.toggle("card-open", view.card !== null);
@@ -494,13 +496,14 @@ export function startPopup(options: PopupOptions): PopupHandle {
     };
   }
 
-  function openCard(confirmHide = false): void {
+  /** Opens the card, optionally with the Switch to Hide or the Restore question already asked. */
+  function openCard(confirm: "hide" | "restore" | null = null): void {
     cardOpen = true;
-    restoreOpen = false;
-    hideConfirmOpen = confirmHide;
+    restoreOpen = confirm === "restore";
+    hideConfirmOpen = confirm === "hide";
     paint();
     ui.proCard.scrollIntoView?.({ block: "nearest" });
-    (confirmHide ? ui.hideKeep : ui.proTitle).focus();
+    (confirm === "hide" ? ui.hideKeep : confirm === "restore" ? ui.restoreYes : ui.proTitle).focus();
   }
 
   /** Only show is selected but locked: nothing is filtered until the user unlocks or switches. */
@@ -536,7 +539,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
     }
     // An allow-list never turns into a hide-list without the user saying so.
     if (mode === "hide" && stuckInOnly() && pickTotal(settings) > 0) {
-      openCard(true);
+      openCard("hide");
       return;
     }
     cardOpen = false;
@@ -590,7 +593,16 @@ export function startPopup(options: PopupOptions): PopupHandle {
   });
 
   on(ui.proPay, "click", openCheckout);
-  on(ui.trialBuy, "click", openCheckout);
+  on(ui.trialBuy, "click", () => {
+    if (!loaded) return;
+    // Without the thank-you page a payment would not unlock by itself, so the card says so first.
+    if (paidPageBlocked) openCard();
+    else openCheckout();
+  });
+  // During the trial the card is closed, so this is the way to Restore after paying.
+  on(ui.trialRestore, "click", () => {
+    if (loaded) openCard("restore");
+  });
   on(ui.proExpand, "click", () => {
     if (loaded) openCard();
   });
@@ -599,14 +611,16 @@ export function startPopup(options: PopupOptions): PopupHandle {
     restoreOpen = false;
     hideConfirmOpen = false;
     paint();
-    // A stuck card folds back into its one-line reminder; any other card goes back to the mode switch.
-    (ui.proExpand.hidden ? checkedMode() : ui.proExpand).focus();
+    // A stuck or trial card folds back into its one-line row; any other card goes back to the mode switch.
+    const row = [ui.proExpand, ui.trialRestore].find((button) => !button.hidden);
+    (row ?? checkedMode()).focus();
   });
   on(ui.proTrial, "click", () => {
     if (!loaded) return;
     void enqueue(["trialStartedAt", "filterMode"], async () => {
       const fresh = await readFresh(["trialStartedAt"]);
-      // A trial started in another popup or window is never restarted.
+      // A trial started in another popup or window is never restarted. (A start too far in the
+      // future parses as no trial, so that one can be; see believableTrialStart.)
       if (parseSettings(fresh, now()).trialStartedAt !== null) {
         apply(fresh);
         paint();

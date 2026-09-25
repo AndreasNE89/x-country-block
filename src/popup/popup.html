@@ -27,7 +27,7 @@
       </svg>
       <h1 class="brand">Tamis</h1>
       <div class="power">
-        <span id="enabled-label">Filtering</span>
+        <label id="enabled-label" for="enabled">Filtering</label>
         <button type="button" id="enabled" class="switch" role="switch" aria-checked="true"
           aria-labelledby="enabled-label" disabled data-needs-load></button>
       </div>
@@ -56,6 +56,8 @@
       <div id="trial-row" class="trial-row" hidden>
         <span id="trial-chip" class="chip-accent"></span>
         <button type="button" id="trial-buy" class="link">Unlock Focus mode</button>
+        <button type="button" id="pro-expand" class="link" aria-controls="pro-card" aria-expanded="false"
+          hidden>Unlock or switch to Hide</button>
       </div>
 
       <section id="pro-card" class="pro-card" aria-labelledby="pro-title" hidden>
@@ -66,11 +68,20 @@
         <p id="pro-ended" class="notice" hidden></p>
         <p id="pro-body"></p>
         <p id="pro-price" class="muted"></p>
-        <div class="actions">
+        <p id="pro-hint" class="help" hidden>Tamis has no access to andreasne89.github.io, so after paying use
+          Restore below.</p>
+        <div id="pro-actions" class="actions">
           <button type="button" id="pro-pay" class="btn btn-primary">Unlock Focus mode</button>
           <button type="button" id="pro-trial" class="btn btn-ghost">Try it free</button>
           <button type="button" id="pro-hide" class="btn btn-ghost" hidden>Switch to Hide</button>
-          <button type="button" id="pro-test" class="btn btn-ghost" hidden>Test unlock</button>
+        </div>
+        <div id="hide-confirm" class="restore" hidden>
+          <p>Hide mode hides posts that match your picks, instead of showing only them.</p>
+          <div class="actions">
+            <button type="button" id="hide-keep" class="btn btn-small btn-primary">Hide my picks</button>
+            <button type="button" id="hide-clear" class="btn btn-small btn-ghost">Clear picks</button>
+            <button type="button" id="hide-cancel" class="btn btn-small btn-ghost">Cancel</button>
+          </div>
         </div>
         <button type="button" id="pro-restore" class="link link-muted" aria-expanded="false"
           aria-controls="restore-confirm">Already bought? Restore Focus mode</button>
@@ -84,10 +95,10 @@
       </section>
 
       <div class="switch-row">
-        <div class="switch-text">
+        <label class="switch-text" for="mark-only">
           <span id="mark-label">Highlight instead of hide</span>
           <span id="mark-help" class="help">Outline matches so you can check before hiding.</span>
-        </div>
+        </label>
         <button type="button" id="mark-only" class="switch" role="switch" aria-checked="false"
           aria-labelledby="mark-label" aria-describedby="mark-help" disabled data-needs-load></button>
       </div>
@@ -119,15 +130,15 @@
     <details id="accounts" class="accounts">
       <summary>Always show these accounts <span id="accounts-count" class="muted"></span></summary>
       <div class="accounts-body">
-        <p class="help">Their posts are never hidden or highlighted.</p>
-        <ul id="handles" class="chips"></ul>
         <form id="handle-form" class="handle-form" novalidate>
           <label for="handle-input" class="sr-only">Account to always show</label>
           <input id="handle-input" type="text" placeholder="@handle" autocomplete="off" spellcheck="false"
-            aria-describedby="handle-error" />
+            aria-describedby="handle-error handle-help" />
           <button type="submit" class="btn btn-small btn-ghost">Add</button>
         </form>
         <p id="handle-error" class="error" hidden></p>
+        <p id="handle-help" class="help">Their posts are never hidden or highlighted.</p>
+        <ul id="handles" class="chips"></ul>
       </div>
     </details>
 

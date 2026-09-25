@@ -7,21 +7,32 @@ export const PAID_FAILED_TEXT =
   "Tamis could not confirm the unlock in this browser. Open the Tamis popup and choose " +
   "“Already bought? Restore Focus mode”.";
 
-const NOTE_STYLE =
-  "margin:16px 0;padding:12px 16px;border-radius:8px;background:#E6F2F2;color:#14201F;" +
-  "border-left:3px solid #FFB638;font-weight:600";
+// Only for a page that has no #paid-note of its own (and so no styles for it). The same
+// tint, ink and accent as docs/privacy.html, in its light or dark variant.
+const NOTE_BASE = "margin:16px 0;padding:12px 16px;border-radius:8px;font-weight:600;";
+const NOTE_LIGHT = "background:#E6F2F2;color:#14201F;border-left:3px solid #FFB638";
+const NOTE_DARK = "background:#1B3033;color:#E8EFEF;border-left:3px solid #FFC45C";
+
+function prefersDark(doc: Document): boolean {
+  try {
+    return doc.defaultView?.matchMedia?.("(prefers-color-scheme: dark)").matches === true;
+  } catch {
+    return false;
+  }
+}
 
 function showNote(doc: Document, text: string): void {
   let note = doc.getElementById("paid-note");
   if (!note) {
     note = doc.createElement("p");
     note.id = "paid-note";
+    note.setAttribute("style", NOTE_BASE + (prefersDark(doc) ? NOTE_DARK : NOTE_LIGHT));
     (doc.body ?? doc.documentElement).prepend(note);
   }
+  // The page's own note keeps the page's styles, including its dark theme.
   note.textContent = text;
   note.hidden = false;
   note.setAttribute("role", "status");
-  note.setAttribute("style", NOTE_STYLE);
 }
 
 export async function confirmPaidPage(

@@ -1,8 +1,12 @@
 import { isPingResponse, PING_MSG } from "../shared/messages.ts";
+import { PAID_PAGE_MATCH } from "../shared/stripe.ts";
 import type { PageState } from "./status.ts";
 
+// Where X runs; twitter.com only redirects here.
+const X_ORIGIN = "https://x.com/*";
+
 /** The manifest's host permissions; permissions.request may only ask for these. */
-export const X_ORIGINS = ["https://x.com/*", "https://twitter.com/*"];
+export const X_ORIGINS = [X_ORIGIN, "https://twitter.com/*"];
 
 // Must match the content_scripts "matches" hosts in both manifests.
 const X_HOSTS = new Set(["x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"]);
@@ -69,12 +73,30 @@ export async function probePage(api: TabApi, timeoutMs = PING_TIMEOUT_MS): Promi
     : { kind: "no-answer", tabId: tab.id };
 }
 
+/**
+ * False only when the browser says Tamis may not run on its thank-you page, where a
+ * payment unlocks Focus mode (a per-site toggle turned off). Unknown counts as allowed.
+ * Chrome and Firefox both answer for the exact content-script pattern.
+ */
+export async function paidPageAllowed(api: typeof chrome): Promise<boolean> {
+  const permissions = api.permissions;
+  if (typeof permissions?.contains !== "function") return true;
+  try {
+    return (await permissions.contains({ origins: [PAID_PAGE_MATCH] })) !== false;
+  } catch {
+    return true;
+  }
+}
+
 /** TabApi backed by the extension APIs, feature-checked for Firefox and older Chrome. */
 export function extensionTabApi(api: typeof chrome): TabApi {
   return {
+    // Only x.com counts. contains() is all-or-nothing, so asking about both hosts would flag
+    // a user who just turned off twitter.com; accepting twitter.com alone would say "Open
+    // x.com" on x.com, because the browser hides an x.com tab's URL without x.com access.
     hasAccess: async () => {
       if (typeof api.permissions?.contains !== "function") return true;
-      return api.permissions.contains({ origins: X_ORIGINS });
+      return api.permissions.contains({ origins: [X_ORIGIN] });
     },
     activeTab: async () => {
       const [tab] = await api.tabs.query({ active: true, currentWindow: true });

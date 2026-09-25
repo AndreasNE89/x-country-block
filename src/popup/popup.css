@@ -87,7 +87,8 @@ button:disabled {
   outline-offset: 2px;
 }
 
-[tabindex="-1"]:focus {
+/* Only the card heading gets focus from code and needs no ring; radios and tabs always show theirs. */
+#pro-title:focus {
   outline: none;
 }
 
@@ -171,7 +172,12 @@ button:disabled {
   transform: translateX(12px);
 }
 
-/* Everything between the header and the tabs; scrolls on its own if a card makes it tall. */
+/*
+ * Everything between the header and the tabs. The accounts section gives up room first (see
+ * .accounts), so this keeps its height and the pick chips are not cut in half by a second
+ * scroller. Only once that section is down to its minimum, or the Focus mode card is open,
+ * does this shrink and scroll, so the column never spills past 520px.
+ */
 
 .top {
   flex: 0 1 auto;
@@ -231,6 +237,7 @@ button:disabled {
 
 .page-note span {
   flex: 1;
+  text-wrap: balance;
 }
 
 body.is-paused .status-card {
@@ -445,6 +452,12 @@ body.is-paused .status-card {
   flex-direction: column;
 }
 
+/* The text next to a switch toggles it too (a <label for> the switch button). */
+.power label,
+.switch-text {
+  cursor: pointer;
+}
+
 .help {
   font-size: 11px;
   color: var(--muted);
@@ -452,8 +465,13 @@ body.is-paused .status-card {
 
 /* Selected tray and account chips */
 
+/*
+ * The only part of .top that can shrink: when .top is squeezed, the chips (their own scroll
+ * area) give up rows down to one before .top needs a scrollbar of its own.
+ */
 .tray {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 22px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -471,13 +489,21 @@ body.is-paused .status-card {
   max-height: 52px;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   list-style: none;
 }
 
 .tray .chips {
   flex: 1;
+  align-self: stretch;
   min-width: 0;
+}
+
+/* A chip is never wider than its list: long names ellipsize and the × stays in view. */
+.chips li {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .chip {
@@ -501,6 +527,7 @@ body.is-paused .status-card {
 }
 
 .chip-x {
+  flex: none;
   color: var(--muted);
   font-size: 13px;
   line-height: 1;
@@ -661,13 +688,28 @@ body.card-open .panel {
 
 /* Always-shown accounts */
 
+/*
+ * One scroll area for the whole section (the Add form sits first, so it stays in view).
+ * The huge shrink factor leaves .top a fraction of a pixel of any squeeze until this section
+ * is at its minimum; only then does .top give up room.
+ */
 .accounts {
-  flex: 0 1 auto;
+  flex: 0 100000 auto;
   min-height: 28px;
   max-height: 180px;
   margin: 0 12px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
+}
+
+/* Open, it always shows its title and the Add form. */
+.accounts[open] {
+  min-height: 66px;
+}
+
+.accounts .chips {
+  max-height: none;
+  overflow: visible;
 }
 
 .accounts summary {

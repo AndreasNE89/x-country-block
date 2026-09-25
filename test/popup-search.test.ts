@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { catalogRows, pickLabel } from "../src/popup/catalog.ts";
 import { visibleOptionRows } from "../src/popup/option-rows.ts";
 import { foldSearch, matchRank } from "../src/popup/search.ts";
-import { X_LANGUAGE_CODES } from "../src/shared/languages.ts";
+import { LANGUAGE_ALIASES, normalizeLang, X_LANGUAGE_CODES } from "../src/shared/languages.ts";
 
 function ids(kind: "languages" | "countries" | "regions", query: string, selected: string[] = []): string[] {
   return visibleOptionRows(catalogRows(kind), selected, query).map((row) => row.id);
@@ -81,6 +81,31 @@ describe("language search", () => {
   it("should show one Norwegian row, since X tags all Norwegian as no", () => {
     expect(ids("languages", "norsk")).toEqual(["no"]);
     expect(ids("languages", "nb")).toEqual([]);
+  });
+
+  it("should find every shared alias the matcher understands", () => {
+    const missed: string[] = [];
+    for (const [alias, code] of Object.entries(LANGUAGE_ALIASES)) {
+      const target = normalizeLang(code) ?? code;
+      // gd, ky and the like are never tagged by X, so the popup rightly has no row for them.
+      if (!X_LANGUAGE_CODES.has(target)) continue;
+      if (!ids("languages", alias).includes(target)) missed.push(`${alias} -> ${target}`);
+    }
+    expect(missed).toEqual([]);
+  });
+
+  it("should find native and alternative names", () => {
+    expect(ids("languages", "magyar")).toEqual(["hu"]);
+    expect(ids("languages", "slovene")).toEqual(["sl"]);
+    expect(ids("languages", "castilian")).toEqual(["es"]);
+    expect(ids("languages", "castellano")).toEqual(["es"]);
+    expect(ids("languages", "putonghua")).toEqual(["zh"]);
+    expect(ids("languages", "čeština")).toEqual(["cs"]);
+    expect(ids("languages", "tieng viet")).toEqual(["vi"]);
+    expect(ids("languages", "русский")).toEqual(["ru"]);
+    expect(ids("languages", "日本語")).toEqual(["ja"]);
+    expect(ids("languages", "한국어")).toEqual(["ko"]);
+    expect(ids("languages", "हिन्दी")).toEqual(["hi"]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { isXUrl, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
+import { extensionTabApi, isXUrl, paidPageAllowed, probePage, type TabApi, X_ORIGINS } from "../src/popup/page.ts";
+import { PAID_PAGE_MATCH } from "../src/shared/stripe.ts";
 
 function api(overrides: Partial<TabApi> = {}): TabApi {
   return {
@@ -58,6 +59,57 @@ describe("probePage", () => {
   it("should time out a ping that never answers", async () => {
     const hang = () => new Promise<unknown>(() => undefined);
     expect(await probePage(api({ ping: hang }), 10)).toEqual({ kind: "no-answer", tabId: 4 });
+  });
+
+  // A browser shows the tab URL only to an extension with access to that host.
+  const grantedApi = (granted: readonly string[]) => {
+    const contains = vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
+      origins.every((origin) => granted.includes(origin)),
+    );
+    const sendMessage = vi.fn(async () => ({ ok: true, count: 5, version: "0.2.0" }));
+    const url = granted.includes("https://x.com/*") ? "https://x.com/home" : undefined;
+    const chromeApi = {
+      permissions: { contains, request: vi.fn() },
+      tabs: { query: async () => [{ id: 9, url }], sendMessage },
+    } as unknown as typeof chrome;
+    return { chromeApi, sendMessage };
+  };
+
+  it("should ping when x.com is granted, even with twitter.com turned off", async () => {
+    const { chromeApi, sendMessage } = grantedApi(["https://x.com/*"]);
+    expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "ready", tabId: 9, count: 5 });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ask for access when only twitter.com is granted, since X runs on x.com", async () => {
+    // Without x.com access the x.com tab's URL is hidden; "Open x.com" would be wrong there.
+    const { chromeApi, sendMessage } = grantedApi(["https://twitter.com/*"]);
+    expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "no-access" });
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("should report no access when neither X host is granted", async () => {
+    const chromeApi = {
+      permissions: { contains: async () => false, request: vi.fn() },
+      tabs: { query: async () => [{ id: 9 }], sendMessage: vi.fn() },
+    } as unknown as typeof chrome;
+    expect(await extensionTabApi(chromeApi).hasAccess()).toBe(false);
+  });
+
+  it("should tell when the thank-you page is off limits, and assume it is not otherwise", async () => {
+    const withContains = (contains: unknown) => ({ permissions: { contains } }) as unknown as typeof chrome;
+    const blocked = vi.fn(async () => false);
+    expect(await paidPageAllowed(withContains(blocked))).toBe(false);
+    expect(blocked).toHaveBeenCalledWith({ origins: [PAID_PAGE_MATCH] });
+    expect(await paidPageAllowed(withContains(async () => true))).toBe(true);
+    expect(
+      await paidPageAllowed(
+        withContains(async () => {
+          throw new Error("Invalid match pattern");
+        }),
+      ),
+    ).toBe(true);
+    expect(await paidPageAllowed({} as unknown as typeof chrome)).toBe(true);
   });
 
   it("should assume access when the permissions API fails", async () => {

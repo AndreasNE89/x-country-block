@@ -81,7 +81,7 @@ describe("pageNote", () => {
   it("should explain what to do on each kind of tab", () => {
     expect(pageNote({ kind: "not-x" })).toEqual({ text: "Open x.com to see it work.", action: null });
     expect(pageNote({ kind: "no-answer", tabId: 3 })).toEqual({
-      text: "Reload this tab to start filtering.",
+      text: "Reload this tab to apply your Tamis settings.",
       action: "reload",
     });
     expect(pageNote({ kind: "no-access" })).toEqual({ text: "Tamis needs access to x.com.", action: "allow" });

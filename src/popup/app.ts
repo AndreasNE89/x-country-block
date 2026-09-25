@@ -4,32 +4,26 @@ import type { FilterMode, Settings } from "../shared/types.ts";
 import { addHandle, removeHandle } from "./accounts.ts";
 import { catalogRows, PICK_KINDS, type PickKind } from "./catalog.ts";
 import { visibleOptionRows } from "./option-rows.ts";
-import { extensionTabApi, probePage, X_ORIGINS } from "./page.ts";
+import { extensionTabApi, paidPageAllowed, probePage, X_ORIGINS } from "./page.ts";
 import {
   type Pick,
   PICK_FIELD,
   type PickField,
   picksOf,
+  pickTotal,
   selectedPicks,
   tabLabel,
   tabName,
   toggleCode,
 } from "./picks.ts";
-import {
-  FOCUS_BODY,
-  priceLine,
-  proView,
-  TRIAL_ENDED_TEXT,
-  trialButtonLabel,
-  unlockLabel,
-} from "./pro.ts";
+import { FOCUS_BODY, priceLine, proView, trialButtonLabel, unlockLabel } from "./pro.ts";
 import { countText, highlightHelp, type PageState, pageNote, statusSummary, statusText } from "./status.ts";
 
 export type PopupOptions = {
   api: typeof chrome;
   doc: Document;
   now?: () => number;
-  /** Production build: hides the dev-only "Test unlock". */
+  /** Production build: leaves out the dev-only "Test unlock" (so does __XCB_PROD__). */
   prod?: boolean;
   /** How often to re-check the active tab while the popup is open; 0 turns it off. */
   pollMs?: number;
@@ -81,16 +75,22 @@ export function startPopup(options: PopupOptions): PopupHandle {
     trialRow: $("trial-row"),
     trialChip: $("trial-chip"),
     trialBuy: $<HTMLButtonElement>("trial-buy"),
+    proExpand: $<HTMLButtonElement>("pro-expand"),
     proCard: $("pro-card"),
     proTitle: $("pro-title"),
     proClose: $<HTMLButtonElement>("pro-close"),
     proEnded: $("pro-ended"),
     proBody: $("pro-body"),
     proPrice: $("pro-price"),
+    proHint: $("pro-hint"),
     proPay: $<HTMLButtonElement>("pro-pay"),
     proTrial: $<HTMLButtonElement>("pro-trial"),
+    proActions: $("pro-actions"),
     proHide: $<HTMLButtonElement>("pro-hide"),
-    proTest: $<HTMLButtonElement>("pro-test"),
+    hideConfirm: $("hide-confirm"),
+    hideKeep: $<HTMLButtonElement>("hide-keep"),
+    hideClear: $<HTMLButtonElement>("hide-clear"),
+    hideCancel: $<HTMLButtonElement>("hide-cancel"),
     proRestore: $<HTMLButtonElement>("pro-restore"),
     restoreConfirm: $("restore-confirm"),
     restoreYes: $<HTMLButtonElement>("restore-yes"),
@@ -128,10 +128,14 @@ export function startPopup(options: PopupOptions): PopupHandle {
   let handlesKey: string | null = null;
   let cardOpen = false;
   let restoreOpen = false;
+  let hideConfirmOpen = false;
   let page: PageState = { kind: "checking" };
   let reloadUntil = 0;
-  let undo: Record<PickField, string[]> | null = null;
+  // What the tray's Undo writes back: the cleared picks, plus the mode when clearing also changed it.
+  let undo: Raw | null = null;
   let changedEarly = false;
+  // Tamis may not run on its thank-you page, so a payment would not unlock on its own.
+  let paidPageBlocked = false;
 
   // --- storage -------------------------------------------------------------
 
@@ -207,8 +211,12 @@ export function startPopup(options: PopupOptions): PopupHandle {
     return enqueue([field], async () => {
       const fresh = parseSettings(await readFresh([field]), now());
       const next = change(fresh[field]);
-      apply({ [field]: next });
-      paint();
+      // A later tick or Clear all on this field is already on screen. Showing `next` now would
+      // flash an older state; the last queued write re-reads and shows the merged result.
+      if ((inflight.get(field) ?? 0) <= 1) {
+        apply({ [field]: next });
+        paint();
+      }
       await api.storage.local.set({ [field]: next });
     });
   }
@@ -269,19 +277,36 @@ export function startPopup(options: PopupOptions): PopupHandle {
     if (!view.card) {
       cardOpen = false;
       restoreOpen = false;
+      hideConfirmOpen = false;
     }
-    ui.trialRow.hidden = view.trialChip === null;
-    ui.trialChip.textContent = view.trialChip ?? "";
+    // One line under the mode switch: the trial's days left, or (Only show stuck on a
+    // locked mode) a reminder with the way into the card.
+    const line = view.trialChip ?? view.stuckChip;
+    ui.trialRow.hidden = line === null;
+    ui.trialChip.textContent = line ?? "";
+    ui.trialBuy.hidden = view.trialChip === null;
+    ui.proExpand.hidden = view.stuckChip === null;
     ui.proCard.hidden = view.card === null;
     doc.body.classList.toggle("card-open", view.card !== null);
-    ui.proEnded.hidden = !view.card?.ended;
+    ui.proEnded.hidden = !view.card?.notice;
+    ui.proEnded.textContent = view.card?.notice ?? "";
+    ui.proHint.hidden = !view.card || !paidPageBlocked;
     // After a used-up trial the notice says enough; keep the card short.
     ui.proBody.hidden = Boolean(view.card?.ended);
     ui.proTrial.hidden = !view.card?.showTrial;
     ui.proHide.hidden = !view.card?.showSwitchToHide;
-    // While "Only show" is stuck on a locked mode the card is the way out, so it stays.
-    ui.proClose.hidden = Boolean(view.card?.showSwitchToHide);
-    ui.proTest.hidden = prod;
+    // With picks, Switch to Hide first asks what should happen to them.
+    const asks = pickTotal(settings) > 0;
+    ui.proHide.textContent = asks ? "Switch to Hide…" : "Switch to Hide";
+    if (asks) {
+      ui.proHide.setAttribute("aria-controls", "hide-confirm");
+      ui.proHide.setAttribute("aria-expanded", String(hideConfirmOpen));
+    } else {
+      ui.proHide.removeAttribute("aria-controls");
+      ui.proHide.removeAttribute("aria-expanded");
+      hideConfirmOpen = false;
+    }
+    ui.hideConfirm.hidden = !hideConfirmOpen;
     ui.restoreConfirm.hidden = !restoreOpen;
     ui.proRestore.setAttribute("aria-expanded", String(restoreOpen));
   }
@@ -412,8 +437,19 @@ export function startPopup(options: PopupOptions): PopupHandle {
     );
   }
 
+  let sayTimer: ReturnType<typeof setTimeout> | undefined;
+
   function say(text: string): void {
-    ui.announce.textContent = text;
+    clearTimeout(sayTimer);
+    // A live region is only read out when its text changes, so a repeat is cleared first.
+    if (ui.announce.textContent !== text) {
+      ui.announce.textContent = text;
+      return;
+    }
+    ui.announce.textContent = "";
+    sayTimer = setTimeout(() => {
+      if (!disposed) ui.announce.textContent = text;
+    }, 100);
   }
 
   // --- actions -------------------------------------------------------------
@@ -433,18 +469,74 @@ export function startPopup(options: PopupOptions): PopupHandle {
     void Promise.resolve(api.tabs.create({ url: STRIPE_PAYMENT_LINK })).catch(() => undefined);
   }
 
-  function openCard(): void {
+  /** The checked mode radio: the one keyboard focus belongs on in the radio group. */
+  function checkedMode(): HTMLButtonElement {
+    return settings.filterMode === "only" ? ui.modeOnly : ui.modeHide;
+  }
+
+  /**
+   * After an action hid the control that had focus (or focus fell back to <body>), put
+   * keyboard users on the checked mode radio instead of the top of the page. Leaves focus
+   * alone when the user already moved it somewhere else.
+   */
+  function refocusAfter(used: HTMLElement): void {
+    const active = doc.activeElement;
+    if (active !== used && active !== doc.body && active !== null) return;
+    if (active === used && !used.closest("[hidden]")) return;
+    checkedMode().focus();
+  }
+
+  function currentPicks(): Record<PickField, string[]> {
+    return {
+      hiddenCountryCodes: [...settings.hiddenCountryCodes],
+      hiddenLanguageCodes: [...settings.hiddenLanguageCodes],
+      hiddenRegionIds: [...settings.hiddenRegionIds],
+    };
+  }
+
+  function openCard(confirmHide = false): void {
     cardOpen = true;
     restoreOpen = false;
+    hideConfirmOpen = confirmHide;
     paint();
     ui.proCard.scrollIntoView?.({ block: "nearest" });
-    ui.proTitle.focus();
+    (confirmHide ? ui.hideKeep : ui.proTitle).focus();
+  }
+
+  /** Only show is selected but locked: nothing is filtered until the user unlocks or switches. */
+  function stuckInOnly(): boolean {
+    return settings.filterMode === "only" && !settings.onlyShowUnlocked;
+  }
+
+  /**
+   * Leaves a locked Only show for Hide. Keeping the picks turns them from "show only these"
+   * into "hide these", so that is the user's explicit choice; clearing them can be undone.
+   */
+  function switchToHide(clearPicks: boolean): void {
+    cardOpen = false;
+    restoreOpen = false;
+    hideConfirmOpen = false;
+    if (clearPicks) {
+      // Undo returns the whole earlier state. Without the mode it would turn the picks into
+      // a hide-list, which is the choice the user just turned down.
+      undo = { ...currentPicks(), filterMode: settings.filterMode };
+      void write({ filterMode: "hide", ...Object.fromEntries(PICK_FIELDS.map((field) => [field, []])) });
+      ui.undoClear.focus();
+    } else {
+      void write({ filterMode: "hide" });
+      ui.modeHide.focus();
+    }
   }
 
   function chooseMode(mode: FilterMode): void {
     if (!loaded) return;
     if (mode === "only" && !settings.onlyShowUnlocked) {
       openCard();
+      return;
+    }
+    // An allow-list never turns into a hide-list without the user saying so.
+    if (mode === "hide" && stuckInOnly() && pickTotal(settings) > 0) {
+      openCard(true);
       return;
     }
     cardOpen = false;
@@ -479,7 +571,6 @@ export function startPopup(options: PopupOptions): PopupHandle {
   ui.proPay.textContent = unlockLabel();
   ui.trialBuy.textContent = unlockLabel();
   ui.proTrial.textContent = trialButtonLabel();
-  ui.proEnded.textContent = TRIAL_ENDED_TEXT;
 
   on(ui.enabled, "click", () => {
     if (loaded) void write({ enabled: !settings.enabled });
@@ -500,11 +591,16 @@ export function startPopup(options: PopupOptions): PopupHandle {
 
   on(ui.proPay, "click", openCheckout);
   on(ui.trialBuy, "click", openCheckout);
+  on(ui.proExpand, "click", () => {
+    if (loaded) openCard();
+  });
   on(ui.proClose, "click", () => {
     cardOpen = false;
     restoreOpen = false;
+    hideConfirmOpen = false;
     paint();
-    ui.modeOnly.focus();
+    // A stuck card folds back into its one-line reminder; any other card goes back to the mode switch.
+    (ui.proExpand.hidden ? checkedMode() : ui.proExpand).focus();
   });
   on(ui.proTrial, "click", () => {
     if (!loaded) return;
@@ -514,24 +610,43 @@ export function startPopup(options: PopupOptions): PopupHandle {
       if (parseSettings(fresh, now()).trialStartedAt !== null) {
         apply(fresh);
         paint();
+        refocusAfter(ui.proTrial);
         return;
       }
       const items = { trialStartedAt: now(), filterMode: "only" };
       cardOpen = false;
       apply(items);
       paint();
+      refocusAfter(ui.proTrial);
       say("Focus mode trial started.");
       await api.storage.local.set(items);
     });
   });
   on(ui.proHide, "click", () => {
     if (!loaded) return;
-    cardOpen = false;
-    void write({ filterMode: "hide" });
-    ui.modeHide.focus();
+    if (pickTotal(settings) === 0) {
+      switchToHide(false);
+      return;
+    }
+    hideConfirmOpen = !hideConfirmOpen;
+    restoreOpen = false;
+    paint();
+    if (hideConfirmOpen) ui.hideKeep.focus();
+  });
+  on(ui.hideKeep, "click", () => {
+    if (loaded) switchToHide(false);
+  });
+  on(ui.hideClear, "click", () => {
+    if (loaded) switchToHide(true);
+  });
+  on(ui.hideCancel, "click", () => {
+    hideConfirmOpen = false;
+    paint();
+    ui.proHide.focus();
   });
   on(ui.proRestore, "click", () => {
     restoreOpen = !restoreOpen;
+    hideConfirmOpen = false;
     paint();
     if (restoreOpen) ui.restoreYes.focus();
   });
@@ -549,8 +664,16 @@ export function startPopup(options: PopupOptions): PopupHandle {
     say("Focus mode restored.");
     ui.modeOnly.focus();
   });
-  if (!prod) {
-    on(ui.proTest, "click", () => {
+  // Dev builds only. The compile-time constant lets esbuild drop this whole block from
+  // production, so neither the button nor its handler ships to the stores.
+  if (!__XCB_PROD__ && !prod) {
+    const proTest = doc.createElement("button");
+    proTest.type = "button";
+    proTest.id = "pro-test";
+    proTest.className = "btn btn-ghost";
+    proTest.textContent = "Test unlock";
+    ui.proActions.append(proTest);
+    on(proTest, "click", () => {
       if (!loaded) return;
       cardOpen = false;
       void write({ onlyShowPaid: true, filterMode: "only" });
@@ -559,11 +682,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
 
   on(ui.clearAll, "click", () => {
     if (!loaded) return;
-    undo = {
-      hiddenCountryCodes: [...settings.hiddenCountryCodes],
-      hiddenLanguageCodes: [...settings.hiddenLanguageCodes],
-      hiddenRegionIds: [...settings.hiddenRegionIds],
-    };
+    undo = currentPicks();
     void write(Object.fromEntries(PICK_FIELDS.map((field) => [field, []])));
     ui.undoClear.focus();
   });
@@ -600,10 +719,20 @@ export function startPopup(options: PopupOptions): PopupHandle {
     ui.handleError.hidden = result.ok;
     ui.handleError.textContent = result.ok ? "" : result.error;
     ui.handleInput.setAttribute("aria-invalid", String(!result.ok));
-    if (!result.ok) return;
+    if (!result.ok) {
+      // A changed aria-describedby is not read out on a focused field, so say it.
+      say(result.error);
+      return;
+    }
     ui.handleInput.value = "";
     void updateList("allowedHandles", (list) => (list.includes(result.handle) ? [...list] : [...list, result.handle]));
     say(`@${result.handle} added. Their posts are always shown.`);
+  });
+  on(ui.handleInput, "input", () => {
+    if (ui.handleError.hidden) return;
+    ui.handleError.hidden = true;
+    ui.handleError.textContent = "";
+    ui.handleInput.setAttribute("aria-invalid", "false");
   });
 
   on(ui.pageAction, "click", () => {
@@ -614,7 +743,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
       // Called straight from the click: browsers only show the prompt for a user gesture.
       void Promise.resolve(permissions.request({ origins: [...X_ORIGINS] })).then(
         (granted) => {
-          if (granted) void refreshPage();
+          if (granted) void refreshPage().then(() => refocusAfter(ui.pageAction));
         },
         () => undefined,
       );
@@ -625,6 +754,9 @@ export function startPopup(options: PopupOptions): PopupHandle {
       page = { kind: "reloading", tabId };
       reloadUntil = now() + RELOAD_GRACE_MS;
       paint();
+      refocusAfter(ui.pageAction);
+      // The page note is not a live region, so say it.
+      say("Reloading this tab…");
       void Promise.resolve(api.tabs.reload(tabId)).catch(() => undefined);
     }
   });
@@ -661,6 +793,11 @@ export function startPopup(options: PopupOptions): PopupHandle {
   );
 
   const probed = refreshPage().catch(() => undefined);
+  const paidPageChecked = paidPageAllowed(api).then((allowed) => {
+    if (disposed || allowed) return;
+    paidPageBlocked = true;
+    paint();
+  });
 
   const timer =
     pollMs > 0
@@ -672,11 +809,12 @@ export function startPopup(options: PopupOptions): PopupHandle {
       : undefined;
 
   return {
-    ready: Promise.all([load, probed]).then(() => undefined),
+    ready: Promise.all([load, probed, paidPageChecked]).then(() => undefined),
     dispose: () => {
       disposed = true;
       events.abort();
       if (timer !== undefined) clearInterval(timer);
+      clearTimeout(sayTimer);
     },
   };
 }

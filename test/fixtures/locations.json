@@ -617,5 +617,12 @@
   ["North Jersey", ["US"]],
   ["South Jersey", ["US"]],
   ["Central Jersey", ["US"]],
-  ["Saint Helier, Jersey", ["JE"]]
+  ["Saint Helier, Jersey", ["JE"]],
+  ["N. Korea", ["KP"]],
+  ["N Korea", ["KP"]],
+  ["S. Korea", ["KR"]],
+  ["N. Ireland", ["GB"]],
+  ["S. Africa", ["ZA"]],
+  ["N. Carolina", ["US"]],
+  ["W. Virginia", ["US"]]
 ]

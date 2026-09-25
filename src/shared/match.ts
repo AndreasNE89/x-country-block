@@ -228,6 +228,10 @@ const DOMAINS = /[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.[a-z]{2,12}(?:\/\S*)?(?=
 // All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
 const SAINT = /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L}))/gu;
 const MOUNT_FORT = /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L}))/gu;
+// "N. Korea", "S Africa" -> "North Korea", "South Africa". Runs before the ". "
+// group split, which would otherwise cut the letter off its name.
+const COMPASS = /(?<![\p{L}\p{N}.'’])([NSEW])(?:\.\s*|\s+)(?=\p{Lu})/gu;
+const COMPASS_WORDS: Record<string, string> = { N: "North ", S: "South ", E: "East ", W: "West " };
 
 /**
  * Two-letter codes that are ordinary words or slang. After another word in the same
@@ -297,6 +301,7 @@ function foldWord(word: string): string[] {
 
 function cleanLocation(text: string): string {
   return collapseDottedInitials(text.replace(URLS, " "), true)
+    .replace(COMPASS, (_match, letter: string) => COMPASS_WORDS[letter]!)
     .replace(DOMAINS, " ")
     .replace(SAINT, (_match, title?: string, other?: string) =>
       (title ?? other ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",

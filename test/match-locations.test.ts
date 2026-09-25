@@ -141,6 +141,14 @@ describe("countriesFromLocation", () => {
     expect(parse("Doha, QA")).toEqual(["QA"]);
   });
 
+  it("reads N./S./E./W. before a place as North, South, East, West", () => {
+    expect(parse("N. Korea")).toEqual(["KP"]);
+    expect(parse("S Korea")).toEqual(["KR"]);
+    expect(parse("N. Ireland")).toEqual(["GB"]);
+    expect(parse("S. Africa")).toEqual(["ZA"]);
+    expect(parse("Plan B")).toEqual([]);
+  });
+
   it("uses the documented default for an unknown city before a colliding code", () => {
     // US "City, ST" is the common form; a few codes lean to the country or stay open.
     expect(parse("Carmel, IN")).toEqual(["US"]);

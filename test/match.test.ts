@@ -2,15 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
 import { LANGUAGES, languageCodeFromName, languageName } from "../src/shared/languages.ts";
 import { foldText } from "../src/shared/normalize.ts";
-import {
-  actionReason,
-  countriesFromLocation,
-  countryFromBasedIn,
-  shouldHideCard,
-  shouldHideTweet,
-  tweetDecision,
-  tweetMatchReason,
-} from "../src/shared/match.ts";
+import { actionReason, cardDecision, countriesFromLocation, tweetDecision } from "../src/shared/match.ts";
 import { regionsFromLocation } from "../src/shared/regions.ts";
 import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
@@ -92,6 +84,33 @@ function user(partial: Partial<UserRecord> = {}): UserRecord {
   };
 }
 
+function shouldHideTweet(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(tweetDecision(post, author, picks, countryIndex), picks) !== null;
+}
+
+function tweetMatchReason(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): string | null {
+  return tweetDecision(post, author, picks, countryIndex).hit;
+}
+
+function shouldHideCard(
+  card: TweetRecord,
+  users: Map<string, UserRecord>,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(cardDecision(card, users, picks, countryIndex), picks) !== null;
+}
+
 describe("foldText", () => {
   it("lowercases and strips punctuation", () => {
     expect(foldText("  Lagos, Nigeria! ")).toBe("lagos nigeria");
@@ -147,14 +166,21 @@ describe("countriesFromLocation", () => {
   });
 });
 
-describe("countryFromBasedIn", () => {
+describe("Account based in", () => {
   it("maps a based-in label to one country", () => {
-    expect(countryFromBasedIn("India", index)).toBe("IN");
-    expect(countryFromBasedIn("United States", index)).toBe("US");
+    expect(tweetMatchReason(tweet(), user({ basedIn: "India" }), settings(["IN"]), index)).toBe(
+      "Account based in: India (as shown by X)",
+    );
+    expect(tweetMatchReason(tweet(), user({ basedIn: "United States" }), settings(["US"]), index)).toBe(
+      "Account based in: United States (as shown by X)",
+    );
   });
 
-  it("returns null when unknown", () => {
-    expect(countryFromBasedIn("Earth", index)).toBeNull();
+  it("decides nothing when unknown", () => {
+    expect(tweetDecision(tweet(), user({ basedIn: "Earth" }), settings(["IN"]), index)).toEqual({
+      hit: null,
+      decided: false,
+    });
   });
 });
 
@@ -403,15 +429,6 @@ describe("shouldHideCard", () => {
     expect(shouldHideCard(card, users, settings(["NG"]), index)).toBe(true);
   });
 
-  it("hides retweet using original author", () => {
-    const card = tweet({
-      authorId: "outer",
-      lang: "en",
-      retweeted: tweet({ tweetId: "3", authorId: "orig", lang: "ja" }),
-    });
-    expect(shouldHideCard(card, users, settings(["JP"]), index)).toBe(true);
-  });
-
   it("keeps parent when only a reply would match (caller passes the reply card)", () => {
     const parent = tweet({ authorId: "outer", lang: "en" });
     expect(shouldHideCard(parent, users, settings(["NG"]), index)).toBe(false);
@@ -437,14 +454,14 @@ describe("shouldHideCard", () => {
     expect(shouldHideCard(card, users, onlyAfrica, index)).toBe(true);
   });
 
-  it("should keep an Africa retweet in only-show", () => {
-    const onlyAfrica = settings([], [], ["AFRICA"], "only");
+  it("does not follow a repost wrapper: the content script passes the original post", () => {
     const card = tweet({
       authorId: "outer",
       lang: "en",
-      retweeted: tweet({ tweetId: "3", authorId: "inner", lang: "en" }),
+      retweeted: tweet({ tweetId: "3", authorId: "orig", lang: "ja" }),
     });
-    expect(shouldHideCard(card, users, onlyAfrica, index)).toBe(false);
+    expect(shouldHideCard(card, users, settings(["JP"]), index)).toBe(false);
+    expect(shouldHideCard(tweet({ authorId: "orig", lang: "ja" }), users, settings(["JP"]), index)).toBe(true);
   });
 });
 

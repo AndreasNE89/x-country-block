@@ -69,6 +69,20 @@ describe("normalizeLang", () => {
     }
   });
 
+  it("offers every language X documents for its lang: operator (R1)", () => {
+    // docs.x.com/x-api/posts/search/integrate/operators, "Supported languages".
+    const documented = [
+      "am", "ar", "hy", "eu", "bn", "bg", "ca", "hr", "cs", "da", "nl", "en", "et", "fi", "fr",
+      "de", "ka", "el", "gu", "iw", "hi", "hu", "in", "it", "ja", "kn", "ko", "lv", "lt", "ml",
+      "mr", "no", "fa", "pl", "pt", "ro", "ru", "sr", "zh-CN", "sk", "sl", "es", "sv", "ta",
+      "te", "th", "zh-TW", "tr", "uk", "ur", "vi",
+    ];
+    for (const code of documented) {
+      expect(X_LANGUAGE_CODES.has(normalizeLang(code)!), code).toBe(true);
+    }
+    expect(X_LANGUAGE_CODES.size).toBe(69);
+  });
+
   it("keeps every listed code stable or folds it onto another listed code", () => {
     for (const row of LANGUAGES) {
       const canonical = normalizeLang(row.code);

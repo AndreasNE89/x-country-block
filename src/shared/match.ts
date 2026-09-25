@@ -28,18 +28,6 @@ import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from
 
 const NOT_IN_PICKS = "Not in your Focus picks";
 
-/** Short list of the ticked items: "Japan, Norway +3". */
-export function allowListLabel(settings: Settings, max = 2): string {
-  const bits = [
-    ...settings.hiddenCountryCodes.map((code) => COUNTRY_NAMES[code] ?? code),
-    ...settings.hiddenRegionIds.map((id) => regionName(id)),
-    ...settings.hiddenLanguageCodes.map((code) => languageName(code)),
-  ];
-  if (bits.length === 0) return "your Focus picks";
-  const shown = bits.slice(0, max).join(", ");
-  return bits.length > max ? `${shown} +${bits.length - max}` : shown;
-}
-
 export function effectiveFilterMode(settings: Settings): FilterMode {
   if (settings.filterMode === "only" && settings.onlyShowUnlocked) return "only";
   return "hide";
@@ -120,7 +108,8 @@ type Derived = {
   cache: Map<string, string[]>;
 };
 
-const CAPITAL_ONLY = new Set(["chad"]);
+/** Names that are also everyday words: "Chad", "Mesa", "Amarillo", but not "mesa redonda". */
+const CAPITAL_ONLY = new Set(["chad", "mesa", "amarillo"]);
 const NO_SPACE_SCRIPT = new RegExp(
   `[${["Han", "Hiragana", "Katakana", "Thai", "Lao", "Khmer", "Myanmar", "Hangul"]
     .map((script) => `\\p{Script=${script}}`)
@@ -144,6 +133,7 @@ function derive(index: CountryIndex): Derived {
   for (const [key, code] of index.cities) {
     const entry: Entry = { kind: "city", countries: [code, ...(alts.get(key) ?? [])] };
     if (CITY_OWN_CODES[key]) entry.ownCode = CITY_OWN_CODES[key];
+    if (CAPITAL_ONLY.has(key)) entry.capitalOnly = true;
     phrases.set(key, entry);
   }
   for (const [key, code] of index.names) {
@@ -230,21 +220,60 @@ const URLS = /(?:https?:\/\/|www\.)\S+|\S+@\S+\.\S+|(?:^|\s)@\w+/gi;
 // Bare domains ("site.de", "example.in/about"). The top-level part must be lower case,
 // so "St.Louis" or "Lagos.Nigeria" are kept.
 const DOMAINS = /[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.[a-z]{2,12}(?:\/\S*)?(?=$|[\s,;|)])/gu;
-// "St. Louis", "St Kitts" -> "Saint ..." so "St" is never read as São Tomé (ST).
-// All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
-const SAINT = /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L}))/gu;
-const MOUNT_FORT = /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L}))/gu;
+// "St. Louis", "St Kitts", "st louis" -> "Saint ..." so "St" is never read as São
+// Tomé (ST). All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
+const SAINT =
+  /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L})|(st)\s+(?=\p{Ll}))/gu;
+const MOUNT_FORT =
+  /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L})|(mt|ft)\s+(?=\p{Ll}))/gu;
 
 /**
- * Two-letter codes that are ordinary words or slang. After another word in the same
- * part ("Follow ME", "Photo ID", "Tired AF") they only count when that word is a
- * known city ("Portland ME", "Kabul AF").
+ * Codes that are ordinary words, slang or job acronyms. After another word in the
+ * same part ("Follow ME", "Photo ID", "Tired AF", "Tech PR", "Head of BD") they only
+ * count when that word is a known city ("Portland ME", "Kabul AF", "San Juan PR").
+ * As a whole part they still count ("Rincon, PR"). ACT is not one: Australians write
+ * "Suburb ACT" ("Tuggeranong ACT"), and Canberra's suburbs are not in the tables.
  */
 const TRAILING_CODE_WORDS = new Set([
-  "AF", "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE", "HI",
-  "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST", "TO",
-  "TV", "UP", "WE",
+  "AF", "AI", "AM", "AN", "AS", "AT", "BD", "BE", "BY", "DE", "DO", "ES", "GM", "GO",
+  "HE", "HI", "HR", "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM",
+  "PR", "SE", "SO", "ST", "TO", "TV", "UP", "WE",
 ]);
+/**
+ * US state codes that are also words or acronyms in all-caps text ("LOVE YOU MA",
+ * "VR AR", "MARVEL DC"): an all-caps "TOWN ST" needs a known city before them.
+ */
+const CAPS_WORD_CODES = new Set(["AL", "AR", "CO", "DC", "IA", "MA", "MD", "MS", "PA", "WA"]);
+/**
+ * AP-style state abbreviations ("Springfield, Mass.", "Pasadena, Calif."). Those that
+ * are also common words (Wash., Miss., Ill., Ore., Del., Ind.) are left out.
+ */
+const AP_STATE_ABBREVIATIONS: Record<string, string> = {
+  ala: "AL",
+  ariz: "AZ",
+  ark: "AR",
+  calif: "CA",
+  colo: "CO",
+  conn: "CT",
+  fla: "FL",
+  kan: "KS",
+  kans: "KS",
+  mass: "MA",
+  mich: "MI",
+  minn: "MN",
+  neb: "NE",
+  nebr: "NE",
+  nev: "NV",
+  okla: "OK",
+  oreg: "OR",
+  penn: "PA",
+  tenn: "TN",
+  wis: "WI",
+  wisc: "WI",
+  wyo: "WY",
+};
+/** Lower-case state codes that are also everyday words ("you, me", "Sunday, mass"). */
+const LOWER_CODE_WORDS = new Set(["me", "mass"]);
 /** Codes that mean nothing on their own ("IT", "OK", "PS"). */
 const STANDALONE_CODE_WORDS = new Set([
   "AI", "AM", "AS", "AT", "BE", "BY", "DJ", "DM", "DO", "GM", "HI", "IS", "IT", "MC", "ME",
@@ -262,19 +291,26 @@ const ACRONYM_CODES = new Set([
 /**
  * A bare code that is both a country and a US/Canadian/Australian state ("MA",
  * "IN", "CA") is ambiguous on its own and decides nothing, except "LA", which on X
- * is Los Angeles far more often than Laos.
+ * is Los Angeles far more often than Laos, and the small provinces that lose to the
+ * country as they do after a place (NL, SK). "PE" stays open: Peru, Prince Edward
+ * Island and Brazil's Pernambuco are all common. A flag that names one of the
+ * readings beats these defaults ("LA 🇱🇦", "NL 🇨🇦").
  */
-const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US" };
+const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US", NL: "NL", SK: "SK" };
 /**
  * "City, XX" where the city is not in the tables and XX is both a state code and a
  * country code. US "City, ST" is by far the most common form on X, so the state
  * reading wins; foreign cities of any size are in the tables, so "Jaipur, IN" and
  * "Munich, DE" still resolve by the city. Exceptions: small provinces lose to the
  * country (NL, PE, SK), and DE/SA stay undecided (Germans write "Stadt, DE";
- * "SA" is Saudi Arabia, South Australia or South Africa).
+ * "SA" is Saudi Arabia, South Australia or South Africa). MG after an unknown town
+ * is far more often Minas Gerais than Madagascar, so it stays undecided too, also
+ * after a dash or slash ("Lavras/MG", see pinAcrossGroups). Flags beat these
+ * defaults.
  */
 const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   DE: null,
+  MG: null,
   NL: "NL",
   PE: "PE",
   SK: "SK",
@@ -282,8 +318,10 @@ const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   NU: "CA",
   YT: "CA",
 };
-/** Upper-case country abbreviations that are not ISO codes. */
-const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO" };
+/** Upper-case country abbreviations that are not ISO codes ("RD": República Dominicana). */
+const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO", RD: "DO" };
+/** Names that also open a title, where they do not count before "of" ("Free State of Florida"). */
+const NOT_BEFORE_OF = new Set(["free state"]);
 /** ISO3 codes that are English words, names or common acronyms ("ETH", "GEO", "UGA"). */
 const ISO3_WORDS = new Set([
   "AIA", "ALA", "AND", "ARE", "ARM", "ATF", "BEN", "BLM", "BRB", "CAF", "CAN", "COD", "COL",
@@ -306,8 +344,8 @@ function foldWord(word: string): string[] {
 function cleanLocation(text: string): string {
   return expandCompassInitials(collapseDottedInitials(text.replace(URLS, " "), true))
     .replace(DOMAINS, " ")
-    .replace(SAINT, (_match, title?: string, other?: string) =>
-      (title ?? other ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",
+    .replace(SAINT, (_match, title?: string, other?: string, lower?: string) =>
+      (title ?? other ?? lower ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",
     )
     .replace(MOUNT_FORT, (match: string) => (match[0]!.toLowerCase() === "m" ? "Mount " : "Fort "))
     .replace(/&/g, " and ");
@@ -337,18 +375,101 @@ export function countriesFromLocation(text: string, index: CountryIndex): string
   return [...found];
 }
 
+// A dash between two words, which splits groups ("Cali - Colombia", "Paris–Berlin").
+const DASH_BETWEEN_WORDS = /(?<![\p{L}\p{M}])([\p{L}\p{M}]+)(?:\s+[-–—]+\s+|[–—]+)(?=([\p{L}\p{M}]+))/gu;
+
+/**
+ * A name the tables list with a hyphen, written with a spaced or long dash ("Vitoria
+ * - Gasteiz", "KwaZulu – Natal"), is one name, not two places. Only an exact
+ * two-word name counts, so "Cali - Colombia" and "London - Paris" stay apart.
+ */
+function joinDashedNames(text: string, derived: Derived): string {
+  return text.replace(DASH_BETWEEN_WORDS, (match: string, first: string, second: string) =>
+    derived.phrases.has(foldText(`${first} ${second}`)) ? `${first}-` : match,
+  );
+}
+
 function parseLocation(text: string, derived: Derived): string[] {
   const flags = flagCountryCodes(text).filter((code) => code in COUNTRY_NAMES || derived.iso2.has(code));
-  const cleaned = cleanLocation(stripFlags(text));
-  const out = new Set<string>();
+  const cleaned = joinDashedNames(cleanLocation(stripFlags(text)), derived);
+  const groups: Item[][] = [];
   for (const group of cleaned.split(GROUP_SEPARATOR)) {
     if (!group || !group.trim()) continue;
-    for (const code of parseGroup(tokenizeGroup(group), derived)) out.add(code);
+    groups.push(parseGroup(tokenizeGroup(group), derived));
   }
-  // Flags are a fallback: many profiles add them for heritage or solidarity
-  // next to the place they live ("NYC 🇺🇦").
+  pinAcrossGroups(groups);
+  const out = new Set<string>();
+  for (const items of groups) for (const code of resolveItems(items, flags)) out.add(code);
+  // Flags never add a country next to a named place: many profiles add them for
+  // heritage or solidarity ("NYC 🇺🇦"). They only pick between the readings of a
+  // place the words leave open ("Cali 🇨🇴"), or stand in when no place is named.
   if (out.size === 0) for (const code of flags) out.add(code);
   return [...out];
+}
+
+/**
+ * A world city's small US namesake (Paris, Texas; Berlin, New Hampshire). The US
+ * flag is the most common heritage or solidarity flag on X, and "London | USA"
+ * lists two places as often as it names one, so only a US state picks the namesake
+ * ("Paris - Texas", "Berlin, NH"). Names whose readings are equally common
+ * (Georgia, Jersey) are "ambiguous", not cities, and a flag still picks for them.
+ */
+function usNamesake(item: Item, country: string, via: "country" | "subdivision" | "flag"): boolean {
+  return country === "US" && via !== "subdivision" && item.kind === "city" && item.countries[0] !== "US";
+}
+
+/**
+ * The readings of a place that a lone US, Canadian or Australian code after it can
+ * confirm. A US state code confirms only the place's own country ("Seattle / WA"),
+ * since NY, LA and DC also stand for cities ("London / NY" lists two places); a
+ * province code, which does not, confirms any reading ("London - ON", "Sydney /
+ * NS"), and so does any code after a name with equally common readings ("Georgia
+ * / GA").
+ */
+function provinceReadings(item: Item, code: string): string[] {
+  if (item.kind === "ambiguous" || !US_STATE_CODES.has(code)) return readings(item);
+  return item.countries.slice(0, 1);
+}
+
+/**
+ * A group that names only one place can settle the place just before it:
+ * - a country or state settles a city when it is one of the city's readings
+ *   ("Cali - Colombia", "Hyderabad | Sindh"), except a bare "USA" after a world
+ *   city ("Paris | USA", see usNamesake);
+ * - a lone state code confirms a place there, as "City, ST" does: another
+ *   country's ("Porto Alegre - RS", "Kochi - KL", "Tijuana - BC"), or a US,
+ *   Canadian or Australian one ("Regina - SK", "London - ON", "Perth / WA", see
+ *   provinceReadings).
+ * Two unrelated places stay two places ("London | Lagos", "London / LA").
+ */
+function pinAcrossGroups(groups: Item[][]): void {
+  for (let g = 1; g < groups.length; g += 1) {
+    const named = groups[g]!.filter((item) => item.kind !== "region");
+    const place = named[0];
+    const before = groups[g - 1]!.filter((item) => item.kind !== "region");
+    const last = before[before.length - 1];
+    // "Lavras/MG", "Pouso Alegre - MG": a town missing from the tables, then a lone
+    // code. Read it as "Town, MG", so the codes that decide nothing there do not here.
+    const afterUnknownTown = groups[g - 1]!.length === 0 && named.length === 1 && !place?.hasPrefix;
+    if (afterUnknownTown && place?.kind === "code" && AFTER_PLACE_COLLISIONS[place.code ?? ""] === null) {
+      place.pinned = null;
+    }
+    if (named.length !== 1 || !place || !last) continue;
+    const lastIsCity = last.kind === "city" || last.kind === "ambiguous";
+    if (place.kind === "country" || place.kind === "subdivision") {
+      const country = place.countries[0];
+      if (lastIsCity && country && last.countries.includes(country) && !usNamesake(last, country, place.kind)) {
+        last.pinned ??= country;
+      }
+    } else if (place.code !== undefined && !place.hasPrefix && last.kind !== "code") {
+      const confirmed =
+        intersect(countriesForForeignStateCode(place.code), readings(last))[0] ??
+        intersect(countriesForSubdivisionCode(place.code), provinceReadings(last, place.code))[0];
+      if (!confirmed) continue;
+      place.pinned = confirmed;
+      if (lastIsCity) last.pinned ??= confirmed;
+    }
+  }
 }
 
 /**
@@ -356,7 +477,7 @@ function parseLocation(text: string, derived: Derived): string[] {
  * List words that no phrase consumed ("Berlin & LA") start a new segment: places on
  * either side are listed side by side, not one inside the other.
  */
-function parseGroup(tokens: Token[], derived: Derived): string[] {
+function parseGroup(tokens: Token[], derived: Derived): Item[] {
   const at: Cursor = { tokens, segment: 0, segmentStart: 0 };
   const items: Item[] = [];
   let i = 0;
@@ -369,18 +490,19 @@ function parseGroup(tokens: Token[], derived: Derived): string[] {
       i += len;
       continue;
     }
-    if (isListWord(token)) {
+    const lower = token.upper ? null : lowerCaseCode(at, i, items);
+    if (!lower && isListWord(token)) {
       at.segment += 1;
       at.segmentStart = i + 1;
       i += 1;
       continue;
     }
-    const code = token.upper ? codeItem(at, i, items, derived) : null;
+    const code = token.upper || lower ? codeItem(at, i, items, derived, lower) : null;
     if (code) items.push(code);
     else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(at, i, derived));
     i += 1;
   }
-  return resolveItems(items);
+  return items;
 }
 
 function matchPhrase(tokens: Token[], start: number, derived: Derived): [number, Entry] | null {
@@ -395,6 +517,8 @@ function matchPhrase(tokens: Token[], start: number, derived: Derived): [number,
     const entry = derived.phrases.get(key);
     if (!entry) continue;
     if (entry.capitalOnly && !first.capital) continue;
+    const after = tokens[start + len];
+    if (NOT_BEFORE_OF.has(key) && after?.text === "of" && after.level === first.level) continue;
     return [len, entry];
   }
   return null;
@@ -427,14 +551,46 @@ function makeItem(
 }
 
 /**
- * An upper-case code counts only where a place would go: as a whole part
- * ("Lagos, NG", "TX") or as the last word of a part after another word
- * ("Houston TX"), and never inside an all-caps sentence.
+ * A US, Canadian or Australian state code in lower or title case ("cambridge, ma",
+ * "Athens, Ga.") or an AP abbreviation ("Springfield, Mass."), returned in capitals.
+ * It counts only where "City, ST" puts it: as a whole comma part after another part,
+ * or as the last word right after a known city ("athens ga"). LOWER_CODE_WORDS also
+ * need a place right before them ("coffee, tea, me").
  */
-function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item | null {
+function lowerCaseCode(at: Cursor, i: number, items: Item[]): string | null {
   const { tokens } = at;
   const token = tokens[i]!;
-  const code = token.text.toUpperCase();
+  const code = AP_STATE_ABBREVIATIONS[token.text] ?? token.text.toUpperCase();
+  if (!/^[A-Z]{2,3}$/.test(code) || countriesForSubdivisionCode(code).length === 0) return null;
+  const before = tokens[i - 1];
+  const after = tokens[i + 1];
+  if (i <= at.segmentStart || !before || (after && after.level === token.level)) return null;
+  const prev = items[items.length - 1];
+  const adjacent = prev !== undefined && prev.end === i && prev.kind !== "region" ? prev : null;
+  if (before.level !== token.level) {
+    const needsPlace = LOWER_CODE_WORDS.has(token.text);
+    return needsPlace && (!adjacent || adjacent.kind === "code") ? null : code;
+  }
+  return adjacent?.kind === "city" && !TRAILING_CODE_WORDS.has(code) ? code : null;
+}
+
+/**
+ * An upper-case code counts only where a place would go: as a whole part
+ * ("Lagos, NG", "TX") or as the last word of a part after another word
+ * ("Houston TX"), and never inside an all-caps sentence unless it follows a
+ * known city ("ATHENS GA") or ends a short "TOWN ST" ("KATY TX").
+ * `lower` is a lower-case state code already placed by lowerCaseCode.
+ */
+function codeItem(
+  at: Cursor,
+  i: number,
+  items: Item[],
+  derived: Derived,
+  lower: string | null = null,
+): Item | null {
+  const { tokens } = at;
+  const token = tokens[i]!;
+  const code = lower ?? token.text.toUpperCase();
   if (!/^[A-Z]{2,4}$/.test(code)) return null;
   const inPart = (t: Token | undefined) => t !== undefined && t.level === token.level && !isListWord(t);
   let partStart = i;
@@ -450,7 +606,7 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   if (!whole) {
     if (!last) return null;
     const part = tokens.slice(partStart, partEnd);
-    if (part.every((t) => t.upper)) return null;
+    if (part.every((t) => t.upper) && !afterCity && !capsTownAndState(part, code)) return null;
     if (TRAILING_CODE_WORDS.has(code) && !afterCity) return null;
   }
   const hasPrefix = i > at.segmentStart;
@@ -472,14 +628,26 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   const countries = iso2 ? [...states, iso2] : states;
   const foreign = countriesForForeignStateCode(code).filter((c) => !countries.includes(c));
   if (countries.length === 0) {
-    // Another country's state code only confirms the place before it ("La Paz, BCS").
+    // Another country's state code only confirms the place before it ("La Paz, BCS"),
+    // or, standing alone, the group before it ("La Paz - BCS", see pinAcrossGroups).
     const confirmed = adjacent ? intersect(foreign, readings(adjacent)) : [];
-    return confirmed.length > 0 ? make("code", confirmed) : null;
+    if (confirmed.length > 0) return make("code", confirmed);
+    return whole && !hasPrefix && foreign.length > 0 ? { ...make("code", []), foreign } : null;
   }
   if (!hasPrefix && whole && STANDALONE_CODE_WORDS.has(code)) return null;
   const item = make("code", countries);
   if (foreign.length > 0) item.foreign = foreign;
   return item;
+}
+
+/** All-caps "TOWN ST" or "TWO WORD TOWN ST" for a town missing from the tables. */
+function capsTownAndState(part: Token[], code: string): boolean {
+  return (
+    part.length <= 3 &&
+    US_STATE_CODES.has(code) &&
+    !TRAILING_CODE_WORDS.has(code) &&
+    !CAPS_WORD_CODES.has(code)
+  );
 }
 
 function isListWord(token: Token): boolean {
@@ -513,16 +681,21 @@ function readings(item: Item): string[] {
 /**
  * Decide what each place in one location means: first from its right-hand
  * neighbour (resolvePair); anything still open then takes a country named
- * elsewhere in the same segment ("Springfield, IL, USA"), else its default reading.
+ * elsewhere in the same segment ("Springfield, IL, USA"), else a reading a flag
+ * names ("Cali 🇨🇴", "NL 🇨🇦"; not a US namesake, "London 🇺🇸"), else its default
+ * reading.
  */
-function resolveItems(items: Item[]): string[] {
+function resolveItems(items: Item[], flags: string[]): string[] {
   for (let i = 0; i < items.length - 1; i += 1) resolvePair(items[i]!, items[i + 1]!);
 
   const explicit = new Map<number, Set<string>>();
   const settled = (item: Item): string | null | undefined => {
     if (item.pinned !== undefined) return item.pinned;
     if (item.kind === "country" || item.kind === "subdivision") return item.countries[0] ?? null;
-    if (item.kind === "code" && item.countries.length === 1) return item.countries[0]!;
+    // A code that is also another country's state code stays open for a flag ("RS 🇧🇷").
+    if (item.kind === "code" && item.countries.length === 1 && !item.foreign) {
+      return item.countries[0]!;
+    }
     return undefined;
   };
   for (const item of items) {
@@ -539,7 +712,10 @@ function resolveItems(items: Item[]): string[] {
     let code = settled(item);
     if (code === undefined) {
       const context = explicit.get(item.segment);
-      code = item.countries.find((c) => context?.has(c)) ?? fallback(item);
+      code =
+        item.countries.find((c) => context?.has(c)) ??
+        readings(item).find((c) => flags.includes(c) && !usNamesake(item, c, "flag")) ??
+        fallback(item);
     }
     if (code) out.push(code);
   }
@@ -623,8 +799,10 @@ function fallback(item: Item): string | null {
       return (item.afterComma ? item.entry?.afterPlace : item.entry?.alone) ?? null;
     case "code": {
       const code = item.code ?? "";
+      if (item.hasPrefix && code in AFTER_PLACE_COLLISIONS) return AFTER_PLACE_COLLISIONS[code]!;
+      // One country of its own, plus other countries' state codes: that country.
+      if (item.countries.length === 1) return item.countries[0]!;
       if (!item.hasPrefix) return code in STANDALONE_COLLISIONS ? STANDALONE_COLLISIONS[code]! : null;
-      if (code in AFTER_PLACE_COLLISIONS) return AFTER_PLACE_COLLISIONS[code]!;
       return item.countries[0] ?? null;
     }
     default:
@@ -644,10 +822,6 @@ function xLabelCountries(text: string, index: CountryIndex): string[] {
   const exact = folded ? index.names.get(folded) : undefined;
   if (exact) return [exact];
   return countriesFromLocation(text, index);
-}
-
-export function countryFromBasedIn(text: string, index: CountryIndex): string | null {
-  return xLabelCountries(text, index)[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -836,15 +1010,6 @@ export function tweetDecision(
   return mergeDecision(out, authorDecision(author, settings, index));
 }
 
-export function tweetMatchReason(
-  tweet: TweetRecord,
-  author: UserRecord | undefined,
-  settings: Settings,
-  index: CountryIndex,
-): string | null {
-  return tweetDecision(tweet, author, settings, index).hit;
-}
-
 export function shouldHideTweet(
   tweet: TweetRecord,
   author: UserRecord | undefined,
@@ -854,6 +1019,12 @@ export function shouldHideTweet(
   return actionReason(tweetDecision(tweet, author, settings, index), settings) !== null;
 }
 
+/**
+ * A post card: the post itself, and in Hide mode the post it quotes. The content
+ * script judges a repost by the original post (it passes that post here with
+ * `retweeted: null`), so `tweet.retweeted` is not followed. In Focus mode a quote
+ * from a picked place does not keep a parent post from elsewhere.
+ */
 export function cardDecision(
   tweet: TweetRecord,
   users: Map<string, UserRecord>,
@@ -865,47 +1036,17 @@ export function cardDecision(
   if (self.hit) return self;
   const mode = effectiveFilterMode(settings);
   switch (mode) {
-    case "only": {
-      if (!tweet.retweeted) return self;
-      const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-      if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
-      return mergeDecision(self, retweeted);
-    }
+    case "only":
+      return self;
     case "hide": {
-      let out = self;
-      if (tweet.quoted) {
-        const quoted = cardDecision(tweet.quoted, users, settings, index);
-        if (quoted.hit) return { hit: `Quotes a match: ${quoted.hit}`, decided: true };
-        out = mergeDecision(out, quoted);
-      }
-      if (tweet.retweeted) {
-        const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-        if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
-        out = mergeDecision(out, retweeted);
-      }
-      return out;
+      if (!tweet.quoted) return self;
+      const quoted = cardDecision(tweet.quoted, users, settings, index);
+      if (quoted.hit) return { hit: `Quotes a match: ${quoted.hit}`, decided: true };
+      return mergeDecision(self, quoted);
     }
     default: {
       const _never: never = mode;
       return _never;
     }
   }
-}
-
-export function cardMatchReason(
-  tweet: TweetRecord,
-  users: Map<string, UserRecord>,
-  settings: Settings,
-  index: CountryIndex,
-): string | null {
-  return cardDecision(tweet, users, settings, index).hit;
-}
-
-export function shouldHideCard(
-  tweet: TweetRecord,
-  users: Map<string, UserRecord>,
-  settings: Settings,
-  index: CountryIndex,
-): boolean {
-  return actionReason(cardDecision(tweet, users, settings, index), settings) !== null;
 }

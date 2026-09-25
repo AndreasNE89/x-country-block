@@ -85,7 +85,7 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "West Virginia|Wisconsin|Wyoming|District of Columbia|New England|Midwest|Pacific Northwest|" +
     "PNW|SoCal|NorCal|Bay Area|SF Bay Area|Silicon Valley|Upstate New York|Long Island|DMV|DFW|" +
     "Dallas-Fort Worth|Twin Cities|Tri-State Area|North Georgia|South Georgia|North Jersey|" +
-    "South Jersey|Central Jersey",
+    "South Jersey|Central Jersey|Rio Grande Valley|RGV|Tri-State",
   CA:
     "Ontario|Quebec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|" +
     "Newfoundland|Newfoundland and Labrador|Prince Edward Island|PEI|Yukon|Nunavut|" +
@@ -134,7 +134,9 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "North Sumatra|Sumatera Utara|Sulawesi|Kalimantan|Aceh|Riau|Banten|Lombok|Nusa Tenggara|Maluku",
   PH:
     "Luzon|Mindanao|Visayas|Metro Manila|Cavite|Bulacan|Pampanga|Batangas|Pangasinan|Negros|" +
-    "Palawan|Bohol|Leyte",
+    "Palawan|Bohol|Leyte|Rizal|Ilocos Norte|Ilocos Sur|Nueva Ecija|Tarlac|Zambales|Bataan|" +
+    "Benguet",
+  PT: "Azores|Açores",
   MY:
     "Selangor|Sabah|Sarawak|Johor|Kedah|Kelantan|Terengganu|Pahang|Perak|Negeri Sembilan|Perlis|" +
     "Labuan",
@@ -155,7 +157,12 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "Guangdong|Sichuan|Hubei|Hunan|Henan|Shandong|Jiangsu|Zhejiang|Fujian|Yunnan|Guangxi|" +
     "Xinjiang|Inner Mongolia|Hainan|Anhui|Jiangxi|Shanxi|Shaanxi|Hebei|Liaoning|Jilin|" +
     "Heilongjiang|Gansu|Guizhou",
-  JP: "Hokkaido|Okinawa|Kyushu|Honshu|Shikoku|Kanto|Kansai",
+  JP:
+    "Hokkaido|Okinawa|Kyushu|Honshu|Shikoku|Kanto|Kansai|北海道|沖縄|沖縄県|神奈川|神奈川県|" +
+    "埼玉県|千葉県|愛知県|兵庫県|福岡県",
+  CO:
+    "Antioquia|Valle del Cauca|Cundinamarca|Risaralda|Quindío|Boyacá|Nariño|Tolima|Huila|" +
+    "Norte de Santander",
   KR: "Gyeonggi",
   RU: "Siberia|Tatarstan|Chechnya|Dagestan|Bashkortostan|Yakutia|Kamchatka",
   ZA:
@@ -191,7 +198,10 @@ export const SUBDIVISION_NAMES: Record<string, string> = invert(SUBDIVISIONS_BY_
  * nicknames and native spellings. Each name is listed once, under the country that
  * most people mean; same-named cities elsewhere are in CITY_ALT_COUNTRIES.
  * Left out on purpose: names that are ordinary words (Nice, Split, Reading, Mobile,
- * Buffalo, Salem, Hue, Male) and names shared by two big cities (Santa Cruz).
+ * Buffalo, Salem, Hue, Male, and Plano, Portuguese for plan or plane: "plano
+ * astral") and names shared by two big cities (Santa Cruz). "City, ST" still reads
+ * a left-out US city ("Plano, TX"). Mesa and Amarillo, Spanish for table and yellow,
+ * only count with a capital letter (match.ts CAPITAL_ONLY).
  */
 const CITIES_BY_COUNTRY: Record<string, string> = {
   // Africa
@@ -283,7 +293,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Belagavi|Warangal|Guntur|Nellore|Jamshedpur|Siliguri|Bareilly|Aligarh|Moradabad|Gorakhpur|" +
     "Ajmer|Bikaner|Jalandhar|Kolhapur|Solapur|Tirupati|Vellore|Thrissur|Imphal|Shillong|" +
     "Aizawl|Kohima|Agartala|Itanagar|Gangtok|Panaji|Port Blair|Ayodhya|Mathura|Rishikesh|" +
-    "Haridwar|Nainital|Darjeeling|Secunderabad|Hyderabad Deccan|मुंबई|दिल्ली|नई दिल्ली|कोलकाता|" +
+    "Haridwar|Nainital|Darjeeling|Secunderabad|Hyderabad Deccan|Bilaspur|Bhilai|" +
+    "मुंबई|दिल्ली|नई दिल्ली|कोलकाता|" +
     "बेंगलुरु|चेन्नई|लखनऊ|जयपुर|पटना|भोपाल|इंदौर|वाराणसी",
   ID:
     "Jakarta|Surabaya|Bandung|Medan|Semarang|Makassar|Palembang|Tangerang|Depok|Bekasi|Bogor|" +
@@ -367,7 +378,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Bruges|Brugge|Leuven|Louvain|Namur|Mechelen|Hasselt",
   BA: "Sarajevo|Banja Luka|Tuzla|Mostar|Zenica",
   BG: "Sofia|Plovdiv|Varna|Burgas|София",
-  HR: "Zagreb|Rijeka|Osijek|Zadar|Dubrovnik",
+  HR: "Zagreb|Rijeka|Osijek|Zadar|Dubrovnik|Varaždin|Šibenik|Karlovac|Slavonski Brod",
   CZ: "Prague|Praha|Brno|Ostrava|Plzeň|Pilsen|Olomouc|Liberec",
   DK: "Copenhagen|København|Aarhus|Århus|Odense|Aalborg|Esbjerg",
   EE: "Tallinn|Tartu|Narva|Pärnu",
@@ -419,7 +430,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Zakopane|Opole|Gliwice",
   PT:
     "Lisbon|Lisboa|Porto|Oporto|Braga|Coimbra|Funchal|Faro|Aveiro|Setúbal|Évora|Guimarães|" +
-    "Sintra|Cascais|Albufeira|Madeira|Azores|Açores",
+    "Sintra|Cascais|Albufeira|Madeira|Santa Maria da Feira",
   RO:
     "Bucharest|București|Bucuresti|Cluj-Napoca|Cluj|Timișoara|Iași|Constanța|Craiova|Brașov|" +
     "Galați|Ploiești|Oradea|Sibiu|Arad|Pitești",
@@ -437,7 +448,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
   ES:
     "Madrid|Barcelona|Valencia|Seville|Sevilla|Zaragoza|Saragossa|Málaga|Murcia|Palma|" +
     "Palma de Mallorca|Las Palmas|Las Palmas de Gran Canaria|Bilbao|Alicante|Valladolid|Vigo|" +
-    "Gijón|Granada|A Coruña|La Coruña|Vitoria-Gasteiz|Elche|Oviedo|Santander|Pamplona|" +
+    "Gijón|Granada|A Coruña|La Coruña|Vitoria-Gasteiz|Gasteiz|Elche|Oviedo|Santander|Pamplona|" +
     "San Sebastián|Donostia|Cádiz|Marbella|Ibiza|Benidorm|Tarragona|Girona|Almería|Huelva|" +
     "Jerez|Santiago de Compostela|Santa Cruz de Tenerife|Castellón|Badajoz|Burgos|Logroño|" +
     "Albacete|Getafe|Alcalá de Henares|Móstoles",
@@ -459,11 +470,13 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Dundee|Oxford|Cambridge|Norwich|Exeter|Sunderland|Milton Keynes|Luton|Bournemouth|" +
     "Middlesbrough|Huddersfield|Blackpool|Bolton|Stockport|Salford|Croydon|Inverness|Stirling|" +
     "Canterbury|Ipswich|Northampton|Watford|Slough|Wembley|Hackney|Brixton|Islington|" +
-    "Shoreditch|Surrey|Kingston upon Hull|Tottenham|Peckham",
+    "Shoreditch|Surrey|Kingston upon Hull|Kingston upon Thames|Tottenham|Peckham|" +
+    "Stockton-on-Tees",
   // Americas
   US:
     "New York City|NYC|Los Angeles|Cali|Chicago|Houston|Phoenix|Philadelphia|Philly|" +
-    "San Antonio|San Diego|Dallas|Austin|Jacksonville|San Jose|Fort Worth|Columbus|Charlotte|" +
+    "San Antonio|San Diego|Dallas|Austin|Jacksonville|San Jose|San Francisco|San Fran|" +
+    "Fort Worth|Columbus|Charlotte|" +
     "Indianapolis|Seattle|Denver|Washington DC|Washington D C|Nashville|Oklahoma City|El Paso|" +
     "Boston|Portland|Las Vegas|Vegas|Detroit|Memphis|Louisville|Baltimore|Milwaukee|" +
     "Albuquerque|Tucson|Fresno|Sacramento|Kansas City|Atlanta|ATL|Omaha|Colorado Springs|" +
@@ -474,9 +487,11 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Winston-Salem|Fremont|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|" +
     "Des Moines|Santa Clarita|Fayetteville|Oxnard|Rochester|Grand Rapids|Huntsville|" +
     "Salt Lake City|Salt Lake|SLC|Knoxville|Chattanooga|Savannah|Charleston|Syracuse|Pasadena|" +
-    "Berkeley|Palo Alto|Mountain View|Cupertino|Menlo Park|Sunnyvale|Santa Monica|Hollywood|" +
+    "Berkeley|Palo Alto|Mountain View|Cupertino|Menlo Park|Sunnyvale|Santa Monica|Venice Beach|" +
+    "Hollywood|" +
     "Beverly Hills|Malibu|Long Beach|Brooklyn|Manhattan|Queens|Bronx|The Bronx|Staten Island|" +
-    "Harlem|Hoboken|Miami Beach|Fort Lauderdale|West Palm Beach|Palm Beach|Key West|" +
+    "Harlem|Hoboken|Jamaica Plain|Miami Beach|Fort Lauderdale|West Palm Beach|Palm Beach|" +
+    "Key West|" +
     "Tallahassee|Gainesville|Pensacola|Sarasota|Saint Louis|STL|Ann Arbor|Green Bay|" +
     "Sioux Falls|Fargo|Little Rock|Tuscaloosa|Shreveport|Asheville|" +
     "Chapel Hill|Wilmington|Columbia|Greenville|Myrtle Beach|Annapolis|Hartford|New Haven|" +
@@ -485,7 +500,12 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Waco|McAllen|Brownsville|Galveston|Frisco|Tempe|Flagstaff|Sedona|Juneau|Fairbanks|Hilo|" +
     "Maui|Boulder|Fort Collins|Provo|Ogden|Missoula|Bozeman|Rapid City|Duluth|Cedar Rapids|" +
     "Iowa City|Biloxi|Gulfport|Macon|Clearwater|Fort Myers|Boca Raton|Kissimmee|Daytona Beach|" +
-    "Arlington|" +
+    "Arlington|Mesa|Stockton|Modesto|Yonkers|Moreno Valley|Amarillo|Huntington Beach|" +
+    "Overland Park|Grand Prairie|McKinney|Cape Coral|Newport News|Elk Grove|Rancho Cucamonga|" +
+    "Garden Grove|Pembroke Pines|Palmdale|Clarksville|Rockford|Naperville|Joliet|Bridgeport|" +
+    "Killeen|Mesquite|Pomona|Fullerton|Visalia|Olathe|Round Rock|Thousand Oaks|Murfreesboro|" +
+    "Costa Mesa|College Station|Temecula|Jefferson City|Carson City|Chesapeake|Abilene|" +
+    "Carlsbad|Port Saint Lucie|" +
     "Hampton Roads|Jersey Shore|Sin City|Motor City|Windy City|Big Apple|Chi-town|H-Town|" +
     "Dallas-Fort Worth",
   CA:
@@ -514,7 +534,9 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Puerto Plata",
   HT: "Port-au-Prince|Cap-Haïtien|Pétion-Ville|Gonaïves",
   JM: "Kingston|Montego Bay|Spanish Town|Portmore|Ocho Rios|Negril",
-  PR: "San Juan|Bayamón|Ponce|Caguas|Mayagüez",
+  PR:
+    "San Juan|Bayamón|Ponce|Caguas|Mayagüez|Guaynabo|Arecibo|Aguadilla|Humacao|Fajardo|" +
+    "Cayey|Trujillo Alto|Vega Baja|Toa Baja|Cabo Rojo|Yauco|Guayama|Manatí",
   TT: "Port of Spain|Chaguanas|Arima",
   BS: "Nassau",
   BB: "Bridgetown",
@@ -541,11 +563,17 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
   BR:
     "São Paulo|Sampa|Rio de Janeiro|Rio|Brasília|Salvador|Fortaleza|Belo Horizonte|Manaus|" +
     "Curitiba|Recife|Goiânia|Belém|Porto Alegre|Guarulhos|Campinas|São Luís|São Gonçalo|" +
-    "Maceió|Duque de Caxias|Natal|Teresina|Campo Grande|Nova Iguaçu|São Bernardo do Campo|" +
+    "Maceió|Duque de Caxias|Teresina|Campo Grande|Nova Iguaçu|São Bernardo do Campo|" +
     "João Pessoa|Santo André|Osasco|Jaboatão|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|" +
     "Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Florianópolis|Floripa|" +
     "Niterói|Porto Velho|Macapá|Boa Vista|Rio Branco|Vila Velha|Caxias do Sul|Pelotas|Maringá|" +
-    "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty",
+    "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty|" +
+    "Plano Piloto|Vitória|Palmas|Montes Claros|Uberaba|Governador Valadares|Ipatinga|Betim|" +
+    "Divinópolis|Sete Lagoas|Passo Fundo|Novo Hamburgo|Ponta Grossa|Cascavel|" +
+    "Guarapuava|Chapecó|Itajaí|Criciúma|Ilhéus|Itabuna|Vitória da Conquista|Camaçari|" +
+    "Caruaru|Petrolina|Arapiraca|Mossoró|Juazeiro do Norte|Imperatriz|Santarém|Marabá|" +
+    "Rondonópolis|Dourados|Anápolis|Cariacica|São José dos Campos|Jundiaí|Piracicaba|Bauru|" +
+    "São José do Rio Preto|Campos dos Goytacazes|Volta Redonda",
   GY: "Georgetown",
   SR: "Paramaribo",
   BZ: "Belize City|Belmopan",
@@ -640,6 +668,8 @@ export const CITY_ALT_COUNTRIES: Record<string, string[]> = {
   "niagara falls": ["US"],
   scarborough: ["GB"],
   bethlehem: ["US"],
+  vitória: ["ES"],
+  santarém: ["PT"],
 };
 
 export type AmbiguousPlace = {
@@ -652,7 +682,9 @@ export type AmbiguousPlace = {
 };
 
 /**
- * Names that are a country and also a US state or another country's region.
+ * Names that are a country and also a US state or another country's region (or,
+ * for Natal, a city and an old region name elsewhere; for Santa Maria, large towns
+ * in three countries).
  * "Georgia" alone stays undecided (the US state and the country are both common on X);
  * "City, Georgia" with an unknown city is the US state, since the tables list the
  * Georgian cities people write (Tbilisi, Batumi, Kutaisi). X's own "Account based in"
@@ -671,6 +703,11 @@ export const AMBIGUOUS_PLACES: Record<string, AmbiguousPlace> = {
   antigua: { countries: ["AG", "GT"], alone: "AG", afterPlace: "AG" },
   "virgin islands": { countries: ["VI", "VG"], alone: "VI", afterPlace: "VI" },
   "saint martin": { countries: ["MF", "SX"], alone: "MF", afterPlace: "MF" },
+  // The Brazilian city, and the old name of KwaZulu-Natal ("Durban, Natal").
+  natal: { countries: ["BR", "ZA"], alone: "BR", afterPlace: "BR" },
+  // Rio Grande do Sul, California and Bulacan (and many smaller towns): only a state,
+  // a state code or a flag decides ("Santa Maria, RS", "Santa Maria, CA").
+  "santa maria": { countries: ["BR", "US", "PH"], alone: null, afterPlace: null },
 };
 
 /**
@@ -738,13 +775,6 @@ export const CITY_OWN_CODES: Record<string, string> = {
   palermo: "PA",
   trento: "TN",
 };
-
-export function countryForSubdivisionCode(code: string): string | null {
-  if (US_STATE_CODES.has(code)) return "US";
-  if (CA_PROVINCE_CODES.has(code)) return "CA";
-  if (AU_STATE_CODES.has(code)) return "AU";
-  return null;
-}
 
 /** Every country that uses this subdivision code ("WA" -> US and AU). */
 export function countriesForSubdivisionCode(code: string): string[] {

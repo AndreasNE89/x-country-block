@@ -1,16 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
-import {
-  actionReason,
-  allowListLabel,
-  cardDecision,
-  cardMatchReason,
-  shouldHideCard,
-  shouldHideTweet,
-  tweetDecision,
-  tweetMatchReason,
-} from "../src/shared/match.ts";
-import type { FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
+import { actionReason, cardDecision, tweetDecision } from "../src/shared/match.ts";
+import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
 const index = defaultCountryIndex();
 
@@ -55,6 +46,15 @@ function user(partial: Partial<UserRecord> = {}): UserRecord {
     lang: null,
     ...partial,
   };
+}
+
+function shouldHideTweet(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(tweetDecision(post, author, picks, countryIndex), picks) !== null;
 }
 
 function reason(post: Partial<TweetRecord>, author: Partial<UserRecord> | undefined, s: Settings) {
@@ -247,6 +247,106 @@ describe("profile locations end to end (F04, F05, F19)", () => {
       reason({ lang: "en" }, { location: "Valdosta, South Georgia" }, settings({ regions: ["LATIN_AMERICA"] })),
     ).toBeNull();
   });
+
+  it("reads 'City, st' in any case as the US town (R26)", () => {
+    expect(reason({}, { location: "cambridge, ma" }, settings({ countries: ["GB"] }))).toBeNull();
+    expect(reason({}, { location: "Naples, Fl" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Alexandria, Va" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "katy, tx" }, settings({ countries: ["US"] }, "only"))).toBeNull();
+    expect(reason({}, { location: "katy, tx" }, settings({ countries: ["US"] }))).toBe(
+      "Profile location: United States",
+    );
+  });
+
+  it("reads San Francisco as the US (R27)", () => {
+    expect(reason({}, { location: "San Francisco" }, settings({ countries: ["US"] }))).toBe(
+      "Profile location: United States",
+    );
+    expect(reason({}, { location: "San Francisco" }, settings({ countries: ["US"] }, "only"))).toBeNull();
+  });
+
+  it("lets a country after a separator or a flag pick the city (R28)", () => {
+    expect(reason({}, { location: "Cali - Colombia" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Valencia - Venezuela" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Cali 🇨🇴" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Cali - Colombia" }, settings({ countries: ["CO"] }))).toBe(
+      "Profile location: Colombia",
+    );
+  });
+
+  it("keeps a world city when a US flag or a bare USA follows it", () => {
+    expect(reason({}, { location: "Berlin 🇺🇸🇮🇱" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Berlin 🇺🇸🇮🇱" }, settings({ regions: ["EUROPE"] }))).toBe(
+      "Profile location: Germany, Europe",
+    );
+    expect(reason({}, { location: "Moscow 🇺🇸" }, settings({ countries: ["RU"] }))).toBe(
+      "Profile location: Russia",
+    );
+    expect(reason({}, { location: "Paris | USA" }, settings({ countries: ["FR"] }, "only"))).toBeNull();
+  });
+
+  it("does not read 'plano astral' as Plano, Texas", () => {
+    expect(reason({}, { location: "plano astral" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "plano astral" }, settings({ countries: ["BR"] }, "only"))).toBe(
+      "Not in your Focus picks (location unknown)",
+    );
+    expect(reason({}, { location: "en la mesa" }, settings({ countries: ["US"] }))).toBeNull();
+  });
+
+  it("reads Brazilian state codes after a dash, slash or town as Brazil (R29)", () => {
+    expect(reason({}, { location: "Porto Alegre - RS" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Salvador/BA" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Vitória, ES" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Belo Horizonte - MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Montes Claros, MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Lavras/MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Pouso Alegre - MG" }, settings({ countries: ["MG"] }))).toBeNull();
+    expect(reason({}, { location: "Curitiba - PR" }, settings({ regions: ["CARIBBEAN"] }))).toBeNull();
+    expect(reason({}, { location: "Porto Alegre - RS" }, settings({ countries: ["BR"] }))).toBe(
+      "Profile location: Brazil",
+    );
+  });
+
+  it("does not read US and UK place names as the city abroad (R31)", () => {
+    expect(reason({}, { location: "Kingston upon Thames" }, settings({ regions: ["CARIBBEAN"] }))).toBeNull();
+    expect(reason({}, { location: "Free State of Florida" }, settings({ countries: ["ZA"] }))).toBeNull();
+    expect(reason({}, { location: "Venice Beach" }, settings({ countries: ["IT"] }))).toBeNull();
+    expect(reason({}, { location: "Rio Grande Valley" }, settings({ countries: ["BR"] }))).toBeNull();
+    expect(reason({}, { location: "Santiago, RD" }, settings({ countries: ["CL"] }))).toBeNull();
+  });
+
+  it("reads 'Europa' and 'Scandinavia' as Europe (R33)", () => {
+    expect(reason({}, { location: "Europa" }, settings({ regions: ["EUROPE"] }))).toBe("Profile location: Europe");
+    expect(reason({}, { location: "Scandinavia" }, settings({ regions: ["EUROPE"] }, "only"))).toBeNull();
+  });
+
+  it("reads a bare 'NL' as the Netherlands (R30)", () => {
+    expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
+    expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();
+  });
+
+  it("does not read every Santa Maria as Brazil", () => {
+    expect(reason({}, { location: "Santa Maria, Laguna" }, settings({ countries: ["BR"] }))).toBeNull();
+    expect(reason({}, { location: "Santa Maria, RS" }, settings({ countries: ["BR"] }))).toBe(
+      "Profile location: Brazil",
+    );
+    expect(reason({}, { location: "Vitoria - Gasteiz" }, settings({ regions: ["EUROPE"] }))).toBe(
+      "Profile location: Spain, Europe",
+    );
+  });
+
+  it("keeps a Canberra suburb written 'Suburb ACT' in Focus mode", () => {
+    expect(reason({}, { location: "Tuggeranong ACT" }, settings({ countries: ["AU"] }, "only"))).toBeNull();
+    expect(reason({}, { location: "Belconnen ACT" }, settings({ countries: ["AU"] }))).toBe(
+      "Profile location: Australia",
+    );
+  });
+
+  it("reads 'NL' and 'SK' after a Canadian place as the province", () => {
+    expect(reason({}, { location: "Regina - SK" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "St. John's - NL" }, settings({ countries: ["NL"] }))).toBeNull();
+    expect(reason({}, { location: "Regina - SK" }, settings({ countries: ["CA"] }, "only"))).toBeNull();
+  });
 });
 
 describe("reason wording (F59)", () => {
@@ -271,40 +371,28 @@ describe("reason wording (F59)", () => {
     expect(text).not.toMatch(/Tamis|·/);
   });
 
-  it("explains reposts and quotes", () => {
+  it("explains quotes", () => {
     const users = new Map<string, UserRecord>([
       ["outer", user({ userId: "outer", basedIn: "United Kingdom" })],
       ["inner", user({ userId: "inner", basedIn: "Nigeria" })],
     ]);
     const quote = tweet({ authorId: "outer", lang: "en", quoted: tweet({ tweetId: "2", authorId: "inner" }) });
-    const repost = tweet({ authorId: "outer", lang: "en", retweeted: tweet({ tweetId: "3", authorId: "inner" }) });
     const hideNigeria = settings({ countries: ["NG"] });
-    expect(cardMatchReason(quote, users, hideNigeria, index)).toBe(
+    const onlyNigeria = settings({ countries: ["NG"] }, "only");
+    expect(cardDecision(quote, users, hideNigeria, index).hit).toBe(
       "Quotes a match: Account based in: Nigeria (as shown by X)",
     );
-    expect(cardMatchReason(repost, users, hideNigeria, index)).toBe(
-      "Repost of a match: Account based in: Nigeria (as shown by X)",
+    // In Focus mode a quote from a pick does not keep a parent post from elsewhere.
+    expect(actionReason(cardDecision(quote, users, onlyNigeria, index), onlyNigeria)).toBe(
+      "Not in your Focus picks",
     );
-    expect(shouldHideCard(repost, users, settings({ countries: ["NG"] }, "only"), index)).toBe(false);
     expect(cardDecision(tweet({ authorId: "outer", lang: "zxx" }), users, hideNigeria, index).hit).toBeNull();
   });
 });
 
-describe("allowListLabel", () => {
-  it("shortens long lists and names languages", () => {
-    expect(allowListLabel(settings({ countries: ["JP", "NO", "IN"], regions: ["AFRICA"], languages: ["hi"] }))).toBe(
-      "Japan, Norway +3",
-    );
-    expect(allowListLabel(settings({ countries: ["IN"], languages: ["hi"] }))).toBe("India, Hindi");
-    expect(allowListLabel(settings({ languages: ["iw"] }))).toBe("Hebrew");
-    expect(allowListLabel(settings())).toBe("your Focus picks");
-    expect(allowListLabel(settings({ countries: ["JP", "NO", "IN"] }), 3)).toBe("Japan, Norway, India");
-  });
-});
-
-describe("tweetMatchReason", () => {
+describe("tweetDecision", () => {
   it("returns the hit in both modes", () => {
-    expect(tweetMatchReason(tweet({ lang: "ja" }), undefined, settings({ languages: ["ja"] }, "only"), index)).toBe(
+    expect(tweetDecision(tweet({ lang: "ja" }), undefined, settings({ languages: ["ja"] }, "only"), index).hit).toBe(
       "Post language: Japanese",
     );
   });

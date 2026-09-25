@@ -325,6 +325,13 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();
   });
 
+  it("keeps a Canberra suburb written 'Suburb ACT' in Focus mode", () => {
+    expect(reason({}, { location: "Tuggeranong ACT" }, settings({ countries: ["AU"] }, "only"))).toBeNull();
+    expect(reason({}, { location: "Belconnen ACT" }, settings({ countries: ["AU"] }))).toBe(
+      "Profile location: Australia",
+    );
+  });
+
   it("reads 'NL' and 'SK' after a Canadian place as the province", () => {
     expect(reason({}, { location: "Regina - SK" }, settings({ regions: ["EUROPE"] }))).toBeNull();
     expect(reason({}, { location: "St. John's - NL" }, settings({ countries: ["NL"] }))).toBeNull();

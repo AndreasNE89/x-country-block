@@ -229,12 +229,13 @@ const MOUNT_FORT =
 
 /**
  * Codes that are ordinary words, slang or job acronyms. After another word in the
- * same part ("Follow ME", "Photo ID", "Tired AF", "Class ACT", "Tech PR", "Head of
- * BD") they only count when that word is a known city ("Portland ME", "Kabul AF",
- * "Canberra ACT", "San Juan PR"). As a whole part they still count ("Rincon, PR").
+ * same part ("Follow ME", "Photo ID", "Tired AF", "Tech PR", "Head of BD") they only
+ * count when that word is a known city ("Portland ME", "Kabul AF", "San Juan PR").
+ * As a whole part they still count ("Rincon, PR"). ACT is not one: Australians write
+ * "Suburb ACT" ("Tuggeranong ACT"), and Canberra's suburbs are not in the tables.
  */
 const TRAILING_CODE_WORDS = new Set([
-  "ACT", "AF", "AI", "AM", "AN", "AS", "AT", "BD", "BE", "BY", "DE", "DO", "ES", "GM", "GO",
+  "AF", "AI", "AM", "AN", "AS", "AT", "BD", "BE", "BY", "DE", "DO", "ES", "GM", "GO",
   "HE", "HI", "HR", "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM",
   "PR", "SE", "SO", "ST", "TO", "TV", "UP", "WE",
 ]);

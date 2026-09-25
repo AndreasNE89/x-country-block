@@ -242,8 +242,11 @@ describe("countriesFromLocation", () => {
       ["ft lauderdale", ["US"]],
       ["mt pleasant, sc", ["US"]],
       ["main st", []],
-      ["Class ACT", []],
+      // Canberra suburbs, written the Australian way.
       ["Canberra ACT", ["AU"]],
+      ["Tuggeranong ACT", ["AU"]],
+      ["Belconnen ACT", ["AU"]],
+      ["Kambah, ACT", ["AU"]],
     ] as [string, string[]][]) {
       expect(parse(text), text).toEqual(want);
     }

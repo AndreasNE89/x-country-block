@@ -230,19 +230,28 @@ const SAINT = /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|st
 const MOUNT_FORT = /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L}))/gu;
 
 /**
- * Two-letter codes that are ordinary words. After another word in the same part
- * ("Follow ME", "Photo ID") they only count when that word is a known city
- * ("Portland ME").
+ * Two-letter codes that are ordinary words or slang. After another word in the same
+ * part ("Follow ME", "Photo ID", "Tired AF") they only count when that word is a
+ * known city ("Portland ME", "Kabul AF").
  */
 const TRAILING_CODE_WORDS = new Set([
-  "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE", "HI", "ID",
-  "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST", "TO", "TV",
-  "UP", "WE",
+  "AF", "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE", "HI",
+  "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST", "TO",
+  "TV", "UP", "WE",
 ]);
 /** Codes that mean nothing on their own ("IT", "OK", "PS"). */
 const STANDALONE_CODE_WORDS = new Set([
   "AI", "AM", "AS", "AT", "BE", "BY", "DJ", "DM", "DO", "GM", "HI", "IS", "IT", "MC", "ME",
   "MY", "OK", "OR", "PM", "PS", "SO", "TO", "TV",
+]);
+/**
+ * Codes that are far more often acronyms than places ("AI/ML", "EU/NA", "Founder,
+ * VC", "Engineer, QA"). Wherever they stand, they count only right after a known
+ * city ("Windhoek, NA", "Doha, QA").
+ */
+const ACRONYM_CODES = new Set([
+  "AI", "AM", "BI", "BS", "CV", "CX", "DJ", "DM", "ER", "FM", "GG", "GL", "GM", "IO", "MC",
+  "ML", "NA", "PM", "QA", "TM", "TV", "VC",
 ]);
 /**
  * A bare code that is both a country and a US/Canadian/Australian state ("MA",
@@ -269,12 +278,12 @@ const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
 };
 /** Upper-case country abbreviations that are not ISO codes. */
 const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO" };
-/** ISO3 codes that are English words or common acronyms. */
+/** ISO3 codes that are English words, names or common acronyms ("ETH", "GEO", "UGA"). */
 const ISO3_WORDS = new Set([
-  "AND", "ARE", "ARM", "BEN", "BLM", "CAF", "CAN", "COD", "COL", "COM", "CUB", "DOM", "EST",
-  "FIN", "GAB", "GIN", "GRL", "GUM", "GUY", "HUN", "IOT", "IRL", "JAM", "LIE", "MAC", "MDA",
-  "MUS", "NIC", "NOR", "PAN", "PER", "PNG", "PRY", "SEN", "SOM", "TLS", "TON", "VAT", "ALA",
-  "ATF",
+  "AIA", "ALA", "AND", "ARE", "ARM", "ATF", "BEN", "BLM", "BRB", "CAF", "CAN", "COD", "COL",
+  "COM", "CUB", "DJI", "DOM", "EST", "ETH", "FIN", "GAB", "GEO", "GIN", "GRL", "GUM", "GUY",
+  "HUN", "IOT", "IRL", "JAM", "KEN", "LIE", "MAC", "MDA", "MUS", "NAM", "NIC", "NOR", "PAN",
+  "PER", "PNG", "POL", "PRY", "SEN", "SOM", "SSD", "TLS", "TON", "UGA", "VAT",
 ]);
 
 function isUpperWord(word: string): boolean {
@@ -429,6 +438,7 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   const prev = items[items.length - 1];
   const adjacent = prev !== undefined && prev.end === i && prev.kind !== "region" ? prev : null;
   const afterCity = adjacent?.kind === "city";
+  if (ACRONYM_CODES.has(code) && !afterCity) return null;
   if (!whole) {
     if (!last) return null;
     const part = tokens.slice(partStart, partEnd);

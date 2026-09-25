@@ -119,6 +119,28 @@ describe("countriesFromLocation", () => {
     expect(parse("KL")).toEqual(["MY"]);
   });
 
+  it("counts acronym and slang codes only right after a known city", () => {
+    for (const text of [
+      "Tired AF",
+      "NA",
+      "EU/NA",
+      "AI/ML",
+      "Coffee, code, AI",
+      "Engineer, QA",
+      "Founder, VC",
+      "ETH",
+      "BTC | ETH",
+      "GEO",
+      "KEN",
+    ]) {
+      expect(parse(text), text).toEqual([]);
+    }
+    expect(parse("Texas AF")).toEqual(["US"]);
+    expect(parse("Kabul AF")).toEqual(["AF"]);
+    expect(parse("Windhoek, NA")).toEqual(["NA"]);
+    expect(parse("Doha, QA")).toEqual(["QA"]);
+  });
+
   it("uses the documented default for an unknown city before a colliding code", () => {
     // US "City, ST" is the common form; a few codes lean to the country or stay open.
     expect(parse("Carmel, IN")).toEqual(["US"]);

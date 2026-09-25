@@ -231,6 +231,12 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     ).toBeNull();
   });
 
+  it("does not read slang or acronyms as a country", () => {
+    expect(reason({ lang: "en" }, { location: "Texas AF" }, settings({ regions: ["SOUTH_ASIA"] }))).toBeNull();
+    expect(reason({ lang: "en" }, { location: "Tired AF" }, settings({ regions: ["ASIA"] }))).toBeNull();
+    expect(reason({ lang: "en" }, { location: "AI/ML" }, settings({ countries: ["ML"] }))).toBeNull();
+  });
+
   it("keeps Nigerian and Mexican places in their country", () => {
     expect(
       reason({ lang: "en" }, { location: "Port Harcourt, Niger Delta" }, settings({ countries: ["NG"] }, "only")),

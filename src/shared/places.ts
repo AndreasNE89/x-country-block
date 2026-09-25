@@ -85,7 +85,7 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "West Virginia|Wisconsin|Wyoming|District of Columbia|New England|Midwest|Pacific Northwest|" +
     "PNW|SoCal|NorCal|Bay Area|SF Bay Area|Silicon Valley|Upstate New York|Long Island|DMV|DFW|" +
     "Dallas-Fort Worth|Twin Cities|Tri-State Area|North Georgia|South Georgia|North Jersey|" +
-    "South Jersey|Central Jersey|Rio Grande Valley|RGV",
+    "South Jersey|Central Jersey|Rio Grande Valley|RGV|Tri-State",
   CA:
     "Ontario|Quebec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|" +
     "Newfoundland|Newfoundland and Labrador|Prince Edward Island|PEI|Yukon|Nunavut|" +
@@ -155,7 +155,12 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "Guangdong|Sichuan|Hubei|Hunan|Henan|Shandong|Jiangsu|Zhejiang|Fujian|Yunnan|Guangxi|" +
     "Xinjiang|Inner Mongolia|Hainan|Anhui|Jiangxi|Shanxi|Shaanxi|Hebei|Liaoning|Jilin|" +
     "Heilongjiang|Gansu|Guizhou",
-  JP: "Hokkaido|Okinawa|Kyushu|Honshu|Shikoku|Kanto|Kansai",
+  JP:
+    "Hokkaido|Okinawa|Kyushu|Honshu|Shikoku|Kanto|Kansai|北海道|沖縄|沖縄県|神奈川|神奈川県|" +
+    "埼玉県|千葉県|愛知県|兵庫県|福岡県",
+  CO:
+    "Antioquia|Valle del Cauca|Cundinamarca|Risaralda|Quindío|Boyacá|Nariño|Tolima|Huila|" +
+    "Norte de Santander",
   KR: "Gyeonggi",
   RU: "Siberia|Tatarstan|Chechnya|Dagestan|Bashkortostan|Yakutia|Kamchatka",
   ZA:
@@ -480,7 +485,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Berkeley|Palo Alto|Mountain View|Cupertino|Menlo Park|Sunnyvale|Santa Monica|Venice Beach|" +
     "Hollywood|" +
     "Beverly Hills|Malibu|Long Beach|Brooklyn|Manhattan|Queens|Bronx|The Bronx|Staten Island|" +
-    "Harlem|Hoboken|Miami Beach|Fort Lauderdale|West Palm Beach|Palm Beach|Key West|" +
+    "Harlem|Hoboken|Jamaica Plain|Miami Beach|Fort Lauderdale|West Palm Beach|Palm Beach|" +
+    "Key West|" +
     "Tallahassee|Gainesville|Pensacola|Sarasota|Saint Louis|STL|Ann Arbor|Green Bay|" +
     "Sioux Falls|Fargo|Little Rock|Tuscaloosa|Shreveport|Asheville|" +
     "Chapel Hill|Wilmington|Columbia|Greenville|Myrtle Beach|Annapolis|Hartford|New Haven|" +

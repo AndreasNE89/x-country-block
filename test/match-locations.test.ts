@@ -522,6 +522,20 @@ describe("countriesFromLocation", () => {
     }
   });
 
+  it("knows a few more regions people write after their city", () => {
+    for (const [text, want] of [
+      ["Cali, Valle del Cauca", ["CO"]],
+      ["Antioquia", ["CO"]],
+      ["神奈川県", ["JP"]],
+      ["北海道", ["JP"]],
+      ["Tri-State", ["US"]],
+      ["Jamaica Plain, Boston", ["US"]],
+      ["Jamaica", ["JM"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("reads Georgia by context", () => {
     expect(parse("Atlanta, Georgia")).toEqual(["US"]);
     expect(parse("Tbilisi, Georgia")).toEqual(["GE"]);

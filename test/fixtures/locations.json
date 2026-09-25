@@ -801,5 +801,11 @@
   ["Suid-Afrika", ["ZA"]],
   ["Europa", []],
   ["Scandinavia", []],
-  ["Gulf Breeze, FL", ["US"]]
+  ["Gulf Breeze, FL", ["US"]],
+  ["Cali, Valle del Cauca", ["CO"]],
+  ["Medellín, Antioquia", ["CO"]],
+  ["神奈川県", ["JP"]],
+  ["北海道", ["JP"]],
+  ["Tri-State", ["US"]],
+  ["Jamaica Plain, Boston", ["US"]]
 ]

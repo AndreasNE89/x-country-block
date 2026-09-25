@@ -209,6 +209,29 @@ Build: see BUILD.md in the source archive (npm ci, then npm run build:firefox:pr
 Focus mode is a one-time Stripe payment. After checkout Stripe redirects to https://andreasne89.github.io/x-country-block/privacy.html?paid=1, where the paid-page.js content script tells the background script to unlock Focus mode locally. To test Focus mode without paying, start the free 7-day trial from the popup.
 ```
 
+**Release notes** (the version's "What's new" field)
+
+```
+X Country Block is now Tamis: same add-on, new name and icon. Your picks and your Focus mode purchase carry over.
+
+New
+• Redesigned popup, in light and dark.
+• Filtering switch: pause without losing your picks.
+• Always show the accounts you choose. Your own posts are never hidden.
+• Highlight mode now says why a post matched, with a one-tap "Always show".
+• Search understands other names and ignores accents ("usa", "uk", "turkiye", "latam", "farsi").
+• 20 regions, including Latin America & Caribbean, Middle East and the European Union.
+• Focus mode: an explanation card, a trial countdown, and "Already bought? Restore".
+• If Firefox has not given Tamis access to x.com, or a tab needs a reload, the popup says so and offers a button.
+
+Better
+• Far fewer wrong matches from profile locations ("In the clouds" is no longer India).
+• Indonesian, Hebrew, Kurdish and Chinese posts can now be filtered.
+• Posts are filtered before they scroll into view, so the feed no longer jumps.
+• When a Focus mode trial ends, filtering pauses instead of turning your list around.
+• Lighter on memory and storage. Account data saved by older versions is cleared.
+```
+
 ---
 
 ## Microsoft Edge Add-ons

@@ -2,6 +2,8 @@
 node_modules/
 dist/
 dist-firefox/
+# Builds before 0.2.0 copied the bundles into the repo root; keep old
+# checkouts from committing those leftovers.
 /hook.js
 /content.js
 /popup.js

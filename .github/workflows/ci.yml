@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Versions agree
+        run: npm run check-version
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Chrome package
+        run: npm run build:prod
+
+      - name: Firefox package
+        run: npm run build:firefox:prod
+
+      - name: Source archive
+        run: npm run source:zip
+
+      # The AMO promise: the source archive rebuilds the Firefox zip exactly.
+      - name: Rebuild Firefox package from the source archive
+        run: |
+          version=$(node -p "require('./package.json').version")
+          rebuild="$RUNNER_TEMP/source"
+          mkdir -p "$rebuild"
+          unzip -q "release/x-country-block-$version-source.zip" -d "$rebuild"
+          (cd "$rebuild" && npm ci --no-audit --no-fund && npm run build:firefox:prod)
+          cmp "release/x-country-block-$version-firefox.zip" "$rebuild/release/x-country-block-$version-firefox.zip"
+          sha256sum release/*.zip
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: release/*.zip
+          if-no-files-found: error

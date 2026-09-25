@@ -3,35 +3,255 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>X Country Block — Privacy</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Tamis privacy policy</title>
+    <meta name="description" content="How Tamis, the country and language filter for X, handles data. Formerly X Country Block." />
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADC0lEQVR42r1XzUtUURT/nZlnBTFQLQrdWIuCPgRNhRdUYhtTqq1tNKJWQYQk9LFoUVAuKgXDJKQi6B+wQttEWcGkVi4SQlpJCLoa2pTanFPv3Xff3DvMjNa852PgzO+d984593c+7n0E46rtfbSJKha7EkSuCGqJaKuIgIhQnsQCGFMgSmeXK3qnuk5ntE/Sf+r6H7QSskMAVSHWS+YEcvbz+XMjYQD7+++3CMto+Sv9B0nS5gVBNQMDm50lmQZQKUFEayTnFnl9jZP8yackgUodGa+drFpHvzodAbvgIDsiay1d52/uXSIYOQIK4Y76Op+3i02HSpbYnddv/eeeTHwqaU/hhOtApFpF5NHCIBAK41zkKxe6+Ikubc/D2Wra13NXyKgMHWFnY71vq7v5cFlNd/vVmGJk/KNlX08BjwEVkXfXrIXVrnZlOoKf2PZVHuCIpoVZ5Qji4+4jTZG413Yepycs+9qvwQAgHMjIVm8zYdnXhbjnRo+E4yGgpej4iEHv6HyTuXKNkYdj0Ds698z2rJ5uGI40AbvHj1v2fX9WDRSYVNGWQAE/mgGdGx2h0ajR+dddFragErkaCCZVOMmibwLLvvLnM6AKgsNCUZHtenfUwuVLtrD2Z9QAGdLcHSlWfdAF5m6l8Myt65FmYOfla5Z9xUTQBaxHURAaxzIIxbKv/Tms50Deme3msxE/0ivHWsvyq+2w0QWmvxJzQCJqhsBOET+0o+uSFDy1hruWwmeaDvoFdPVEW+kVD7/wnxt6M2a9X8y+x8A8i2wjvRvCbMkcVpu6rC7XwbPm+0Xsz9P2C92jALXkjipFdrNY9HiZ8D6ZvFb04/akIJBiyxj0YJ5KYPn3ICAZRY/3UFbRxwGN3l6hcbT6DJI8mMxMpjOpRneGgPbwsBDmOg9HqBfg5Gx/34ekd//HRPprqsEdB6QZIqlwVAXtkzvJ5OH/0vOcgNq/D/Q992BSF++PyfS3LXsPPOQKLBHLokBSADaaExJ5E1N/3a6s5wUSvBeRp86GZMfsvb4vWv8HG3cE6hycHV4AAAAASUVORK5CYII=" />
     <style>
+      :root {
+        --paper: #ffffff;
+        --surface: #f3f6f6;
+        --border: #dce4e4;
+        --ink: #14201f;
+        --muted: #56686a;
+        --link: #1c676d;
+        --focus: #33959a;
+        --accent: #ffb638;
+        --tint: #e6f2f2;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #15191c;
+          --surface: #1e2428;
+          --border: #2e3739;
+          --ink: #e8efef;
+          --muted: #9db2b3;
+          --link: #5cc3c8;
+          --focus: #5cc3c8;
+          --accent: #ffc45c;
+          --tint: #1b3033;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
       body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+      }
+      main {
+        max-width: 42rem;
         margin: 0 auto;
-        max-width: 40rem;
-        padding: 24px 16px;
-        font: 16px/1.5 system-ui, sans-serif;
-        color: #111;
-        background: #fff;
+        padding: 32px 16px 48px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 32px;
+      }
+      .brand svg {
+        display: block;
+        flex: none;
+      }
+      .brand .descriptor {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.3;
       }
       h1 {
-        font-size: 1.4rem;
+        margin: 0 0 4px;
+        font-size: 1.75rem;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        margin: 32px 0 8px;
+        font-size: 1.15rem;
+        line-height: 1.3;
+      }
+      p,
+      ul {
+        margin: 0 0 12px;
+      }
+      ul {
+        padding-left: 1.25rem;
+      }
+      li {
+        margin-bottom: 6px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .summary {
+        margin: 24px 0 0;
+        padding: 16px 16px 4px 20px;
+        border-radius: 8px;
+        background: var(--surface);
+        border-left: 3px solid var(--accent);
+      }
+      .summary ul {
+        padding-left: 1.1rem;
+      }
+      #paid-note {
+        margin: 0 0 24px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        background: var(--tint);
+        border-left: 3px solid var(--accent);
+        font-weight: 600;
+      }
+      #paid-note[hidden] {
+        display: none;
+      }
+      a {
+        color: var(--link);
+        text-underline-offset: 2px;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+      code {
+        font-size: 0.9em;
+      }
+      footer {
+        margin-top: 40px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 14px;
       }
     </style>
   </head>
   <body>
-    <h1>X Country Block privacy</h1>
-    <p>
-      X Country Block stores your filter list (countries, regions, languages) in
-      chrome.storage on your device. The extension reads posts already shown on
-      x.com / twitter.com and hides matches. It does not send your feed or
-      filter list to our servers.
-    </p>
-    <p>
-      If you buy Pro, checkout goes through Stripe. License status is stored on
-      this device. You can clear the list or uninstall to delete local data.
-    </p>
-    <p id="paid-note" hidden>Pro unlocked. You can close this tab.</p>
-    <p>Contact: norway4metal@gmail.com</p>
+    <main>
+      <div class="brand">
+        <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true">
+          <defs>
+            <linearGradient id="tamis-mark-tile" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#33959A" />
+              <stop offset="1" stop-color="#1C676D" />
+            </linearGradient>
+            <clipPath id="tamis-mark-disc"><circle cx="12" cy="12" r="7" /></clipPath>
+          </defs>
+          <rect width="24" height="24" rx="5.5" fill="url(#tamis-mark-tile)" />
+          <g clip-path="url(#tamis-mark-disc)">
+            <rect x="5" y="5" width="14" height="2" fill="#FFFFFF" />
+            <rect x="5" y="8" width="14" height="2" fill="#FFFFFF" />
+            <rect x="5" y="11" width="14" height="2" fill="#FFB638" />
+            <rect x="5" y="14" width="14" height="2" fill="#FFFFFF" />
+            <rect x="5" y="17" width="14" height="2" fill="#FFFFFF" />
+          </g>
+        </svg>
+        <div>
+          <svg width="81" height="22" viewBox="0 0 272 74" role="img" aria-label="Tamis">
+            <path fill="currentColor" d="M0 10.99L0 0L57.91 0L57.91 10.99L35.5 10.99L35.5 72.75L22.46 72.75L22.46 10.99L0 10.99ZM74.61 73.88Q69.44 73.88 65.28 72Q61.13 70.12 58.74 66.46Q56.35 62.79 56.35 57.42Q56.35 52.78 58.08 49.76Q59.82 46.73 62.77 44.92Q65.72 43.12 69.44 42.19Q73.15 41.26 77.15 40.87Q81.89 40.33 84.86 39.94Q87.84 39.55 89.23 38.67Q90.63 37.79 90.63 35.94L90.63 35.69Q90.63 33.01 89.55 31.13Q88.48 29.25 86.35 28.25Q84.23 27.25 81.11 27.25Q77.93 27.25 75.61 28.22Q73.29 29.2 71.83 30.76Q70.36 32.32 69.68 34.13L57.91 31.74Q59.52 26.9 62.89 23.75Q66.26 20.61 70.92 19.04Q75.59 17.48 81.06 17.48Q84.91 17.48 88.84 18.38Q92.77 19.29 96.05 21.44Q99.32 23.58 101.32 27.2Q103.32 30.81 103.32 36.28L103.32 72.75L91.16 72.75L91.16 65.23L90.68 65.23Q89.45 67.53 87.33 69.51Q85.21 71.48 82.06 72.68Q78.91 73.88 74.61 73.88ZM77.88 64.45Q81.84 64.45 84.69 62.89Q87.55 61.33 89.14 58.76Q90.72 56.2 90.72 53.17L90.72 46.73Q90.09 47.22 88.6 47.66Q87.11 48.1 85.28 48.44Q83.45 48.78 81.67 49.02Q79.88 49.27 78.66 49.41Q75.83 49.8 73.54 50.68Q71.24 51.56 69.95 53.15Q68.65 54.74 68.65 57.28Q68.65 59.62 69.85 61.21Q71.05 62.79 73.12 63.62Q75.2 64.45 77.88 64.45ZM114.8 72.75L114.8 18.16L126.71 18.16L127.2 31.3L126.27 31.3Q127.45 26.42 129.91 23.34Q132.38 20.26 135.67 18.77Q138.97 17.29 142.58 17.29Q148.49 17.29 152.13 21Q155.77 24.71 157.28 31.93L155.77 31.93Q156.89 27.05 159.6 23.8Q162.31 20.56 166.04 18.92Q169.78 17.29 174.03 17.29Q178.96 17.29 182.87 19.43Q186.77 21.58 189.07 25.71Q191.36 29.83 191.36 35.94L191.36 72.75L178.67 72.75L178.67 37.89Q178.67 32.81 175.88 30.47Q173.1 28.13 169.19 28.13Q166.17 28.13 163.92 29.44Q161.67 30.76 160.48 33.08Q159.28 35.4 159.28 38.48L159.28 72.75L146.88 72.75L146.88 37.3Q146.88 33.15 144.29 30.64Q141.7 28.13 137.65 28.13Q134.87 28.13 132.55 29.39Q130.23 30.66 128.86 33.15Q127.49 35.64 127.49 39.31L127.49 72.75L114.8 72.75ZM202.84 72.75L202.84 18.16L215.53 18.16L215.53 72.75L202.84 72.75ZM247.66 73.88Q241.37 73.88 236.53 72.07Q231.7 70.26 228.6 66.8Q225.5 63.33 224.57 58.4L236.43 56.15Q237.56 60.21 240.41 62.18Q243.27 64.16 247.91 64.16Q252.6 64.16 255.35 62.28Q258.11 60.4 258.11 57.62Q258.11 55.27 256.31 53.74Q254.5 52.2 250.74 51.37L241.41 49.37Q233.7 47.71 229.89 43.9Q226.08 40.09 226.08 34.08Q226.08 29 228.87 25.29Q231.65 21.58 236.6 19.53Q241.56 17.48 248.1 17.48Q254.3 17.48 258.77 19.24Q263.24 21 266 24.15Q268.76 27.29 269.83 31.54L258.5 33.79Q257.58 30.91 255.13 28.93Q252.69 26.95 248.25 26.95Q244.2 26.95 241.49 28.74Q238.78 30.52 238.78 33.3Q238.78 35.69 240.58 37.26Q242.39 38.82 246.54 39.7L255.82 41.65Q263.58 43.31 267.34 46.97Q271.1 50.63 271.1 56.4Q271.1 61.57 268.12 65.5Q265.14 69.43 259.85 71.66Q254.55 73.88 247.66 73.88Z" />
+            <rect x="196.49" y="0" width="25.39" height="9.38" rx="4.69" style="fill: var(--accent)" />
+          </svg>
+          <div class="descriptor">Country &amp; language filter for X</div>
+        </div>
+      </div>
+
+      <p id="paid-note" hidden>Focus mode unlocked. You can close this tab.</p>
+
+      <h1>Privacy policy</h1>
+      <p class="meta">Effective 24 September 2026. Tamis was previously called X Country Block.</p>
+
+      <div class="summary">
+        <ul>
+          <li>Tamis runs entirely in your browser. It has no servers of its own, no analytics and no account.</li>
+          <li>It only uses what X has already loaded in your tab. It makes no extra requests to X.</li>
+          <li>Everything it stores stays on your device and is removed when you uninstall it.</li>
+          <li>Focus mode is paid once through Stripe. Stripe handles the payment details.</li>
+        </ul>
+      </div>
+
+      <h2>What Tamis reads</h2>
+      <p>
+        On x.com and twitter.com, Tamis reads data that X has already loaded into the page: the responses
+        to X's own requests for posts and profiles, and the posts on screen. From them it uses each post's
+        language and place tag, and for each author the handle, profile location, account language and the
+        "Account based in" or "Connected via" line that X shows under About this account. It compares these
+        with your picks to decide which posts to hide or highlight. It does not add labels or flags to
+        anyone's name.
+      </p>
+
+      <h2>What Tamis stores, and where</h2>
+      <p>
+        Tamis stores data only in your browser's extension storage on this device
+        (<code>chrome.storage.local</code>). None of it is synced or sent anywhere.
+      </p>
+      <ul>
+        <li>
+          <strong>Your settings:</strong> the countries, regions and languages you pick, the filter mode,
+          whether matches are highlighted instead of hidden, whether filtering is paused, and the accounts
+          you choose to always show.
+        </li>
+        <li>
+          <strong>A cache of public profile data</strong> about accounts whose posts appeared on pages you
+          opened: account ID, handle, profile location, "Account based in" or "Connected via", and account
+          language. It lets matching keep working as you scroll without asking X again. It is used only for
+          matching and is never sent anywhere. The cache is limited in size and old entries expire.
+        </li>
+        <li>
+          <strong>Focus mode status:</strong> whether you have bought Focus mode, and when a free trial
+          started.
+        </li>
+      </ul>
+
+      <h2>Focus mode payments</h2>
+      <p>
+        Focus mode is an optional one-time payment of $5.99, made on a Stripe payment page that opens in a
+        new tab. Stripe collects your card details, email address and billing country, and processes them
+        under the <a href="https://stripe.com/privacy">Stripe privacy policy</a>. Tamis never sees your
+        card details. The developer receives the purchase record from Stripe (such as your email address,
+        name, country, amount and date) and uses it only for the purchase, refunds and support.
+      </p>
+      <p>
+        After payment, Stripe returns you to this page, and Tamis records on your device that Focus mode is
+        unlocked. There is no Tamis account, so the unlock lives only in that browser. If you reinstall
+        Tamis or move to another browser, email us from the address you paid with and we will help you
+        unlock it again.
+      </p>
+
+      <h2>This page</h2>
+      <p>
+        This page is hosted on GitHub Pages. GitHub may log visits, including IP addresses, for security
+        and operations; see the
+        <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+          >GitHub privacy statement</a
+        >. The page itself uses no cookies, analytics or external resources.
+      </p>
+
+      <h2>What Tamis does not do</h2>
+      <ul>
+        <li>No analytics, tracking, advertising or data sales.</li>
+        <li>No servers of our own and no Tamis account.</li>
+        <li>No requests to X beyond the ones X's own page makes.</li>
+        <li>No remote code: everything Tamis runs ships inside the extension.</li>
+      </ul>
+
+      <h2>Deleting your data</h2>
+      <p>
+        You can change or remove your picks in the popup at any time. Uninstalling Tamis removes everything
+        it stored on this device, including the cache and the Focus mode unlock. To have your purchase
+        record deleted, email us.
+      </p>
+
+      <h2>Changes</h2>
+      <p>If this policy changes, the effective date at the top changes with it.</p>
+
+      <h2>Contact</h2>
+      <p><a href="mailto:norway4metal@gmail.com">norway4metal@gmail.com</a></p>
+
+      <footer>Tamis is not affiliated with or endorsed by X Corp.</footer>
+    </main>
     <script>
       const params = new URLSearchParams(location.search);
       if (params.get("paid") === "1") {

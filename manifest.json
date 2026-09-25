@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "X Country Block",
-  "version": "0.1.2",
-  "description": "Block posts on X from countries, regions, and languages you choose.",
+  "name": "Tamis: Country & Language Filter for X",
+  "short_name": "Tamis",
+  "version": "0.2.0",
+  "description": "Filter your X feed by country, region, or post language via X’s “Account based in” label. Hide, highlight, or show only your picks.",
+  "minimum_chrome_version": "120",
   "permissions": ["storage"],
   "host_permissions": [
     "https://x.com/*",
@@ -20,7 +22,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "X Country Block",
+    "default_title": "Tamis",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -56,11 +58,5 @@
       "matches": ["https://andreasne89.github.io/x-country-block/privacy.html*"],
       "js": ["paid-page.js"]
     }
-  ],
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "x-country-block@local",
-      "strict_min_version": "128.0"
-    }
-  }
+  ]
 }

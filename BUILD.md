@@ -1,91 +1,109 @@
 # Build instructions (Mozilla AMO reviewers)
 
-This document explains how to reproduce the **exact** Firefox add-on file submitted to AMO from the human-readable source in this archive.
+Tamis (formerly X Country Block) is written in TypeScript and bundled with
+esbuild. This document explains how to rebuild the Firefox add-on submitted
+to AMO from the source archive `x-country-block-0.2.0-source.zip`.
 
 ## Requirements
 
 | Program | Version |
 |---------|---------|
-| **Operating system** | Windows 10+, macOS 12+, or Linux (any OS that runs Node.js 20+) |
-| **Node.js** | 20.x or newer ([https://nodejs.org](https://nodejs.org)) |
-| **npm** | 10.x or newer (included with Node.js 20+) |
-
-Verify:
+| Operating system | Windows 10+, macOS 12+ or Linux |
+| Node.js | 22.x LTS (release built with 22.23.2) |
+| npm | 10.x or newer (ships with Node.js 22) |
 
 ```bash
-node --version   # v20.x or higher
-npm --version    # 10.x or higher
+node --version   # v22.x
+npm --version
 ```
 
-## Step-by-step: reproduce submitted Firefox build
+## Rebuild the Firefox add-on
 
-These steps produce `release/x-country-block-0.1.2-firefox.zip`, which should match the uploaded add-on byte-for-byte (same version `0.1.2` in `package.json`).
+1. Extract the source archive into an empty folder.
 
-1. **Extract** this source archive to a directory.
-
-2. **Install dependencies** (downloads `esbuild`, `typescript`, `vitest`, etc. into `node_modules/`):
+2. Install the exact dependency versions from `package-lock.json`:
 
    ```bash
-   npm install
+   npm ci
    ```
 
-3. **Run tests** (optional sanity check):
+3. Optional: run the checks.
 
    ```bash
-   npm test
+   npm test            # version check + unit tests
+   npx tsc --noEmit    # type check
    ```
 
-4. **Build the Firefox add-on** (bundles TypeScript from `src/` into `dist-firefox/`, minifies for production):
+4. Build:
 
    ```bash
    npm run build:firefox:prod
    ```
 
-5. **Output files:**
-   - Built extension (unzipped): `dist-firefox/`
-   - AMO upload zip: `release/x-country-block-0.1.2-firefox.zip`
+   This runs `node scripts/build.mjs --firefox --prod` and writes:
 
-6. **Verify:** unzip `release/x-country-block-0.1.2-firefox.zip`. Root must contain `manifest.json`, `background.js`, `content.js`, `hook.js`, `popup.js`, `popup.html`, `popup.css`, `paid-page.js`, and `icons/`.
+   - `dist-firefox/`, the unpacked add-on
+   - `release/x-country-block-0.2.0-firefox.zip`, the file uploaded to AMO
 
-## Build script
+5. Compare with the submitted file. With the same Node.js version the zip is
+   byte-for-byte identical:
 
-All build steps are executed by:
+   ```bash
+   sha256sum release/x-country-block-0.2.0-firefox.zip
+   ```
 
-```bash
-node scripts/build.mjs --firefox --prod
-```
+   The compressed bytes come from the zlib bundled with Node.js, so another
+   Node.js version can give a zip with different bytes but identical files.
+   In that case compare the contents instead:
 
-(`npm run build:firefox:prod` runs the same command.)
+   ```bash
+   mkdir submitted && cd submitted && unzip ../x-country-block-0.2.0-firefox.zip && cd ..
+   diff -r submitted dist-firefox
+   ```
 
-The script:
+The package contains exactly these 14 files: `manifest.json`,
+`background.js`, `content.js`, `hook.js`, `paid-page.js`, `popup.js`,
+`popup.html`, `popup.css` and `icons/icon16.png`, `icon32.png`,
+`icon48.png`, `icon64.png`, `icon96.png`, `icon128.png`.
 
-- Bundles entry points in `src/` with **esbuild** (no separate webpack/rollup config)
-- Copies `manifest.firefox.json` → `dist-firefox/manifest.json`
-- Copies popup HTML/CSS and icons
-- Writes `release/x-country-block-<version>-firefox.zip`
+## Why the build is reproducible
 
-## Unminified build (readable JS)
+`scripts/build.mjs`:
 
-For easier inspection without changing source:
+- checks that `package.json`, `package-lock.json`, both manifests, README,
+  BUILD and CHANGELOG all name the same version;
+- deletes `dist-firefox/` first, so no file from an older build can ship;
+- bundles the five entry points in `src/` with esbuild (version pinned in
+  `package-lock.json`); `--prod` minifies and turns off the development-only
+  Test unlock button;
+- copies `manifest.firefox.json` to `manifest.json`, plus the popup HTML and
+  CSS with LF line endings, and the six icons;
+- fails if the folder holds a file that neither the manifest nor the popup
+  references, or misses one they do;
+- writes the zip with entries sorted by path and one fixed timestamp
+  (1980-01-01 00:00), so the bytes depend only on the file contents.
 
-```bash
-npm run build:firefox
-```
-
-Output: `dist-firefox/` with non-minified JavaScript.
+For an unminified build to read, run `npm run build:firefox`. It writes
+`dist-firefox/` only, with no zip.
 
 ## Source layout
 
 | Path | Purpose |
 |------|---------|
-| `src/hook/inject.ts` | MAIN-world fetch/XHR hook on x.com |
-| `src/content/main.ts` | Content script: filter, hide, badge |
-| `src/background/main.ts` | Service worker / background: Stripe unlock, badge |
+| `src/hook/inject.ts` | Runs in the page (MAIN world) on x.com; reads the GraphQL responses X already receives |
+| `src/content/main.ts` | Content script: matches posts, hides or highlights them, reports the badge count |
+| `src/background/main.ts` | Background script: toolbar badge, Focus mode unlock after Stripe checkout |
 | `src/popup/` | Popup UI |
-| `src/shared/` | Match logic, settings, GraphQL parse, etc. |
-| `src/paid-page.ts` | Marks Pro paid after Stripe redirect |
-| `manifest.firefox.json` | Firefox manifest (gecko id, data consent) |
-| `scripts/build.mjs` | Build script |
+| `src/shared/` | Matching, settings, GraphQL parsing, country, region and language data |
+| `src/paid-page.ts` | Runs on the Stripe success page (the privacy page with `?paid=1`) |
+| `manifest.firefox.json` | Firefox manifest (add-on id, data consent) |
+| `scripts/build.mjs`, `scripts/lib/` | Build, package check and zip writer |
+| `scripts/source-zip.mjs` | Creates this source archive |
+| `test/`, `scripts/test/` | Unit tests (vitest) |
+
+The source archive holds only what is needed to rebuild and test the
+add-on. Store artwork, brand sources and the GitHub Pages site stay in the
+public repository.
 
 ## Public repository
 

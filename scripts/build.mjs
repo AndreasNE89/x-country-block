@@ -1,17 +1,23 @@
-import { deflateRawSync } from "node:zlib";
-import { mkdir, copyFile, readFile, readdir, stat, writeFile, unlink } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import { PACKAGED_ICONS, compareFiles, manifestFiles, pageRefs } from "./lib/package-files.mjs";
+import { assertVersions } from "./lib/versions.mjs";
+import { createZip, listFiles } from "./lib/zip.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const prod = process.argv.includes("--prod");
 const firefox = process.argv.includes("--firefox");
+const target = firefox ? "firefox" : "chrome";
 const dist = join(root, firefox ? "dist-firefox" : "dist");
 const manifestName = firefox ? "manifest.firefox.json" : "manifest.json";
-const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 
-await mkdir(dist, { recursive: true });
+const version = await assertVersions(root);
+
+// Start from an empty folder so nothing from an older build can ship.
+await rm(dist, { recursive: true, force: true });
+await mkdir(join(dist, "icons"), { recursive: true });
 
 await esbuild.build({
   entryPoints: {
@@ -31,94 +37,43 @@ await esbuild.build({
   logLevel: "info",
 });
 
-await copyFile(join(root, manifestName), join(dist, "manifest.json"));
-await copyFile(join(root, "src/popup/popup.html"), join(dist, "popup.html"));
-await copyFile(join(root, "src/popup/popup.css"), join(dist, "popup.css"));
-const iconsDir = join(dist, "icons");
-await mkdir(iconsDir, { recursive: true });
-for (const file of ["icon16.png", "icon32.png", "icon48.png", "icon64.png", "icon96.png", "icon128.png"]) {
-  await copyFile(join(root, "icons", file), join(iconsDir, file));
+// Text files get LF endings so a Windows checkout (autocrlf) and a Linux
+// checkout produce the same package bytes.
+const copyText = async (from, to) =>
+  writeFile(join(dist, to), (await readFile(join(root, from), "utf8")).replace(/\r\n/g, "\n"));
+
+await copyText(manifestName, "manifest.json");
+await copyText("src/popup/popup.html", "popup.html");
+await copyText("src/popup/popup.css", "popup.css");
+for (const file of PACKAGED_ICONS) {
+  await copyFile(join(root, "icons", file), join(dist, "icons", file));
 }
 
-if (!firefox) {
-  for (const file of ["hook.js", "content.js", "popup.js", "popup.html", "popup.css", "background.js", "paid-page.js"]) {
-    await copyFile(join(dist, file), join(root, file));
-  }
+const manifest = JSON.parse(await readFile(join(dist, "manifest.json"), "utf8"));
+const expected = [
+  ...manifestFiles(manifest),
+  ...pageRefs(await readFile(join(dist, "popup.html"), "utf8")),
+];
+const files = await listFiles(dist);
+const { extra, missing } = compareFiles(files, expected);
+if (extra.length > 0 || missing.length > 0) {
+  throw new Error(
+    `Package check failed in ${dist}\n` +
+      (extra.length > 0 ? `  not referenced by the manifest or popup: ${extra.join(", ")}\n` : "") +
+      (missing.length > 0 ? `  referenced but not built: ${missing.join(", ")}\n` : ""),
+  );
 }
+
+const label = firefox ? "Firefox" : "Chrome";
+console.log(`${label} ${prod ? "production" : "development"} build ${version}: ${dist}`);
+if (!prod) console.log("Development build: shows the Test unlock button. Never upload it.");
 
 if (prod) {
   const releaseDir = join(root, "release");
   await mkdir(releaseDir, { recursive: true });
-  const suffix = firefox ? "firefox" : "review";
-  const zipName = `x-country-block-${pkg.version}-${suffix}.zip`;
-  const zipPath = join(releaseDir, zipName);
-  await writeRootZip(dist, zipPath);
-  console.log(`Review zip: ${zipPath}`);
-}
-
-console.log(firefox ? `Firefox build: ${dist}` : `Chrome build: ${dist}`);
-
-async function listFiles(dir, base = dir, out = []) {
-  for (const name of await readdir(dir)) {
-    const full = join(dir, name);
-    if ((await stat(full)).isDirectory()) await listFiles(full, base, out);
-    else out.push(full);
-  }
-  return out;
-}
-
-function crc32(buf) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i += 1) {
-    crc ^= buf[i];
-    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-async function writeRootZip(dir, zipPath) {
-  try {
-    await unlink(zipPath);
-  } catch {
-    // no previous zip
-  }
-  const files = await listFiles(dir);
-  const locals = [];
-  const centrals = [];
-  let offset = 0;
-  for (const full of files) {
-    const name = full.slice(dir.length + 1).split("\\").join("/");
-    const data = await readFile(full);
-    const compressed = deflateRawSync(data);
-    const crc = crc32(data);
-    const nameBuf = Buffer.from(name, "utf8");
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(8, 8);
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(compressed.length, 18);
-    local.writeUInt32LE(data.length, 22);
-    local.writeUInt16LE(nameBuf.length, 26);
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
-    central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(8, 10);
-    central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(compressed.length, 20);
-    central.writeUInt32LE(data.length, 24);
-    central.writeUInt16LE(nameBuf.length, 28);
-    central.writeUInt32LE(offset, 42);
-    locals.push(local, nameBuf, compressed);
-    centrals.push(central, nameBuf);
-    offset += local.length + nameBuf.length + compressed.length;
-  }
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(files.length, 8);
-  eocd.writeUInt16LE(files.length, 10);
-  eocd.writeUInt32LE(centrals.reduce((n, b) => n + b.length, 0), 12);
-  eocd.writeUInt32LE(offset, 16);
-  await writeFile(zipPath, Buffer.concat([...locals, ...centrals, eocd]));
+  const zipPath = join(releaseDir, `x-country-block-${version}-${target}.zip`);
+  const entries = await Promise.all(files.map(async (name) => ({ name, data: await readFile(join(dist, name)) })));
+  await writeFile(zipPath, createZip(entries));
+  const store = firefox ? "AMO upload" : "Chrome Web Store / Edge upload";
+  console.log(`${label} zip (${store}): ${zipPath}`);
 }

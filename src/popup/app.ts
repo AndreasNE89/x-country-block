@@ -131,7 +131,8 @@ export function startPopup(options: PopupOptions): PopupHandle {
   let hideConfirmOpen = false;
   let page: PageState = { kind: "checking" };
   let reloadUntil = 0;
-  let undo: Record<PickField, string[]> | null = null;
+  // What the tray's Undo writes back: the cleared picks, plus the mode when clearing also changed it.
+  let undo: Raw | null = null;
   let changedEarly = false;
   // Tamis may not run on its thank-you page, so a payment would not unlock on its own.
   let paidPageBlocked = false;
@@ -516,7 +517,9 @@ export function startPopup(options: PopupOptions): PopupHandle {
     restoreOpen = false;
     hideConfirmOpen = false;
     if (clearPicks) {
-      undo = currentPicks();
+      // Undo returns the whole earlier state. Without the mode it would turn the picks into
+      // a hide-list, which is the choice the user just turned down.
+      undo = { ...currentPicks(), filterMode: settings.filterMode };
       void write({ filterMode: "hide", ...Object.fromEntries(PICK_FIELDS.map((field) => [field, []])) });
       ui.undoClear.focus();
     } else {
@@ -679,11 +682,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
 
   on(ui.clearAll, "click", () => {
     if (!loaded) return;
-    undo = {
-      hiddenCountryCodes: [...settings.hiddenCountryCodes],
-      hiddenLanguageCodes: [...settings.hiddenLanguageCodes],
-      hiddenRegionIds: [...settings.hiddenRegionIds],
-    };
+    undo = currentPicks();
     void write(Object.fromEntries(PICK_FIELDS.map((field) => [field, []])));
     ui.undoClear.focus();
   });

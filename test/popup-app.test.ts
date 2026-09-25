@@ -463,6 +463,41 @@ describe("Focus mode", () => {
     $("undo-clear").click();
     await flush();
     expect(store.data.hiddenCountryCodes).toEqual(["NO"]);
+    // Undo puts back the whole earlier state: the user turned down "Hide my picks".
+    expect(store.data.filterMode).toBe("only");
+    expect($("mode-only").getAttribute("aria-checked")).toBe("true");
+    expect($("status").textContent).toBe("Your free trial has ended. Nothing is filtered right now.");
+    expect(visible("trial-row")).toBe(true);
+    expect(visible("undo-clear")).toBe(false);
+  });
+
+  it("should undo Clear all without touching the mode", async () => {
+    const { store } = await open({ hiddenLanguageCodes: ["ja"] });
+    $("clear-all").click();
+    await flush();
+    $("undo-clear").click();
+    await flush();
+    expect(store.data.hiddenLanguageCodes).toEqual(["ja"]);
+    expect(store.data.filterMode).toBeUndefined();
+  });
+
+  it("should not bring back the old mode when Clear all follows Clear picks", async () => {
+    const { store } = await open(ENDED);
+    $("pro-expand").click();
+    $("pro-hide").click();
+    $("hide-clear").click();
+    await flush();
+    // Tick a new pick in Hide, clear it, then undo: only that clear is undone.
+    $("tab-languages").click();
+    box("ja").click();
+    await flush();
+    $("clear-all").click();
+    await flush();
+    $("undo-clear").click();
+    await flush();
+    expect(store.data.hiddenLanguageCodes).toEqual(["ja"]);
+    expect(store.data.hiddenCountryCodes).toEqual([]);
+    expect(store.data.filterMode).toBe("hide");
   });
 
   it("should ask first when the Hide segment would flip an allow-list", async () => {

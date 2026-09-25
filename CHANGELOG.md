@@ -107,12 +107,12 @@ On the page:
 - The toolbar badge counts distinct posts on the page and uses marigold.
 - Much lighter on storage and CPU: the profile cache is saved at most every
   few seconds, merged across tabs, keeps only accounts with a location (at
-  most 5,000), expires after 30 days, and is not written in private windows
-  or while no filter is active. No full re-scan on every scroll.
-- The stored profile cache is trimmed to those limits every time an X tab
-  opens, even while filtering is paused or nothing is ticked. The larger
-  0.1.x cache (up to 10,000 accounts, with or without a location) is
-  cleared the first time 0.2.0 runs.
+  most 5,000), expires after 30 days, and caches no new accounts in private
+  windows or while no filter is active. No full re-scan on every scroll.
+- The stored profile cache is trimmed to those limits every time X opens in
+  a normal (non-private) window, even while filtering is paused or nothing
+  is ticked. The larger 0.1.x cache (up to 10,000 accounts, with or without
+  a location) is cleared the first time 0.2.0 runs.
 - Page messages are checked for origin and shape, and an extension update
   no longer leaves old tabs half-working.
 

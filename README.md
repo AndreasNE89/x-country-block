@@ -65,8 +65,9 @@ Your picks, your Focus mode status and a cache of public profile data for
 accounts already shown stay in `chrome.storage.local` on your device, and
 uninstalling removes them. The cache keeps only accounts with a location
 signal, at most 5,000, each for 30 days; it is trimmed every time you open
-X, even while filtering is paused, and the larger cache from 0.1.x is
-cleared on the first run. See the [privacy policy](docs/privacy.html).
+X in a normal window, even while filtering is paused, and the larger cache
+from 0.1.x is cleared on the first run. Private windows add nothing to it.
+See the [privacy policy](docs/privacy.html).
 
 ## Develop
 

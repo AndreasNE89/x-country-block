@@ -173,13 +173,14 @@ button:disabled {
 }
 
 /*
- * Everything between the header and the tabs. It keeps its height: the accounts section gives
- * up room first (see .accounts), so the pick chips are never cut in half by a second scroller.
- * Only an open Focus mode card lets it shrink and scroll.
+ * Everything between the header and the tabs. The accounts section gives up room first (see
+ * .accounts), so this keeps its height and the pick chips are not cut in half by a second
+ * scroller. Only once that section is down to its minimum, or the Focus mode card is open,
+ * does this shrink and scroll, so the column never spills past 520px.
  */
 
 .top {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -464,8 +465,13 @@ body.is-paused .status-card {
 
 /* Selected tray and account chips */
 
+/*
+ * The only part of .top that can shrink: when .top is squeezed, the chips (their own scroll
+ * area) give up rows down to one before .top needs a scrollbar of its own.
+ */
 .tray {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 22px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -490,6 +496,7 @@ body.is-paused .status-card {
 
 .tray .chips {
   flex: 1;
+  align-self: stretch;
   min-width: 0;
 }
 
@@ -581,10 +588,6 @@ body.is-paused .status-card {
 /* While the Focus mode card is open, let the list give up more room than usual. */
 body.card-open .panel {
   min-height: 72px;
-}
-
-body.card-open .top {
-  flex-shrink: 1;
 }
 
 #search {
@@ -687,15 +690,21 @@ body.card-open .top {
 
 /*
  * One scroll area for the whole section (the Add form sits first, so it stays in view).
- * The large shrink factor makes it give up room long before .top has to.
+ * The huge shrink factor leaves .top a fraction of a pixel of any squeeze until this section
+ * is at its minimum; only then does .top give up room.
  */
 .accounts {
-  flex: 0 100 auto;
+  flex: 0 100000 auto;
   min-height: 28px;
   max-height: 180px;
   margin: 0 12px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
+}
+
+/* Open, it always shows its title and the Add form. */
+.accounts[open] {
+  min-height: 66px;
 }
 
 .accounts .chips {

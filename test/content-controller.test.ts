@@ -575,3 +575,85 @@ describe("accounts another tab saved (R11)", () => {
   });
 });
 
+/** Timeline cells laid out as a column from `start`: 200px posts, 24px slim rows, 0px hidden ones. */
+function column(start: number): void {
+  const cells = [...document.querySelectorAll<HTMLElement>('[data-testid="cellInnerDiv"]')];
+  const height = (cell: HTMLElement) => {
+    const post = cell.firstElementChild as HTMLElement;
+    if (post.hasAttribute(SLIM_ATTR)) return 24;
+    return post.hasAttribute(HIDE_ATTR) ? 0 : 200;
+  };
+  cells.forEach((cell, i) => {
+    const rect = () => {
+      const top = cells.slice(0, i).reduce((sum, prev) => sum + height(prev), start);
+      const h = height(cell);
+      return { top, bottom: top + h, height: h, left: 0, right: 600, width: 600, x: 0, y: top, toJSON() {} } as DOMRect;
+    };
+    cell.getBoundingClientRect = rect;
+    (cell.firstElementChild as HTMLElement).getBoundingClientRect = rect;
+  });
+}
+
+describe("reading position when filtering stops (R10)", () => {
+  /** Olav's post is cut off at the top of the view; carol's hidden post sits right above the one being read. */
+  async function reading(stored: Record<string, unknown>) {
+    page(article("0", "olav") + article("1", "carol") + article("2", "olav"));
+    column(-100);
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol, olav], ...stored });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+    expect(el("a2").getBoundingClientRect().top).toBe(100);
+    scrollBy.mockClear();
+    return { h, scrollBy };
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["pausing", { enabled: false }],
+    ["unticking the last pick", { hiddenCountryCodes: [] }],
+  ])("holds the post being read when %s shows the posts above it again", async (_what, change) => {
+    const { h, scrollBy } = await reading({});
+    await h.area.set(change);
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    // Carol's post comes back above: the view moves down with it, so olav's stays at 100px.
+    expect(scrollBy).toHaveBeenCalledTimes(1);
+    expect(scrollBy).toHaveBeenCalledWith(0, 200);
+  });
+
+  it("holds it when the extension is unloaded under the tab", async () => {
+    const { h, scrollBy } = await reading({});
+    h.runtime.id = undefined;
+    h.post([], []);
+    expect(h.controller.isStopped).toBe(true);
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    expect(scrollBy).toHaveBeenCalledWith(0, 200);
+  });
+
+  it("holds the top slim row in view when the Focus trial ends and every post in view comes back", async () => {
+    page(article("0", "carol") + article("1", "carol") + article("2", "carol"));
+    column(-24);
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    const h = await start({
+      hiddenCountryCodes: ["NO"],
+      filterMode: "only",
+      trialStartedAt: NOW - ONLY_SHOW_TRIAL_MS + 30_000,
+      userCache: [carol],
+    });
+    await h.frame();
+    expect(el("a1").hasAttribute(SLIM_ATTR)).toBe(true);
+    expect(el("a1").getBoundingClientRect().top).toBe(0);
+    scrollBy.mockClear();
+    h.setNow(NOW + 60_000);
+    h.tick();
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    // The row cut off above grows by 176px; the one at the top of the view stays there.
+    expect(scrollBy).toHaveBeenCalledWith(0, 176);
+  });
+});
+

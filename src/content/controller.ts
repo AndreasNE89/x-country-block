@@ -192,7 +192,7 @@ export class ContentController {
     if (this.tick !== null) (this.deps.clearRepeat ?? ((h) => win.clearInterval(h as number)))(this.tick);
     this.persister.setAllowed(false);
     try {
-      clearAllPaint(doc);
+      this.restoreAll();
     } catch {
       // nothing else to do
     }
@@ -392,7 +392,7 @@ export class ContentController {
     const { doc, win } = this.deps;
     try {
       if (!this.active()) {
-        clearAllPaint(doc);
+        this.restoreAll();
         this.counter.reset();
         this.sendBadge();
         return;
@@ -451,7 +451,6 @@ export class ContentController {
   }
 
   private paintCards(items: CardItem[], ctx: PageContext): void {
-    const { win, doc } = this.deps;
     const changes: Change[] = [];
     for (const item of items) {
       try {
@@ -470,19 +469,49 @@ export class ContentController {
         // fail open for this card
       }
     }
-    if (changes.length === 0) return;
+    this.applyChanges(items, changes);
+  }
 
+  /**
+   * Show every card again (paused, nothing ticked, the Focus trial over, or the script stopping)
+   * through the same anchored path as any other paint, so the post being read stays in place;
+   * then clear whatever else carries paint (the profile header, rows outside the collected set,
+   * cells hidden by builds before 0.2.0).
+   */
+  private restoreAll(): void {
+    const { doc, win } = this.deps;
+    try {
+      const items = this.collect(win.location.pathname);
+      const changes: Change[] = items
+        .filter((item) => !isPainted(item.el, NO_PAINT, null))
+        .map((item) => ({ el: item.el, paint: NO_PAINT, key: null }));
+      this.applyChanges(items, changes);
+    } catch {
+      // fail open: cleared below without holding the view
+    }
+    clearAllPaint(doc);
+  }
+
+  /** Paint `changes`, holding the post being read in place when cards above it change height. */
+  private applyChanges(items: CardItem[], changes: Change[]): void {
+    if (changes.length === 0) return;
+    const { win, doc } = this.deps;
     // Cards below the visible area change without anything moving on screen; only when a card
     // above or in the reading area changes height is the post being read held in place.
     const shifting = changes.filter(
       (c) => heightClass(c.el) !== paintHeightClass(c.paint) && startsAboveViewBottom(layoutBox(c.el), null, win),
     );
     const resized = shifting.map((c) => layoutBox(c.el));
-    let anchor = null;
+    let anchor: Anchor | null = null;
     if (shifting.length > 0) {
       const scroller = scrollerFor(shifting[0]!.el, win);
+      const boxes = items.map((i) => layoutBox(i.el));
       const changing = new Set(changes.map((c) => layoutBox(c.el)));
-      anchor = captureAnchor(items.map((i) => layoutBox(i.el)), changing, scroller, win);
+      // Hold a post that stays as it is. When every post in view changes (a screen of Focus
+      // mode's slim rows coming back), hold the top-most one that keeps a box: what changes
+      // above it then moves off-screen instead of pushing it down.
+      const vanishing = new Set(changes.filter((c) => c.paint.kind === "hide").map((c) => layoutBox(c.el)));
+      anchor = captureAnchor(boxes, changing, scroller, win) ?? captureAnchor(boxes, vanishing, scroller, win);
     }
     for (const change of changes) {
       try {

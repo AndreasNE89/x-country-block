@@ -196,7 +196,10 @@ export const SUBDIVISION_NAMES: Record<string, string> = invert(SUBDIVISIONS_BY_
  * nicknames and native spellings. Each name is listed once, under the country that
  * most people mean; same-named cities elsewhere are in CITY_ALT_COUNTRIES.
  * Left out on purpose: names that are ordinary words (Nice, Split, Reading, Mobile,
- * Buffalo, Salem, Hue, Male) and names shared by two big cities (Santa Cruz).
+ * Buffalo, Salem, Hue, Male, and Plano, Portuguese for plan or plane: "plano
+ * astral") and names shared by two big cities (Santa Cruz). "City, ST" still reads
+ * a left-out US city ("Plano, TX"). Mesa and Amarillo, Spanish for table and yellow,
+ * only count with a capital letter (match.ts CAPITAL_ONLY).
  */
 const CITIES_BY_COUNTRY: Record<string, string> = {
   // Africa
@@ -495,7 +498,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Waco|McAllen|Brownsville|Galveston|Frisco|Tempe|Flagstaff|Sedona|Juneau|Fairbanks|Hilo|" +
     "Maui|Boulder|Fort Collins|Provo|Ogden|Missoula|Bozeman|Rapid City|Duluth|Cedar Rapids|" +
     "Iowa City|Biloxi|Gulfport|Macon|Clearwater|Fort Myers|Boca Raton|Kissimmee|Daytona Beach|" +
-    "Arlington|Mesa|Stockton|Plano|Modesto|Yonkers|Moreno Valley|Amarillo|Huntington Beach|" +
+    "Arlington|Mesa|Stockton|Modesto|Yonkers|Moreno Valley|Amarillo|Huntington Beach|" +
     "Overland Park|Grand Prairie|McKinney|Cape Coral|Newport News|Elk Grove|Rancho Cucamonga|" +
     "Garden Grove|Pembroke Pines|Palmdale|Clarksville|Rockford|Naperville|Joliet|Bridgeport|" +
     "Killeen|Mesquite|Pomona|Fullerton|Visalia|Olathe|Round Rock|Thousand Oaks|Murfreesboro|" +

@@ -285,6 +285,14 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "Paris | USA" }, settings({ countries: ["FR"] }, "only"))).toBeNull();
   });
 
+  it("does not read 'plano astral' as Plano, Texas", () => {
+    expect(reason({}, { location: "plano astral" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "plano astral" }, settings({ countries: ["BR"] }, "only"))).toBe(
+      "Not in your Focus picks (location unknown)",
+    );
+    expect(reason({}, { location: "en la mesa" }, settings({ countries: ["US"] }))).toBeNull();
+  });
+
   it("reads Brazilian state codes after a dash, slash or town as Brazil (R29)", () => {
     expect(reason({}, { location: "Porto Alegre - RS" }, settings({ regions: ["EUROPE"] }))).toBeNull();
     expect(reason({}, { location: "Salvador/BA" }, settings({ regions: ["EUROPE"] }))).toBeNull();

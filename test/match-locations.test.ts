@@ -73,8 +73,47 @@ describe("places 0.1.2 knew (R27)", () => {
       "Oakland", "Minneapolis", "Tulsa", "Bakersfield", "Wichita", "Arlington",
     ]) {
       expect(parse(city), city).toEqual(["US"]);
-      expect(parse(city.toLowerCase()), city).toEqual(["US"]);
+      // "mesa" is Spanish for table: Mesa needs its capital M.
+      if (city !== "Mesa") expect(parse(city.toLowerCase()), city).toEqual(["US"]);
     }
+  });
+
+  it("does not read Portuguese and Spanish words as US cities", () => {
+    for (const text of [
+      "plano astral",
+      "Plano Astral",
+      "no plano astral",
+      "outro plano",
+      "em outro plano",
+      "plano espiritual",
+      "en la mesa",
+      "la mesa",
+      "mesa redonda",
+      "sin mesa",
+      "sol amarillo",
+      "el submarino amarillo",
+    ]) {
+      expect(parse(text), text).toEqual([]);
+    }
+    for (const text of [
+      "Plano, TX",
+      "plano, tx",
+      "Plano TX",
+      "PLANO TX",
+      "Plano, Texas",
+      "Mesa",
+      "MESA",
+      "Mesa, AZ",
+      "mesa, az",
+      "Costa Mesa",
+      "La Mesa",
+      "Amarillo",
+      "Amarillo, TX",
+      "amarillo, tx",
+    ]) {
+      expect(parse(text), text).toEqual(["US"]);
+    }
+    expect(parse("Plano Piloto, Brasília")).toEqual(["BR"]);
   });
 
   it("reads San Francisco however it is written", () => {

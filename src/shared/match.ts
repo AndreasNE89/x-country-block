@@ -108,7 +108,8 @@ type Derived = {
   cache: Map<string, string[]>;
 };
 
-const CAPITAL_ONLY = new Set(["chad"]);
+/** Names that are also everyday words: "Chad", "Mesa", "Amarillo", but not "mesa redonda". */
+const CAPITAL_ONLY = new Set(["chad", "mesa", "amarillo"]);
 const NO_SPACE_SCRIPT = new RegExp(
   `[${["Han", "Hiragana", "Katakana", "Thai", "Lao", "Khmer", "Myanmar", "Hangul"]
     .map((script) => `\\p{Script=${script}}`)
@@ -132,6 +133,7 @@ function derive(index: CountryIndex): Derived {
   for (const [key, code] of index.cities) {
     const entry: Entry = { kind: "city", countries: [code, ...(alts.get(key) ?? [])] };
     if (CITY_OWN_CODES[key]) entry.ownCode = CITY_OWN_CODES[key];
+    if (CAPITAL_ONLY.has(key)) entry.capitalOnly = true;
     phrases.set(key, entry);
   }
   for (const [key, code] of index.names) {

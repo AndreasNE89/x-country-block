@@ -19,15 +19,19 @@ or highlighted if you want to look first.
 Open the popup and tick countries, regions or languages. Changes apply
 straight away, with no reload.
 
-- **Hide** matching posts, or **highlight** them with an outline whose
-  tooltip says why they matched. In Hide mode, reposts and quotes of a
-  match are hidden too.
-- 250 countries and territories, 20 regions and the 68 languages X detects, with search.
-  A region covers every country in it.
+- **Hide** matching posts, or **highlight** them: an outline plus a short
+  note inside the post that says why it matched, with a one-tap "Always
+  show @handle". In Hide mode, reposts and quotes of a match are hidden
+  too.
+- 250 countries and territories, 20 regions and the 69 languages X
+  detects, with search. A region covers every country in it.
 - The toolbar badge shows how many posts on the page are filtered.
+- Pause filtering with one switch; your picks are kept. Accounts you add
+  to "Always show these accounts" are never hidden or highlighted.
 - Works on the home timeline, search, profiles and notifications.
 - **Focus mode** (Pro, $5.99 once, 7-day free trial): show only posts from
-  the places and languages you tick and set the rest aside. Payment is a
+  the places and languages you tick and set the rest aside; each set-aside
+  post folds to a one-line "Tamis · Not in your Focus picks". Payment is a
   Stripe Payment Link; there is no Tamis account.
 
 ## How it decides
@@ -50,15 +54,20 @@ posts with no signal; with nothing ticked, everything shows. A quote from
 a ticked place does not keep a parent post from elsewhere.
 
 X's location labels can be wrong, for example for people who use a VPN or
-travel. Tamis passes them on as they are and adds no labels to anyone.
+travel. Tamis passes them on as they are. It adds no flags or labels next
+to anyone's name; Highlight mode adds a note inside matched posts, shown
+only to you, saying why they matched.
 
 ## Privacy
 
 Everything runs in your browser. Tamis has no servers and no analytics.
-Your picks, your Focus mode status and a size-limited cache of public
-profile data for accounts already shown stay in `chrome.storage.local` on
-your device, and uninstalling removes them. See the
-[privacy policy](docs/privacy.html).
+Your picks, your Focus mode status and a cache of public profile data for
+accounts already shown stay in `chrome.storage.local` on your device, and
+uninstalling removes them. The cache keeps only accounts with a location
+signal, at most 5,000, each for 30 days; it is trimmed every time you open
+X in a normal window, even while filtering is paused, and the larger cache
+from 0.1.x is cleared on the first run. Private windows add nothing to it.
+See the [privacy policy](docs/privacy.html).
 
 ## Develop
 
@@ -95,16 +104,23 @@ package from the source archive.
 
 To release a new version, update `package.json` and `package-lock.json`
 (`npm version <x.y.z> --no-git-tag-version`), both manifests, the zip names
-in this README and BUILD.md, and add a CHANGELOG heading.
-`npm run check-version` fails until they all agree, and so do the tests
-and builds.
+in this README, BUILD.md and `store/listing.md`, and add a CHANGELOG
+heading. `npm run check-version` fails until they all agree, and so do the
+tests and builds.
 
 ### Brand and store assets
 
 `brand/` holds the logo masters and `store/` the store art and copy
 (`store/listing.md`). `node scripts/render-brand.mjs` regenerates
 `brand/`, `icons/` and `store/` images with headless Chrome; see
-[brand/README.md](brand/README.md).
+[brand/README.md](brand/README.md). `node scripts/store-screenshots.mjs`
+renders the five store screenshots into `store/screenshots/`: 1, 3, 4 and
+5 from the production popup, 2 from your capture of x.com.
+
+Before updating the store listings, capture screenshot 2 on x.com and run
+`node scripts/store-screenshots.mjs`, as described in
+[store/screenshots/README.md](store/screenshots/README.md). All five
+screenshots listed in `store/listing.md` must exist first.
 
 ## Layout
 
@@ -116,7 +132,7 @@ and builds.
 | `src/popup/` | Popup UI |
 | `src/shared/` | Matching, settings, parsing, country, region and language data |
 | `docs/privacy.html` | Privacy policy and Stripe success page (GitHub Pages) |
-| `scripts/` | Build, packaging, version check and brand rendering |
+| `scripts/` | Build, packaging, version check, brand art and store screenshots |
 | `test/`, `scripts/test/` | Unit tests (vitest) |
 
 Tamis is not affiliated with or endorsed by X Corp.

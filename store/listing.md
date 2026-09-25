@@ -1,8 +1,11 @@
-# Tamis store listings (0.2.0)
+# Tamis store listings
 
 Copy for the Chrome Web Store, Firefox Add-ons (AMO) and Microsoft Edge
 Add-ons. Tamis was previously called X Country Block; the store item IDs,
 the AMO slug `x-country-block` and the privacy-policy URL stay the same.
+
+The package names below carry the release version. `npm run check-version`
+fails until they match `package.json`, so update them with every bump.
 
 Voice: plain and factual. Filter, focus, highlight, pause, show only. Never
 "block", "ban", "foreign", "clean" or "sanitize". Demo examples stay
@@ -39,7 +42,7 @@ Tick countries, regions or languages in the popup. Matching posts on x.com and t
 FREE
 • Hide posts in languages you don't read, or from places you pick.
 • Highlight instead of hide: matches get an outline and a short line saying why they matched, with a one-tap "Always show" for that account.
-• 250 countries and territories, 20 regions (Europe, South Asia, Latin America & Caribbean and more) and the 68 languages X detects, with search.
+• 250 countries and territories, 20 regions (Europe, South Asia, Latin America & Caribbean and more) and the 69 languages X detects, with search.
 • The toolbar badge shows how many posts on the page are currently filtered.
 • Works on the home timeline, search, profiles and notifications. In Hide mode, reposts and quotes of a match are hidden too.
 • Pause filtering with one switch. Your picks are kept.
@@ -57,7 +60,7 @@ Location labels can be wrong, for example for people who use a VPN or travel. Ta
 PRIVATE BY DESIGN
 • Runs entirely in your browser. No extra requests to X, no servers of our own, no analytics.
 • Your picks, your Focus mode status and a cache of account locations you have already been shown stay on this device. Uninstalling removes them.
-• No flags or labels are added next to anyone's name.
+• No flags or labels next to anyone's name. Highlight mode adds a short note inside matched posts, shown only to you, saying why they matched.
 
 Tamis was previously called X Country Block. Not affiliated with or endorsed by X Corp.
 ```
@@ -97,7 +100,7 @@ Dashboard: item `gbealimmmdpllngehcjmgaifdmodijhm`.
 | Category | Social Networking |
 | Language | English |
 | Store icon | `store/cws-icon-128.png` (96 px artwork, 16 px transparent padding) |
-| Screenshots | 1280x800, see `store/screenshots/README.md`. Screenshot 5 is `store/screenshot-5-privacy-1280x800.png`. Remove the old screenshot. |
+| Screenshots | The five 1280x800 images, in order (see "Screenshots" below). Remove the old screenshot. |
 | Small promo tile | `store/promo-440x280.png` |
 | Marquee promo tile | `store/marquee-1400x560.png` |
 | Official URL | None |
@@ -178,7 +181,7 @@ slug stays).
 | Categories | Social & Communication |
 | This add-on requires payment | Yes (Focus mode, $5.99 one-time; Hide and Highlight are free) |
 | Icon | From the package (`icons/icon64.png` / `icon128.png`) |
-| Screenshots | The same five 1280x800 images as the Chrome Web Store |
+| Screenshots | The same five 1280x800 images as the Chrome Web Store, in the same order (see "Screenshots" below) |
 | Support email | norway4metal@gmail.com |
 | Homepage | https://github.com/AndreasNE89/x-country-block |
 | Privacy policy | Link to the URL in Shared text |
@@ -198,7 +201,7 @@ device.
 ```
 Tamis (formerly X Country Block) filters posts on x.com by country, region and language, using only data X has already loaded; it makes no network requests.
 
-Build: see BUILD.md in the source archive (npm ci, then npm run build:firefox:prod). The zip rebuilds byte-for-byte with Node.js 22.
+Build: see BUILD.md in the source archive (npm ci, then npm run build:firefox:prod). With Node.js 22.23.2, the version in BUILD.md, the zip rebuilds byte-for-byte. With another Node.js version the extracted files are identical, but the compressed bytes can differ (see BUILD.md step 5).
 
 Focus mode is a one-time Stripe payment. After checkout Stripe redirects to https://andreasne89.github.io/x-country-block/privacy.html?paid=1, where the paid-page.js content script tells the background script to unlock Focus mode locally. To test Focus mode without paying, start the free 7-day trial from the popup.
 ```
@@ -217,7 +220,7 @@ New listing. Upload the Chrome package: `release/x-country-block-0.2.0-chrome.zi
 | Extension logo | `store/edge-logo-300.png` |
 | Small promo tile | `store/promo-440x280.png` |
 | Large promo tile | `store/marquee-1400x560.png` |
-| Screenshots | The same five 1280x800 images |
+| Screenshots | The same five 1280x800 images, in the same order (see "Screenshots" below) |
 | Privacy policy URL | See Shared text |
 | Website | https://github.com/AndreasNE89/x-country-block |
 | Support contact | norway4metal@gmail.com |
@@ -236,6 +239,26 @@ twitter filter
 
 ---
 
+## Screenshots
+
+The same five 1280x800 images go to all three stores, in this order. All
+five are made by `node scripts/store-screenshots.mjs` in one layout;
+screenshot 2 also needs the owner's capture of x.com. Make sure all five
+files exist and are current before editing any listing.
+
+| # | File | Right-hand side |
+|---|------|-----------------|
+| 1 | `store/screenshots/screenshot-1-languages-1280x800.png` | Popup, generated |
+| 2 | `store/screenshots/screenshot-2-highlight-1280x800.png` | Owner capture, `store/screenshots/highlight-capture.png` |
+| 3 | `store/screenshots/screenshot-3-focus-1280x800.png` | Popup, generated |
+| 4 | `store/screenshots/screenshot-4-regions-1280x800.png` | Popup, generated |
+| 5 | `store/screenshots/screenshot-5-privacy-1280x800.png` | Popup, generated |
+
+How to capture screenshot 2, and what each shot shows, is in
+`store/screenshots/README.md`.
+
+---
+
 ## Brand assets
 
 | File | Size | Use |
@@ -246,6 +269,6 @@ twitter filter
 | `store/marquee-1400x560.png` | 1400x560 | CWS marquee, Edge large tile |
 | `store/github-social-1280x640.png` | 1280x640 | GitHub repository social preview |
 | `store/lockup.png`, `store/lockup-dark.png` | 1280 wide | README, press |
-| `store/screenshot-5-privacy-1280x800.png` | 1280x800 | Screenshot 5 in all stores |
 
-All are generated by `node scripts/render-brand.mjs` from `brand/`.
+All are generated by `node scripts/render-brand.mjs` from `brand/`. The
+screenshots are listed under "Screenshots" above.

@@ -1,10 +1,40 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkVersions, versionProblems, versionsIn } from "../lib/versions.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** A minimal checkout whose version files all name `version`. */
+async function fixture(version, extra = {}) {
+  const dir = await mkdtemp(join(tmpdir(), "tamis-versions-"));
+  const json = (value) => JSON.stringify(value);
+  const zip = (kind) => `\`release/x-country-block-${version}-${kind}.zip\``;
+  const files = {
+    "package.json": json({ version }),
+    "package-lock.json": json({ version, packages: { "": { version } } }),
+    "manifest.json": json({ version }),
+    "manifest.firefox.json": json({ version }),
+    "README.md": zip("chrome"),
+    "BUILD.md": zip("firefox"),
+    "CHANGELOG.md": `# Changelog\n\n## ${version} - unreleased\n`,
+    ...extra,
+  };
+  for (const [file, text] of Object.entries(files)) {
+    await mkdir(dirname(join(dir, file)), { recursive: true });
+    await writeFile(join(dir, file), text);
+  }
+  fixtures.push(dir);
+  return dir;
+}
+
+const fixtures = [];
+afterEach(async () => {
+  await Promise.all(fixtures.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+});
 
 describe("versionsIn", () => {
   it("reads both version fields of package-lock.json", () => {
@@ -41,6 +71,34 @@ describe("versionProblems", () => {
       "manifest.json: 0.1.2 (expected 0.1.3)",
       "README.md: no version found",
     ]);
+  });
+});
+
+describe("checkVersions", () => {
+  it("flags package names in the store listing left behind by a version bump", async () => {
+    const dir = await fixture("0.2.1", {
+      "store/listing.md": "Upload `release/x-country-block-0.2.0-chrome.zip`.",
+    });
+    const { problems } = await checkVersions(dir);
+    expect(problems).toEqual(["store/listing.md: 0.2.0 (expected 0.2.1)"]);
+  });
+
+  it("accepts a store listing that names the current packages", async () => {
+    const dir = await fixture("0.2.1", {
+      "store/listing.md": "Upload `release/x-country-block-0.2.1-chrome.zip`.",
+    });
+    expect((await checkVersions(dir)).problems).toEqual([]);
+  });
+
+  it("skips the store listing when it is absent, as in the source archive", async () => {
+    const dir = await fixture("0.2.1");
+    expect((await checkVersions(dir)).problems).toEqual([]);
+  });
+
+  it("still reports a missing required file", async () => {
+    const dir = await fixture("0.2.1");
+    await rm(join(dir, "BUILD.md"));
+    expect((await checkVersions(dir)).problems).toEqual(["BUILD.md: missing"]);
   });
 });
 

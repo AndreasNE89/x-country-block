@@ -19,6 +19,12 @@ usual place) and network access to Google Fonts for Inter. Pass
 `--check sheet.png` to also get the 16/32 px icon on light and dark
 toolbars, with and without a badge.
 
+The five store screenshots (`store/screenshots/*.png`) come from
+`node scripts/store-screenshots.mjs`, which captures the production popup
+(or, for screenshot 2, takes your capture of x.com) and places it on the
+same canvas, palette, mark and wordmark. It has the same needs. See
+`store/screenshots/README.md`.
+
 Sizes: 16 and 32 come from `icon-16.svg`. 48, 64, 96 and 512 use the master
 proportions, fitted to whole pixels per size. `icons/icon128.png` and
 `store/cws-icon-128.png` are 96 px artwork with 16 px of transparent padding,

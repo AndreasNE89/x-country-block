@@ -1,32 +1,90 @@
 # Store screenshots
 
 Five 1280x800 PNGs with no alpha, full bleed and square corners. The same
-five go to the Chrome Web Store, Firefox Add-ons and Edge Add-ons.
+five go to the Chrome Web Store, Firefox Add-ons and Edge Add-ons, in this
+order. `node scripts/store-screenshots.mjs` makes all five, in one layout;
+screenshot 2 also needs your capture of x.com.
 
-`node scripts/render-brand.mjs` composes all of them on the brand canvas
-(`#F3F6F6`): a 40 px mark, the headline (Inter 600, 44 px) and a sub-line
-(20 px, muted) in the left 38%, the capture in the right 62%, and the fine
-print "Accounts blurred for privacy · Not affiliated with X Corp." at the
-bottom right. You only make the captures.
+| # | File | Right-hand side |
+|---|------|-----------------|
+| 1 | `store/screenshots/screenshot-1-languages-1280x800.png` | Popup, generated |
+| 2 | `store/screenshots/screenshot-2-highlight-1280x800.png` | Your capture, `store/screenshots/highlight-capture.png` |
+| 3 | `store/screenshots/screenshot-3-focus-1280x800.png` | Popup, generated |
+| 4 | `store/screenshots/screenshot-4-regions-1280x800.png` | Popup, generated |
+| 5 | `store/screenshots/screenshot-5-privacy-1280x800.png` | Popup, generated |
 
-| # | Output | Needs |
-|---|--------|-------|
-| 1 | `store/screenshot-1-languages-1280x800.png` | `capture-1.png` |
-| 2 | `store/screenshot-2-highlight-1280x800.png` | `capture-2.png` |
-| 3 | `store/screenshot-3-focus-1280x800.png` | `capture-3.png` |
-| 4 | `store/screenshot-4-regions-1280x800.png` | `capture-4.png` |
-| 5 | `store/screenshot-5-privacy-1280x800.png` | Nothing; already rendered |
+`node scripts/render-brand.mjs` makes the icons and promo art, not these
+screenshots. Remove the old 0.1.x screenshot from every store and never
+publish `release/store-screenshot-1280x800.png`. Examples stay neutral: two
+languages, one small country with its language, or a whole region. Never
+demo hiding a single country.
 
-Upload them in this order. Remove the old 0.1.x screenshot from every store
-and never publish `release/store-screenshot-1280x800.png`.
+## The layout
 
-## Before you start
+Every shot has the Tamis mark and wordmark at the top left, the headline
+(Inter 600) with its sub-line and short points on the left, and fine print
+at the bottom left. On the right, shots 1, 3, 4 and 5 show the popup under
+its toolbar button with the marigold badge, with a band in the mark's
+kept-row colour running behind it; shot 2 shows your capture. The fine print
+reads "Works on x.com and twitter.com. Not affiliated with or endorsed by X
+Corp.", or on shot 2 "Accounts blurred for privacy. Not affiliated with or
+endorsed by X Corp."
 
-Capture the 0.2.0 build only after the popup redesign, the reworded
-on-page tooltips ("Tamis · Post language: Portuguese") and the marigold
-toolbar badge are in it. Screenshots must show the UI people will get.
+## Screenshots 1, 3, 4 and 5: generated
 
-## Setup (all four captures)
+The script builds the production popup (`node scripts/build.mjs --prod`),
+loads `dist/popup.html` in headless Chrome with a stand-in for the extension
+APIs, and captures it at 2x. Nothing on these four comes from x.com: no
+feed, no accounts, no X logo, so nothing needs blurring. The count on the
+status line and the badge is the number the stand-in tab reports; everything
+else is the popup exactly as it ships.
+
+| # | Headline | Popup state | Band behind |
+|---|----------|-------------|-------------|
+| 1 | Your feed, in the languages you read. | Light. Hide matches, Languages tab, Japanese and Portuguese ticked. "Hiding Japanese, Portuguese · 14 on this tab", badge 14. | Ticked rows |
+| 3 | Focus mode: only the places you pick. | Light. Only show with the PRO pill and "Trial · 7 days left". Countries tab, Norway ticked; the tray also holds Norwegian. "Showing only Norway, Norwegian · 38 set aside". | Ticked rows |
+| 4 | One tick covers a whole region. | Dark. Only show (bought), Regions tab, Europe ticked. "Showing only Europe · 23 set aside". | Ticked rows |
+| 5 | Private by design. | Light. Hide matches with "Highlight instead of hide" on, Languages tab, Japanese and Portuguese ticked. "Highlighting matches for Japanese, Portuguese · 14 on this tab". The Filtering switch shows its keyboard focus ring. | The footer, "Runs in your browser · no extra requests to X" |
+
+Screenshot 5's points are "Runs in your browser", "No extra requests to X",
+"No Tamis account, no analytics", "No flags on anyone's name" and "Pause
+anytime". They must stay true of the build. Never write "No labels added to
+people": Highlight mode shows a note inside matched posts.
+
+Run the script again after any change to the popup, and look at the PNGs
+before you commit them. The script needs Chrome (set `CHROME_PATH` if it is
+not in a usual place) and network access to Google Fonts for Inter. Before
+it captures, it checks the popup's status text, count and trial chip, that
+neither the Focus mode offer nor the development-only Test unlock is
+showing, and on shot 5 that the Filtering switch shows its focus ring. If a
+popup change makes that check fail, update `SHOTS` in the script and look at
+the result again. Two runs with the same Chrome give the same bytes, but
+another Chrome version or machine can move a few pixels of text, so commit
+new PNGs when what they show has changed.
+
+## Screenshot 2: capture it on x.com
+
+"Highlight first. Hide when you're sure." This one has to show Highlight
+mode on a real feed, so it is a capture from your own browser. Sub-line: "See
+exactly what matched, and why. Free." Points: "An outline and a note on
+each match", "“Always show @handle” in one tap" and "Only you see the
+notes".
+
+### What the build draws on a matched post
+
+Keep all of it in the shot, and add nothing:
+
+- a 2 px `#B86E00` outline around the post;
+- inside the card, on its own line under the post, a marigold (`#FFB638`)
+  note: "Tamis · Post language: Portuguese" (or Japanese), then an
+  underlined "Always show @handle" button;
+- on hover, the browser's own tooltip with the same text. It is optional:
+  the note already says why.
+
+Accounts in "Who to follow" lists and on profile headers get the outline
+only, with no note.
+
+### Steps
 
 1. Build: `npm run build:prod`.
 2. Start a new Chrome profile at 2x:
@@ -36,92 +94,34 @@ toolbar badge are in it. Screenshots must show the UI people will get.
    ```
 
 3. Load `dist/` unpacked (`chrome://extensions`, Developer mode, Load
-   unpacked) and pin the Tamis icon. Sign in to X with your own account
-   and set X's display language to English.
-4. For a mix of languages, open `x.com/search?q=<a global football or
-   Olympics topic>&f=live` and scroll until the badge shows two digits.
-5. Capture with Windows Snipping Tool. Crop to the toolbar, the centre feed
-   column and the popup. Leave out the tab-strip favicon and X's left
-   navigation: both show the X logo.
-6. In Photopea or GIMP, blur (Gaussian, about 12 px at 2x) every avatar,
-   display name, @handle and photo that shows people. Also blur the post
+   unpacked) and pin the Tamis icon. Sign in to X with your own account,
+   set X's display language to English and its theme to the default light
+   background.
+4. In the popup: Languages tab, tick Japanese and Portuguese, choose
+   "Hide matches" and switch on "Highlight instead of hide".
+5. Open `x.com/search?q=<a global football or Olympics topic>&f=live` and
+   scroll until two or three highlighted posts, with their notes, are on
+   screen together.
+6. Click the Tamis icon. The status reads "Highlighting matches for
+   Japanese, Portuguese · N on this tab" and the marigold badge shows the
+   same N.
+7. Capture with Snipping Tool (Win+Shift+S, rectangle). Crop to the
+   toolbar, the centre feed column and the popup. Leave out the tab-strip
+   favicon and X's left navigation: both show the X logo. The script shows
+   the capture at most at 1x, fitted into a 600x720 area, so a crop of about
+   1200x1440 px fills it; a wider crop is shown smaller. Crop as tightly as
+   the posts and the popup allow.
+8. In Photopea or GIMP, blur (Gaussian, about 12 px at 2x) every avatar,
+   display name, @handle and photo that shows people, including the
+   @handle inside each "Always show @handle" button. Also blur the post
    text of private individuals; posts from organisations may stay legible.
    Never edit post text, and never paste the popup onto a made-up feed.
-7. Save the blurred crop as `store/screenshots/capture-N.png`. Keep it at
-   2x: the composer scales it down to fit the right panel (about 760x700)
-   and keeps its aspect ratio.
-8. Run `node scripts/render-brand.mjs` and check the output PNG.
-
-## Shot list
-
-Examples stay neutral: two languages, one small country with its language,
-or a whole region. Never demo hiding a single country.
-
-### 1. "Your feed, in the languages you read."
-
-Sub-line: "Hide posts in languages you don't read. Free."
-
-- X in its light theme, on the search results page (Latest).
-- Popup: Languages tab, Hide selected, Japanese (ja) and Portuguese (pt)
-  ticked.
-- The status card reads "Hiding Japanese, Portuguese · N on this tab" and
-  the marigold toolbar badge shows the same N.
-
-### 2. "Highlight first. Hide when you're sure."
-
-Sub-line: "See exactly what matched, and why. Free."
-
-- Same page and picks as 1. Popup: Hide selected and "Highlight instead of
-  hide" switched on.
-- Two or three posts carry the 2 px `#B86E00` outline. Hover one so the
-  browser's own tooltip "Tamis · Post language: Portuguese" is on screen.
-  Use Snipping Tool with a 3-second delay for the tooltip. Open the popup
-  afterwards and capture it separately, or reopen it before the delayed
-  snip fires.
-- The product only draws the outline and the tooltip. Add no labels,
-  placeholders or badges on posts.
-
-### 3. "Focus mode: only the places you pick."
-
-Sub-line: "Great for local news and match day. $5.99 once · 7-day free trial."
-
-- Popup: "Only show" selected with the marigold PRO pill and the
-  "Trial · 7 days left" chip. Countries tab with Norway (NO) ticked; the
-  selected tray also shows "Norwegian ×" from the Languages tab.
-- The status card reads "Showing only Norway, Norwegian · N set aside".
-- Feed: a real Latest search on a Norwegian local-news or Eliteserien
-  topic.
-- Start the trial with the real "Try free for 7 days" button. (The
-  development build's Test unlock, from `npm run build`, gives the paid look
-  without the chip; never upload that build.)
-- Tick "Norwegian (no)", not "Norwegian Bokmål (nb)". First check in
-  Highlight mode which code X actually tags Norwegian posts with; otherwise
-  Only show sets them all aside.
-- Blur every account: local individuals are easy to identify. Do not name
-  X Premium or compare prices.
-
-### 4. "One tick covers a whole region."
-
-Sub-line: "Uses the Account based in label X shows. It can be wrong for VPN
-users and travellers."
-
-- X in its Lights out theme: Settings, Accessibility, display and
-  languages, Display, Background: Lights out.
-- Popup in its dark palette: right-click inside the popup, Inspect,
-  Rendering panel, "Emulate CSS prefers-color-scheme: dark". Or switch
-  Windows to dark mode.
-- Popup: Regions tab, "eur" typed in the search field, Europe ticked, Only
-  show selected (a football-tournament framing). No single country is
-  shown.
-- Feed: a European football topic in Latest.
-
-### 5. "Private by design."
-
-Rendered from `scripts/brand/compositions.mjs` (`privacyScreenshot`), with
-no feed content: "Runs in your browser", "No extra requests to X",
-"No Tamis account, no analytics", "No labels added to people". Once the
-Filtering switch has shipped, you can add "Pause anytime" to
-`PRIVACY_LINES` and re-render.
+9. Save the blurred crop as `store/screenshots/highlight-capture.png`,
+   still at 2x.
+10. Run `node scripts/store-screenshots.mjs`. It prints the scale your
+    capture is shown at and writes
+    `store/screenshots/screenshot-2-highlight-1280x800.png`. Look at it
+    next to screenshots 1, 3, 4 and 5.
 
 ## Marquee
 

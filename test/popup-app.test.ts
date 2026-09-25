@@ -491,8 +491,29 @@ describe("Focus mode", () => {
     expect(visible("pro-trial")).toBe(false);
     expect(visible("pro-hide")).toBe(false);
     expect(visible("pro-close")).toBe(true);
+    $("pro-close").focus();
     $("pro-close").click();
     expect(visible("pro-card")).toBe(false);
+    // Back on the checked radio (tabindex 0), not the unchecked Only show at tabindex -1.
+    expect(document.activeElement).toBe($("mode-hide"));
+    expect($("mode-hide").tabIndex).toBe(0);
+  });
+
+  it("should never hide the focus ring of a radio or tab that has focus", () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/popup/popup.css"), "utf8");
+    expect(css).not.toContain('[tabindex="-1"]:focus');
+    expect(css).toContain("#pro-title:focus");
+  });
+
+  it("should move focus to the checked mode once the trial starts", async () => {
+    await open({ hiddenCountryCodes: ["NO"] });
+    $("mode-only").click();
+    $("pro-trial").focus();
+    $("pro-trial").click();
+    await flush();
+    expect(visible("pro-card")).toBe(false);
+    expect(document.activeElement).toBe($("mode-only"));
+    expect($("announce").textContent).toBe("Focus mode trial started.");
   });
 
   it("should not unlock with a trial start in the future", async () => {
@@ -587,8 +608,24 @@ describe("active tab status", () => {
     const { api } = await open({ hiddenLanguageCodes: ["ja"] }, { tab: { id: 3, url: "https://x.com/home" }, ping: undefined });
     expect($("page-note-text").textContent).toBe("Reload this tab to start filtering.");
     expect($("page-action").textContent).toBe("Reload");
+    $("page-action").focus();
     $("page-action").click();
     expect(api.tabs.reload).toHaveBeenCalledWith(3);
+    // The Reload button is gone now; keep keyboard users on the page and say what happens.
+    expect(visible("page-action")).toBe(false);
+    expect(document.activeElement).toBe($("mode-hide"));
+    expect($("announce").textContent).toBe("Reloading this tab…");
+  });
+
+  it("should keep focus on the page once access is granted", async () => {
+    const { api } = await open({ hiddenLanguageCodes: ["ja"] }, { access: false, ping: { ok: true, count: 2, version: "0.2.0" } });
+    api.permissions?.contains.mockImplementation(async () => true);
+    $("page-action").focus();
+    $("page-action").click();
+    await flush();
+    expect(visible("page-note")).toBe(false);
+    expect($("status-count").textContent).toBe("2 on this tab");
+    expect(document.activeElement).toBe($("mode-hide"));
   });
 
   it("should ask for host access from the click", async () => {

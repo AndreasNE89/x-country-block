@@ -87,7 +87,8 @@ button:disabled {
   outline-offset: 2px;
 }
 
-[tabindex="-1"]:focus {
+/* Only the card heading gets focus from code and needs no ring; radios and tabs always show theirs. */
+#pro-title:focus {
   outline: none;
 }
 

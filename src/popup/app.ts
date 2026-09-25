@@ -462,6 +462,18 @@ export function startPopup(options: PopupOptions): PopupHandle {
     return settings.filterMode === "only" ? ui.modeOnly : ui.modeHide;
   }
 
+  /**
+   * After an action hid the control that had focus (or focus fell back to <body>), put
+   * keyboard users on the checked mode radio instead of the top of the page. Leaves focus
+   * alone when the user already moved it somewhere else.
+   */
+  function refocusAfter(used: HTMLElement): void {
+    const active = doc.activeElement;
+    if (active !== used && active !== doc.body && active !== null) return;
+    if (active === used && !used.closest("[hidden]")) return;
+    checkedMode().focus();
+  }
+
   function currentPicks(): Record<PickField, string[]> {
     return {
       hiddenCountryCodes: [...settings.hiddenCountryCodes],
@@ -584,12 +596,14 @@ export function startPopup(options: PopupOptions): PopupHandle {
       if (parseSettings(fresh, now()).trialStartedAt !== null) {
         apply(fresh);
         paint();
+        refocusAfter(ui.proTrial);
         return;
       }
       const items = { trialStartedAt: now(), filterMode: "only" };
       cardOpen = false;
       apply(items);
       paint();
+      refocusAfter(ui.proTrial);
       say("Focus mode trial started.");
       await api.storage.local.set(items);
     });
@@ -709,7 +723,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
       // Called straight from the click: browsers only show the prompt for a user gesture.
       void Promise.resolve(permissions.request({ origins: [...X_ORIGINS] })).then(
         (granted) => {
-          if (granted) void refreshPage();
+          if (granted) void refreshPage().then(() => refocusAfter(ui.pageAction));
         },
         () => undefined,
       );
@@ -720,6 +734,9 @@ export function startPopup(options: PopupOptions): PopupHandle {
       page = { kind: "reloading", tabId };
       reloadUntil = now() + RELOAD_GRACE_MS;
       paint();
+      refocusAfter(ui.pageAction);
+      // The page note is not a live region, so say it.
+      say("Reloading this tab…");
       void Promise.resolve(api.tabs.reload(tabId)).catch(() => undefined);
     }
   });

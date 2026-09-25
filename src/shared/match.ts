@@ -325,8 +325,10 @@ const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   NU: "CA",
   YT: "CA",
 };
-/** Upper-case country abbreviations that are not ISO codes. */
-const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO" };
+/** Upper-case country abbreviations that are not ISO codes ("RD": República Dominicana). */
+const UPPERCASE_COUNTRY_CODES: Record<string, string> = { DR: "DO", RD: "DO" };
+/** Names that also open a title, where they do not count before "of" ("Free State of Florida"). */
+const NOT_BEFORE_OF = new Set(["free state"]);
 /** ISO3 codes that are English words, names or common acronyms ("ETH", "GEO", "UGA"). */
 const ISO3_WORDS = new Set([
   "AIA", "ALA", "AND", "ARE", "ARM", "ATF", "BEN", "BLM", "BRB", "CAF", "CAN", "COD", "COL",
@@ -471,6 +473,8 @@ function matchPhrase(tokens: Token[], start: number, derived: Derived): [number,
     const entry = derived.phrases.get(key);
     if (!entry) continue;
     if (entry.capitalOnly && !first.capital) continue;
+    const after = tokens[start + len];
+    if (NOT_BEFORE_OF.has(key) && after?.text === "of" && after.level === first.level) continue;
     return [len, entry];
   }
   return null;

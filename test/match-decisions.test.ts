@@ -286,6 +286,14 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     );
   });
 
+  it("does not read US and UK place names as the city abroad (R31)", () => {
+    expect(reason({}, { location: "Kingston upon Thames" }, settings({ regions: ["CARIBBEAN"] }))).toBeNull();
+    expect(reason({}, { location: "Free State of Florida" }, settings({ countries: ["ZA"] }))).toBeNull();
+    expect(reason({}, { location: "Venice Beach" }, settings({ countries: ["IT"] }))).toBeNull();
+    expect(reason({}, { location: "Rio Grande Valley" }, settings({ countries: ["BR"] }))).toBeNull();
+    expect(reason({}, { location: "Santiago, RD" }, settings({ countries: ["CL"] }))).toBeNull();
+  });
+
   it("reads a bare 'NL' as the Netherlands (R30)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();

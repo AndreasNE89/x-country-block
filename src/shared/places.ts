@@ -85,7 +85,7 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "West Virginia|Wisconsin|Wyoming|District of Columbia|New England|Midwest|Pacific Northwest|" +
     "PNW|SoCal|NorCal|Bay Area|SF Bay Area|Silicon Valley|Upstate New York|Long Island|DMV|DFW|" +
     "Dallas-Fort Worth|Twin Cities|Tri-State Area|North Georgia|South Georgia|North Jersey|" +
-    "South Jersey|Central Jersey",
+    "South Jersey|Central Jersey|Rio Grande Valley|RGV",
   CA:
     "Ontario|Quebec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|" +
     "Newfoundland|Newfoundland and Labrador|Prince Edward Island|PEI|Yukon|Nunavut|" +
@@ -460,7 +460,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Dundee|Oxford|Cambridge|Norwich|Exeter|Sunderland|Milton Keynes|Luton|Bournemouth|" +
     "Middlesbrough|Huddersfield|Blackpool|Bolton|Stockport|Salford|Croydon|Inverness|Stirling|" +
     "Canterbury|Ipswich|Northampton|Watford|Slough|Wembley|Hackney|Brixton|Islington|" +
-    "Shoreditch|Surrey|Kingston upon Hull|Tottenham|Peckham|Stockton-on-Tees",
+    "Shoreditch|Surrey|Kingston upon Hull|Kingston upon Thames|Tottenham|Peckham|" +
+    "Stockton-on-Tees",
   // Americas
   US:
     "New York City|NYC|Los Angeles|Cali|Chicago|Houston|Phoenix|Philadelphia|Philly|" +
@@ -476,7 +477,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Winston-Salem|Fremont|Hialeah|Richmond|Boise|Spokane|Baton Rouge|Tacoma|San Bernardino|" +
     "Des Moines|Santa Clarita|Fayetteville|Oxnard|Rochester|Grand Rapids|Huntsville|" +
     "Salt Lake City|Salt Lake|SLC|Knoxville|Chattanooga|Savannah|Charleston|Syracuse|Pasadena|" +
-    "Berkeley|Palo Alto|Mountain View|Cupertino|Menlo Park|Sunnyvale|Santa Monica|Hollywood|" +
+    "Berkeley|Palo Alto|Mountain View|Cupertino|Menlo Park|Sunnyvale|Santa Monica|Venice Beach|" +
+    "Hollywood|" +
     "Beverly Hills|Malibu|Long Beach|Brooklyn|Manhattan|Queens|Bronx|The Bronx|Staten Island|" +
     "Harlem|Hoboken|Miami Beach|Fort Lauderdale|West Palm Beach|Palm Beach|Key West|" +
     "Tallahassee|Gainesville|Pensacola|Sarasota|Saint Louis|STL|Ann Arbor|Green Bay|" +
@@ -548,7 +550,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
   BR:
     "São Paulo|Sampa|Rio de Janeiro|Rio|Brasília|Salvador|Fortaleza|Belo Horizonte|Manaus|" +
     "Curitiba|Recife|Goiânia|Belém|Porto Alegre|Guarulhos|Campinas|São Luís|São Gonçalo|" +
-    "Maceió|Duque de Caxias|Natal|Teresina|Campo Grande|Nova Iguaçu|São Bernardo do Campo|" +
+    "Maceió|Duque de Caxias|Teresina|Campo Grande|Nova Iguaçu|São Bernardo do Campo|" +
     "João Pessoa|Santo André|Osasco|Jaboatão|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|" +
     "Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Florianópolis|Floripa|" +
     "Niterói|Porto Velho|Macapá|Boa Vista|Rio Branco|Vila Velha|Caxias do Sul|Pelotas|Maringá|" +
@@ -668,7 +670,8 @@ export type AmbiguousPlace = {
 };
 
 /**
- * Names that are a country and also a US state or another country's region.
+ * Names that are a country and also a US state or another country's region (or,
+ * for Natal, a city and an old region name elsewhere).
  * "Georgia" alone stays undecided (the US state and the country are both common on X);
  * "City, Georgia" with an unknown city is the US state, since the tables list the
  * Georgian cities people write (Tbilisi, Batumi, Kutaisi). X's own "Account based in"
@@ -687,6 +690,8 @@ export const AMBIGUOUS_PLACES: Record<string, AmbiguousPlace> = {
   antigua: { countries: ["AG", "GT"], alone: "AG", afterPlace: "AG" },
   "virgin islands": { countries: ["VI", "VG"], alone: "VI", afterPlace: "VI" },
   "saint martin": { countries: ["MF", "SX"], alone: "MF", afterPlace: "MF" },
+  // The Brazilian city, and the old name of KwaZulu-Natal ("Durban, Natal").
+  natal: { countries: ["BR", "ZA"], alone: "BR", afterPlace: "BR" },
 };
 
 /**

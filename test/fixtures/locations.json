@@ -766,5 +766,20 @@
   ["London / KL", ["GB", "MY"]],
   ["Uppsala, SE", ["SE"]],
   ["Kragujevac, RS", ["RS"]],
-  ["Cluj, RO", ["RO"]]
+  ["Cluj, RO", ["RO"]],
+  ["Free State of Florida", ["US"]],
+  ["Free State of New Hampshire", ["US"]],
+  ["Free State of Texas 🇺🇸", ["US"]],
+  ["Bloemfontein, Free State", ["ZA"]],
+  ["Kingston upon Thames", ["GB"]],
+  ["Venice Beach", ["US"]],
+  ["Venice Beach, Los Angeles", ["US"]],
+  ["Rio Grande Valley", ["US"]],
+  ["RGV", ["US"]],
+  ["Durban, Natal", ["ZA"]],
+  ["Natal, RN", ["BR"]],
+  ["Santiago, RD", ["DO"]],
+  ["Santiago, DR", ["DO"]],
+  ["Jersey", ["JE"]],
+  ["Jersey 🇺🇸", ["US"]]
 ]

@@ -473,6 +473,31 @@ describe("countriesFromLocation", () => {
     expect(parse("Birmingham, Alabama")).toEqual(["US"]);
   });
 
+  it("does not read slogans, suburbs and valleys as the city abroad (R31)", () => {
+    for (const [text, want] of [
+      ["Free State of Florida", ["US"]],
+      ["Free State of New Hampshire", ["US"]],
+      ["Free State of Texas 🇺🇸", ["US"]],
+      ["Bloemfontein, Free State", ["ZA"]],
+      ["Free State", ["ZA"]],
+      ["Kingston upon Thames", ["GB"]],
+      ["Kingston", ["JM"]],
+      ["Venice Beach", ["US"]],
+      ["Venice Beach, Los Angeles", ["US"]],
+      ["Venice", ["IT"]],
+      ["Rio Grande Valley", ["US"]],
+      ["RGV", ["US"]],
+      ["Rio", ["BR"]],
+      ["Durban, Natal", ["ZA"]],
+      ["Natal", ["BR"]],
+      ["Santiago, RD", ["DO"]],
+      ["Santo Domingo, RD", ["DO"]],
+      ["Santiago, DR", ["DO"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("reads Georgia by context", () => {
     expect(parse("Atlanta, Georgia")).toEqual(["US"]);
     expect(parse("Tbilisi, Georgia")).toEqual(["GE"]);

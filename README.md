@@ -22,8 +22,8 @@ straight away, with no reload.
 - **Hide** matching posts, or **highlight** them with an outline whose
   tooltip says why they matched. In Hide mode, reposts and quotes of a
   match are hidden too.
-- 250 countries and territories, 20 regions and the 68 languages X detects, with search.
-  A region covers every country in it.
+- 250 countries and territories, 20 regions and the 69 languages X
+  detects, with search. A region covers every country in it.
 - The toolbar badge shows how many posts on the page are filtered.
 - Works on the home timeline, search, profiles and notifications.
 - **Focus mode** (Pro, $5.99 once, 7-day free trial): show only posts from

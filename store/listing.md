@@ -42,7 +42,7 @@ Tick countries, regions or languages in the popup. Matching posts on x.com and t
 FREE
 • Hide posts in languages you don't read, or from places you pick.
 • Highlight instead of hide: matches get an outline and a short line saying why they matched, with a one-tap "Always show" for that account.
-• 250 countries and territories, 20 regions (Europe, South Asia, Latin America & Caribbean and more) and the 68 languages X detects, with search.
+• 250 countries and territories, 20 regions (Europe, South Asia, Latin America & Caribbean and more) and the 69 languages X detects, with search.
 • The toolbar badge shows how many posts on the page are currently filtered.
 • Works on the home timeline, search, profiles and notifications. In Hide mode, reposts and quotes of a match are hidden too.
 • Pause filtering with one switch. Your picks are kept.

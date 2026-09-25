@@ -54,7 +54,7 @@ New in the popup:
   highlighted. Highlighted posts offer a one-tap "Always show @handle".
 - Search ignores accents and knows common other names ("usa", "uk",
   "turkiye", "ivory coast", "latam", "farsi", "bokmal").
-- The language list shows the 68 languages X tags posts with; Norwegian is
+- The language list shows the 69 languages X tags posts with; Norwegian is
   one row (X tags all Norwegian as `no`; older nb/nn picks move to it).
 - Tells you when a tab needs a reload, when you are not on x.com, and when
   Firefox has not granted access to x.com, with a button for each.

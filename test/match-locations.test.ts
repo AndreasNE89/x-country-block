@@ -396,6 +396,54 @@ describe("countriesFromLocation", () => {
     expect(parse("Santa Maria, CA")).toEqual(["US"]);
   });
 
+  it("reads Santa Maria by context", () => {
+    for (const [text, want] of [
+      // Brazil, California and the Philippines all have a large Santa Maria.
+      ["Santa Maria", []],
+      ["santa maria", []],
+      ["Santa Maria, RS", ["BR"]],
+      ["Santa Maria - RS", ["BR"]],
+      ["Santa Maria RS", ["BR"]],
+      ["Santa Maria, Rio Grande do Sul", ["BR"]],
+      ["Santa Maria 🇧🇷", ["BR"]],
+      ["Santa Maria, CA", ["US"]],
+      ["Santa Maria, California", ["US"]],
+      ["Santa Maria 🇺🇸", ["US"]],
+      ["Santa Maria, Bulacan", ["PH"]],
+      ["Santa Maria, Ilocos Sur", ["PH"]],
+      ["Santa Maria, Laguna", []],
+      ["Santa Maria, Açores", ["PT"]],
+      ["Santa Maria, Portugal", ["PT"]],
+      ["Santa Maria da Feira", ["PT"]],
+      ["Ponta Delgada, Azores", ["PT"]],
+      ["Açores", ["PT"]],
+      ["Vigan, Ilocos Sur", ["PH"]],
+      ["Cainta, Rizal", ["PH"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
+  it("reads a hyphenated name written with spaces around the dash as one name", () => {
+    for (const [text, want] of [
+      ["Vitoria - Gasteiz", ["ES"]],
+      ["Vitoria – Gasteiz", ["ES"]],
+      ["Vitoria–Gasteiz", ["ES"]],
+      ["Vitoria-Gasteiz", ["ES"]],
+      ["Gasteiz", ["ES"]],
+      ["KwaZulu - Natal", ["ZA"]],
+      ["Guinea - Bissau", ["GW"]],
+      ["Latin - America", []],
+      // Two places stay two places.
+      ["London - Paris", ["FR", "GB"]],
+      ["Cali - Colombia", ["CO"]],
+      ["Vitória - ES", ["BR"]],
+      ["Rio de Janeiro - Brasil", ["BR"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
   it("drops a city abbreviation that disagrees with the place before it", () => {
     expect(parse("Kochi, KL")).toEqual(["IN"]);
     expect(parse("Petaling Jaya, KL")).toEqual(["MY"]);

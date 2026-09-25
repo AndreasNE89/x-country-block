@@ -325,6 +325,16 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();
   });
 
+  it("does not read every Santa Maria as Brazil", () => {
+    expect(reason({}, { location: "Santa Maria, Laguna" }, settings({ countries: ["BR"] }))).toBeNull();
+    expect(reason({}, { location: "Santa Maria, RS" }, settings({ countries: ["BR"] }))).toBe(
+      "Profile location: Brazil",
+    );
+    expect(reason({}, { location: "Vitoria - Gasteiz" }, settings({ regions: ["EUROPE"] }))).toBe(
+      "Profile location: Spain, Europe",
+    );
+  });
+
   it("keeps a Canberra suburb written 'Suburb ACT' in Focus mode", () => {
     expect(reason({}, { location: "Tuggeranong ACT" }, settings({ countries: ["AU"] }, "only"))).toBeNull();
     expect(reason({}, { location: "Belconnen ACT" }, settings({ countries: ["AU"] }))).toBe(

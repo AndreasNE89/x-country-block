@@ -375,9 +375,23 @@ export function countriesFromLocation(text: string, index: CountryIndex): string
   return [...found];
 }
 
+// A dash between two words, which splits groups ("Cali - Colombia", "Paris–Berlin").
+const DASH_BETWEEN_WORDS = /(?<![\p{L}\p{M}])([\p{L}\p{M}]+)(?:\s+[-–—]+\s+|[–—]+)(?=([\p{L}\p{M}]+))/gu;
+
+/**
+ * A name the tables list with a hyphen, written with a spaced or long dash ("Vitoria
+ * - Gasteiz", "KwaZulu – Natal"), is one name, not two places. Only an exact
+ * two-word name counts, so "Cali - Colombia" and "London - Paris" stay apart.
+ */
+function joinDashedNames(text: string, derived: Derived): string {
+  return text.replace(DASH_BETWEEN_WORDS, (match: string, first: string, second: string) =>
+    derived.phrases.has(foldText(`${first} ${second}`)) ? `${first}-` : match,
+  );
+}
+
 function parseLocation(text: string, derived: Derived): string[] {
   const flags = flagCountryCodes(text).filter((code) => code in COUNTRY_NAMES || derived.iso2.has(code));
-  const cleaned = cleanLocation(stripFlags(text));
+  const cleaned = joinDashedNames(cleanLocation(stripFlags(text)), derived);
   const groups: Item[][] = [];
   for (const group of cleaned.split(GROUP_SEPARATOR)) {
     if (!group || !group.trim()) continue;

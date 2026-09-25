@@ -134,7 +134,9 @@ const SUBDIVISIONS_BY_COUNTRY: Record<string, string> = {
     "North Sumatra|Sumatera Utara|Sulawesi|Kalimantan|Aceh|Riau|Banten|Lombok|Nusa Tenggara|Maluku",
   PH:
     "Luzon|Mindanao|Visayas|Metro Manila|Cavite|Bulacan|Pampanga|Batangas|Pangasinan|Negros|" +
-    "Palawan|Bohol|Leyte",
+    "Palawan|Bohol|Leyte|Rizal|Ilocos Norte|Ilocos Sur|Nueva Ecija|Tarlac|Zambales|Bataan|" +
+    "Benguet",
+  PT: "Azores|Açores",
   MY:
     "Selangor|Sabah|Sarawak|Johor|Kedah|Kelantan|Terengganu|Pahang|Perak|Negeri Sembilan|Perlis|" +
     "Labuan",
@@ -428,7 +430,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Zakopane|Opole|Gliwice",
   PT:
     "Lisbon|Lisboa|Porto|Oporto|Braga|Coimbra|Funchal|Faro|Aveiro|Setúbal|Évora|Guimarães|" +
-    "Sintra|Cascais|Albufeira|Madeira|Azores|Açores",
+    "Sintra|Cascais|Albufeira|Madeira|Santa Maria da Feira",
   RO:
     "Bucharest|București|Bucuresti|Cluj-Napoca|Cluj|Timișoara|Iași|Constanța|Craiova|Brașov|" +
     "Galați|Ploiești|Oradea|Sibiu|Arad|Pitești",
@@ -446,7 +448,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
   ES:
     "Madrid|Barcelona|Valencia|Seville|Sevilla|Zaragoza|Saragossa|Málaga|Murcia|Palma|" +
     "Palma de Mallorca|Las Palmas|Las Palmas de Gran Canaria|Bilbao|Alicante|Valladolid|Vigo|" +
-    "Gijón|Granada|A Coruña|La Coruña|Vitoria-Gasteiz|Elche|Oviedo|Santander|Pamplona|" +
+    "Gijón|Granada|A Coruña|La Coruña|Vitoria-Gasteiz|Gasteiz|Elche|Oviedo|Santander|Pamplona|" +
     "San Sebastián|Donostia|Cádiz|Marbella|Ibiza|Benidorm|Tarragona|Girona|Almería|Huelva|" +
     "Jerez|Santiago de Compostela|Santa Cruz de Tenerife|Castellón|Badajoz|Burgos|Logroño|" +
     "Albacete|Getafe|Alcalá de Henares|Móstoles",
@@ -567,7 +569,7 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Niterói|Porto Velho|Macapá|Boa Vista|Rio Branco|Vila Velha|Caxias do Sul|Pelotas|Maringá|" +
     "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty|" +
     "Plano Piloto|Vitória|Palmas|Montes Claros|Uberaba|Governador Valadares|Ipatinga|Betim|" +
-    "Divinópolis|Sete Lagoas|Santa Maria|Passo Fundo|Novo Hamburgo|Ponta Grossa|Cascavel|" +
+    "Divinópolis|Sete Lagoas|Passo Fundo|Novo Hamburgo|Ponta Grossa|Cascavel|" +
     "Guarapuava|Chapecó|Itajaí|Criciúma|Ilhéus|Itabuna|Vitória da Conquista|Camaçari|" +
     "Caruaru|Petrolina|Arapiraca|Mossoró|Juazeiro do Norte|Imperatriz|Santarém|Marabá|" +
     "Rondonópolis|Dourados|Anápolis|Cariacica|São José dos Campos|Jundiaí|Piracicaba|Bauru|" +
@@ -667,7 +669,6 @@ export const CITY_ALT_COUNTRIES: Record<string, string[]> = {
   scarborough: ["GB"],
   bethlehem: ["US"],
   vitória: ["ES"],
-  "santa maria": ["US"],
   santarém: ["PT"],
 };
 
@@ -682,7 +683,8 @@ export type AmbiguousPlace = {
 
 /**
  * Names that are a country and also a US state or another country's region (or,
- * for Natal, a city and an old region name elsewhere).
+ * for Natal, a city and an old region name elsewhere; for Santa Maria, large towns
+ * in three countries).
  * "Georgia" alone stays undecided (the US state and the country are both common on X);
  * "City, Georgia" with an unknown city is the US state, since the tables list the
  * Georgian cities people write (Tbilisi, Batumi, Kutaisi). X's own "Account based in"
@@ -703,6 +705,9 @@ export const AMBIGUOUS_PLACES: Record<string, AmbiguousPlace> = {
   "saint martin": { countries: ["MF", "SX"], alone: "MF", afterPlace: "MF" },
   // The Brazilian city, and the old name of KwaZulu-Natal ("Durban, Natal").
   natal: { countries: ["BR", "ZA"], alone: "BR", afterPlace: "BR" },
+  // Rio Grande do Sul, California and Bulacan (and many smaller towns): only a state,
+  // a state code or a flag decides ("Santa Maria, RS", "Santa Maria, CA").
+  "santa maria": { countries: ["BR", "US", "PH"], alone: null, afterPlace: null },
 };
 
 /**

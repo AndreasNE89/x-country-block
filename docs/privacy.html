@@ -161,7 +161,7 @@
       <p id="paid-note" hidden>Thanks for buying Focus mode. If Tamis is installed in this browser it unlocks on its own; otherwise open the Tamis popup and choose “Already bought? Restore Focus mode”.</p>
 
       <h1>Privacy policy</h1>
-      <p class="meta">Effective 24 September 2026. Tamis was previously called X Country Block.</p>
+      <p class="meta">Effective 25 September 2026. Tamis was previously called X Country Block.</p>
 
       <div class="summary">
         <ul>
@@ -178,8 +178,10 @@
         to X's own requests for posts and profiles, and the posts on screen. From them it uses each post's
         language and place tag, and for each author the handle, profile location, account language and the
         "Account based in" or "Connected via" line that X shows under About this account. It compares these
-        with your picks to decide which posts to hide or highlight. It does not add labels or flags to
-        anyone's name.
+        with your picks to decide which posts to hide or highlight. It adds no flags or labels next to
+        anyone's name. In Highlight mode, and on a matched post you open directly, it shows a short note
+        inside the post saying why it matched, for example "Tamis · Post language: Portuguese" or the
+        "Account based in" place X shows. These notes appear only in your own browser.
       </p>
 
       <h2>What Tamis stores, and where</h2>
@@ -197,7 +199,12 @@
           <strong>A cache of public profile data</strong> about accounts whose posts appeared on pages you
           opened: account ID, handle, profile location, "Account based in" or "Connected via", and account
           language. It lets matching keep working as you scroll without asking X again. It is used only for
-          matching and is never sent anywhere. Only accounts that carry a location signal are kept, at most 5,000 of them, and each entry expires after 30 days. Nothing is cached in private or incognito windows, or while no filter is active. A location an account has cleared is removed.
+          matching and is never sent anywhere. Only accounts that carry a location signal are kept, at most
+          5,000 of them, and each entry expires after 30 days. Nothing new is cached in private or incognito
+          windows, or while no filter is active. Each time you open X in a normal window, Tamis trims the
+          stored cache to these limits, even while filtering is paused or nothing is ticked. The first time
+          you open X after updating, this also clears the larger cache kept by earlier versions (X Country
+          Block 0.1.x). A location an account has cleared is removed.
         </li>
         <li>
           <strong>Focus mode status:</strong> whether you have bought Focus mode, and when a free trial

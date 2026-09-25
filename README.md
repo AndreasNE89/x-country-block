@@ -19,9 +19,10 @@ or highlighted if you want to look first.
 Open the popup and tick countries, regions or languages. Changes apply
 straight away, with no reload.
 
-- **Hide** matching posts, or **highlight** them with an outline whose
-  tooltip says why they matched. In Hide mode, reposts and quotes of a
-  match are hidden too.
+- **Hide** matching posts, or **highlight** them: an outline plus a short
+  note inside the post that says why it matched, with a one-tap "Always
+  show @handle". In Hide mode, reposts and quotes of a match are hidden
+  too.
 - 250 countries and territories, 20 regions and the 69 languages X
   detects, with search. A region covers every country in it.
 - The toolbar badge shows how many posts on the page are filtered.
@@ -50,15 +51,19 @@ posts with no signal; with nothing ticked, everything shows. A quote from
 a ticked place does not keep a parent post from elsewhere.
 
 X's location labels can be wrong, for example for people who use a VPN or
-travel. Tamis passes them on as they are and adds no labels to anyone.
+travel. Tamis passes them on as they are. It adds no flags or labels next
+to anyone's name; Highlight mode adds a note inside matched posts, shown
+only to you, saying why they matched.
 
 ## Privacy
 
 Everything runs in your browser. Tamis has no servers and no analytics.
-Your picks, your Focus mode status and a size-limited cache of public
-profile data for accounts already shown stay in `chrome.storage.local` on
-your device, and uninstalling removes them. See the
-[privacy policy](docs/privacy.html).
+Your picks, your Focus mode status and a cache of public profile data for
+accounts already shown stay in `chrome.storage.local` on your device, and
+uninstalling removes them. The cache keeps only accounts with a location
+signal, at most 5,000, each for 30 days; it is trimmed every time you open
+X, even while filtering is paused, and the larger cache from 0.1.x is
+cleared on the first run. See the [privacy policy](docs/privacy.html).
 
 ## Develop
 

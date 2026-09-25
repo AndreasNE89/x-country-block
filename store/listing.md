@@ -60,7 +60,7 @@ Location labels can be wrong, for example for people who use a VPN or travel. Ta
 PRIVATE BY DESIGN
 • Runs entirely in your browser. No extra requests to X, no servers of our own, no analytics.
 • Your picks, your Focus mode status and a cache of account locations you have already been shown stay on this device. Uninstalling removes them.
-• No flags or labels are added next to anyone's name.
+• No flags or labels next to anyone's name. Highlight mode adds a short note inside matched posts, shown only to you, saying why they matched.
 
 Tamis was previously called X Country Block. Not affiliated with or endorsed by X Corp.
 ```

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildCountryIndex, defaultCountryIndex } from "../src/shared/countries.ts";
 import { countriesFromLocation, countryFromBasedIn } from "../src/shared/match.ts";
+import { countriesForSubdivisionCode } from "../src/shared/places.ts";
 
 const real = defaultCountryIndex();
 
@@ -90,6 +91,84 @@ describe("countriesFromLocation", () => {
     expect(parse("Milan, MI")).toEqual(["US"]);
     expect(parse("Vienna, VA, USA")).toEqual(["US"]);
     expect(parse("Oxford, Georgia")).toEqual(["US"]);
+  });
+
+  it("reads a state code in lower or title case after a place (R26)", () => {
+    for (const [text, want] of [
+      ["cambridge, ma", ["US"]],
+      ["Cambridge, Ma", ["US"]],
+      ["Alexandria, Va", ["US"]],
+      ["Naples, Fl", ["US"]],
+      ["Athens, Ga.", ["US"]],
+      ["Birmingham, Al", ["US"]],
+      ["london, on", ["CA"]],
+      ["victoria, bc", ["CA"]],
+      ["Surrey, Bc", ["CA"]],
+      ["richmond, bc", ["CA"]],
+      ["newcastle, nsw", ["AU"]],
+      ["perth, wa", ["AU"]],
+      ["vancouver, wa", ["US"]],
+      ["Kingston, Ny", ["US"]],
+      ["lebanon, pa", ["US"]],
+      ["holland, mi", ["US"]],
+      ["katy, tx", ["US"]],
+      ["Orem, Ut", ["US"]],
+      ["la, ca", ["US"]],
+      ["salem, or", ["US"]],
+      ["Springfield, Mass.", ["US"]],
+      ["Pasadena, Calif.", ["US"]],
+      ["athens ga", ["US"]],
+      ["cambridge ma", ["US"]],
+      // The city's own country still wins, and lower-case ISO codes stay words.
+      ["jaipur, in", ["IN"]],
+      ["munich, de", ["DE"]],
+      ["Utrecht, nl", ["NL"]],
+      ["Lagos, ng", ["NG"]],
+      ["Somewhere, ng", []],
+      ["in my head", []],
+      ["me, myself and i", []],
+      ["coffee, tea, me", []],
+      ["yes, or no", []],
+      ["Sunday, mass", []],
+      ["houston, we have a problem", ["US"]],
+      // Lower-case "st", "mt" and "ft" before a name, as 0.1.2 read "st louis".
+      ["st louis", ["US"]],
+      ["ft lauderdale", ["US"]],
+      ["mt pleasant, sc", ["US"]],
+      ["main st", []],
+      ["Class ACT", []],
+      ["Canberra ACT", ["AU"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
+  it("reads an all-caps state code after a place (R26)", () => {
+    expect(parse("ATHENS GA")).toEqual(["US"]);
+    expect(parse("CAMBRIDGE MA")).toEqual(["US"]);
+    expect(parse("KATY TX")).toEqual(["US"]);
+    expect(parse("SAN MARCOS TX")).toEqual(["US"]);
+    for (const text of ["IN GOD WE TRUST", "LOVE YOU MA", "VR AR", "FOLLOW ME", "NO DMS"]) {
+      expect(parse(text), text).toEqual([]);
+    }
+    expect(parse("LIVING IN LA")).toEqual(["US"]);
+  });
+
+  it("reads every fixture 'City, ST' row the same in lower and title case (R26)", () => {
+    const rows = cases.filter(([text]) => /^[^,]+, [A-Z]{2,3}$/.test(text));
+    const variants = rows.flatMap(([text, expected]) => {
+      const code = text.slice(text.lastIndexOf(" ") + 1);
+      if (countriesForSubdivisionCode(code).length === 0) return [];
+      const title = `${text.slice(0, -code.length)}${code[0]}${code.slice(1).toLowerCase()}`;
+      return [
+        [text.toLowerCase(), expected],
+        [title, expected],
+      ] as [string, string[]][];
+    });
+    expect(variants.length).toBeGreaterThan(100);
+    for (const [text, expected] of variants) {
+      expect(parse(text), text).toEqual([...expected].sort());
+    }
   });
 
   it("reads a country or state name before a state code as a US town", () => {

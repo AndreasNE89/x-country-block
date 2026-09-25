@@ -230,21 +230,58 @@ const URLS = /(?:https?:\/\/|www\.)\S+|\S+@\S+\.\S+|(?:^|\s)@\w+/gi;
 // Bare domains ("site.de", "example.in/about"). The top-level part must be lower case,
 // so "St.Louis" or "Lagos.Nigeria" are kept.
 const DOMAINS = /[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.[a-z]{2,12}(?:\/\S*)?(?=$|[\s,;|)])/gu;
-// "St. Louis", "St Kitts" -> "Saint ..." so "St" is never read as São Tomé (ST).
-// All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
-const SAINT = /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L}))/gu;
-const MOUNT_FORT = /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L}))/gu;
+// "St. Louis", "St Kitts", "st louis" -> "Saint ..." so "St" is never read as São
+// Tomé (ST). All-caps forms need the dot: "MT USA" is Montana, not "Mount USA".
+const SAINT =
+  /(?<![\p{L}\p{N}])(?:(St|Ste)(?:\.\s*|\s+)(?=\p{Lu})|(ST|STE|st|ste)\.\s*(?=\p{L})|(st)\s+(?=\p{Ll}))/gu;
+const MOUNT_FORT =
+  /(?<![\p{L}\p{N}])(?:(Mt|Ft)(?:\.\s*|\s+)(?=\p{Lu})|(MT|FT|mt|ft)\.\s*(?=\p{L})|(mt|ft)\s+(?=\p{Ll}))/gu;
 
 /**
- * Two-letter codes that are ordinary words or slang. After another word in the same
- * part ("Follow ME", "Photo ID", "Tired AF") they only count when that word is a
- * known city ("Portland ME", "Kabul AF").
+ * Codes that are ordinary words or slang. After another word in the same part
+ * ("Follow ME", "Photo ID", "Tired AF", "Class ACT") they only count when that word
+ * is a known city ("Portland ME", "Kabul AF", "Canberra ACT").
  */
 const TRAILING_CODE_WORDS = new Set([
-  "AF", "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE", "HI",
-  "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST", "TO",
-  "TV", "UP", "WE",
+  "ACT", "AF", "AI", "AM", "AN", "AS", "AT", "BE", "BY", "DE", "DO", "ES", "GM", "GO", "HE",
+  "HI", "ID", "IF", "IN", "IS", "IT", "ME", "MY", "NO", "OH", "OK", "OR", "PM", "SO", "ST",
+  "TO", "TV", "UP", "WE",
 ]);
+/**
+ * US state codes that are also words or acronyms in all-caps text ("LOVE YOU MA",
+ * "VR AR", "MARVEL DC"): an all-caps "TOWN ST" needs a known city before them.
+ */
+const CAPS_WORD_CODES = new Set(["AL", "AR", "CO", "DC", "IA", "MA", "MD", "MS", "PA", "WA"]);
+/**
+ * AP-style state abbreviations ("Springfield, Mass.", "Pasadena, Calif."). Those that
+ * are also common words (Wash., Miss., Ill., Ore., Del., Ind.) are left out.
+ */
+const AP_STATE_ABBREVIATIONS: Record<string, string> = {
+  ala: "AL",
+  ariz: "AZ",
+  ark: "AR",
+  calif: "CA",
+  colo: "CO",
+  conn: "CT",
+  fla: "FL",
+  kan: "KS",
+  kans: "KS",
+  mass: "MA",
+  mich: "MI",
+  minn: "MN",
+  neb: "NE",
+  nebr: "NE",
+  nev: "NV",
+  okla: "OK",
+  oreg: "OR",
+  penn: "PA",
+  tenn: "TN",
+  wis: "WI",
+  wisc: "WI",
+  wyo: "WY",
+};
+/** Lower-case state codes that are also everyday words ("you, me", "Sunday, mass"). */
+const LOWER_CODE_WORDS = new Set(["me", "mass"]);
 /** Codes that mean nothing on their own ("IT", "OK", "PS"). */
 const STANDALONE_CODE_WORDS = new Set([
   "AI", "AM", "AS", "AT", "BE", "BY", "DJ", "DM", "DO", "GM", "HI", "IS", "IT", "MC", "ME",
@@ -306,8 +343,8 @@ function foldWord(word: string): string[] {
 function cleanLocation(text: string): string {
   return expandCompassInitials(collapseDottedInitials(text.replace(URLS, " "), true))
     .replace(DOMAINS, " ")
-    .replace(SAINT, (_match, title?: string, other?: string) =>
-      (title ?? other ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",
+    .replace(SAINT, (_match, title?: string, other?: string, lower?: string) =>
+      (title ?? other ?? lower ?? "").toLowerCase() === "ste" ? "Sainte " : "Saint ",
     )
     .replace(MOUNT_FORT, (match: string) => (match[0]!.toLowerCase() === "m" ? "Mount " : "Fort "))
     .replace(/&/g, " and ");
@@ -369,13 +406,14 @@ function parseGroup(tokens: Token[], derived: Derived): string[] {
       i += len;
       continue;
     }
-    if (isListWord(token)) {
+    const lower = token.upper ? null : lowerCaseCode(at, i, items);
+    if (!lower && isListWord(token)) {
       at.segment += 1;
       at.segmentStart = i + 1;
       i += 1;
       continue;
     }
-    const code = token.upper ? codeItem(at, i, items, derived) : null;
+    const code = token.upper || lower ? codeItem(at, i, items, derived, lower) : null;
     if (code) items.push(code);
     else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(at, i, derived));
     i += 1;
@@ -427,14 +465,46 @@ function makeItem(
 }
 
 /**
- * An upper-case code counts only where a place would go: as a whole part
- * ("Lagos, NG", "TX") or as the last word of a part after another word
- * ("Houston TX"), and never inside an all-caps sentence.
+ * A US, Canadian or Australian state code in lower or title case ("cambridge, ma",
+ * "Athens, Ga.") or an AP abbreviation ("Springfield, Mass."), returned in capitals.
+ * It counts only where "City, ST" puts it: as a whole comma part after another part,
+ * or as the last word right after a known city ("athens ga"). LOWER_CODE_WORDS also
+ * need a place right before them ("coffee, tea, me").
  */
-function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item | null {
+function lowerCaseCode(at: Cursor, i: number, items: Item[]): string | null {
   const { tokens } = at;
   const token = tokens[i]!;
-  const code = token.text.toUpperCase();
+  const code = AP_STATE_ABBREVIATIONS[token.text] ?? token.text.toUpperCase();
+  if (!/^[A-Z]{2,3}$/.test(code) || countriesForSubdivisionCode(code).length === 0) return null;
+  const before = tokens[i - 1];
+  const after = tokens[i + 1];
+  if (i <= at.segmentStart || !before || (after && after.level === token.level)) return null;
+  const prev = items[items.length - 1];
+  const adjacent = prev !== undefined && prev.end === i && prev.kind !== "region" ? prev : null;
+  if (before.level !== token.level) {
+    const needsPlace = LOWER_CODE_WORDS.has(token.text);
+    return needsPlace && (!adjacent || adjacent.kind === "code") ? null : code;
+  }
+  return adjacent?.kind === "city" && !TRAILING_CODE_WORDS.has(code) ? code : null;
+}
+
+/**
+ * An upper-case code counts only where a place would go: as a whole part
+ * ("Lagos, NG", "TX") or as the last word of a part after another word
+ * ("Houston TX"), and never inside an all-caps sentence unless it follows a
+ * known city ("ATHENS GA") or ends a short "TOWN ST" ("KATY TX").
+ * `lower` is a lower-case state code already placed by lowerCaseCode.
+ */
+function codeItem(
+  at: Cursor,
+  i: number,
+  items: Item[],
+  derived: Derived,
+  lower: string | null = null,
+): Item | null {
+  const { tokens } = at;
+  const token = tokens[i]!;
+  const code = lower ?? token.text.toUpperCase();
   if (!/^[A-Z]{2,4}$/.test(code)) return null;
   const inPart = (t: Token | undefined) => t !== undefined && t.level === token.level && !isListWord(t);
   let partStart = i;
@@ -450,7 +520,7 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   if (!whole) {
     if (!last) return null;
     const part = tokens.slice(partStart, partEnd);
-    if (part.every((t) => t.upper)) return null;
+    if (part.every((t) => t.upper) && !afterCity && !capsTownAndState(part, code)) return null;
     if (TRAILING_CODE_WORDS.has(code) && !afterCity) return null;
   }
   const hasPrefix = i > at.segmentStart;
@@ -480,6 +550,16 @@ function codeItem(at: Cursor, i: number, items: Item[], derived: Derived): Item 
   const item = make("code", countries);
   if (foreign.length > 0) item.foreign = foreign;
   return item;
+}
+
+/** All-caps "TOWN ST" or "TWO WORD TOWN ST" for a town missing from the tables. */
+function capsTownAndState(part: Token[], code: string): boolean {
+  return (
+    part.length <= 3 &&
+    US_STATE_CODES.has(code) &&
+    !TRAILING_CODE_WORDS.has(code) &&
+    !CAPS_WORD_CODES.has(code)
+  );
 }
 
 function isListWord(token: Token): boolean {

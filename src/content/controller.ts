@@ -7,6 +7,7 @@ import {
   type AboutSignals,
   type CardPaint,
   clearAllPaint,
+  ensureMarkStyles,
   findNotificationRows,
   findProfileIdentity,
   findTweetArticles,
@@ -397,6 +398,8 @@ export class ContentController {
         this.sendBadge();
         return;
       }
+      // A style an earlier build left in this tab (Firefox updates under open tabs) is replaced.
+      ensureMarkStyles(doc, false);
       const pathname = win.location.pathname;
       if (this.counter.enterPage(pathname)) this.gen += 1;
       this.refreshAbout(pathname);

@@ -5,6 +5,7 @@ import {
   ALLOW_ATTR,
   brandReason,
   clearAllPaint,
+  ensureMarkStyles,
   findNotificationRows,
   findProfileIdentity,
   findTweetArticles,
@@ -17,6 +18,7 @@ import {
   KEY_ATTR,
   layoutBox,
   MARK_ATTR,
+  MARK_CSS,
   MARK_LABEL_CLASS,
   notificationActors,
   paintCard,
@@ -128,6 +130,25 @@ describe("paintCard", () => {
     expect(clearAllPaint(document)).toBe(1);
     expect(isPainted(article, { kind: "none" }, null)).toBe(true);
     expect(document.querySelector(`.${MARK_LABEL_CLASS}`)).toBeNull();
+  });
+
+  it("replaces the stylesheet an earlier build left in the tab (R39)", () => {
+    // 0.1.2's sheet, left behind when Firefox updates the add-on under an open tab.
+    for (const old of document.querySelectorAll("#xcb-mark-style")) old.remove();
+    const old = document.createElement("style");
+    old.id = "xcb-mark-style";
+    old.textContent = `[${HIDE_ATTR}]{display:none!important}[${MARK_ATTR}]{outline:2px solid #c23b22!important}`;
+    document.head.append(old);
+    paintCard(card(), { kind: "slim", reason: "Not in your Focus picks" }, "t:111");
+    const sheets = document.querySelectorAll("#xcb-mark-style");
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]!.textContent).toBe(MARK_CSS);
+    // With create false only a stale sheet is updated; none is added.
+    sheets[0]!.remove();
+    ensureMarkStyles(document, false);
+    expect(document.getElementById("xcb-mark-style")).toBeNull();
+    ensureMarkStyles(document);
+    expect(document.getElementById("xcb-mark-style")?.textContent).toBe(MARK_CSS);
   });
 
   it("flags X's dark themes for the slim row text", () => {

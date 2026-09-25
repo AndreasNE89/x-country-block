@@ -6,6 +6,7 @@ import {
   HIDE_ATTR,
   KEY_ATTR,
   MARK_ATTR,
+  MARK_CSS,
   MARK_LABEL_CLASS,
   SLIM_ATTR,
 } from "../src/shared/hide-dom.ts";
@@ -657,3 +658,23 @@ describe("reading position when filtering stops (R10)", () => {
   });
 });
 
+describe("a stylesheet an earlier build left in the tab (R39)", () => {
+  it("is replaced on the first pass, even when every card already shows its paint", async () => {
+    for (const sheet of document.querySelectorAll("#xcb-mark-style")) sheet.remove();
+    const old = document.createElement("style");
+    old.id = "xcb-mark-style";
+    old.textContent = `[${HIDE_ATTR}]{display:none!important}`;
+    document.head.append(old);
+    // Painted by the earlier build; this one decides the same and leaves the card as it is.
+    const reason = "Not in your Focus picks";
+    page(
+      `<div data-testid="cellInnerDiv"><article data-testid="tweet" id="a1" ${KEY_ATTR}="t:1" ${SLIM_ATTR}="" ` +
+        `${HIDE_ATTR}="${reason}" title="Tamis · ${reason}"><a href="/carol/status/1">x</a></article></div>`,
+    );
+    const h = await start({ hiddenCountryCodes: ["NO"], filterMode: "only", onlyShowPaid: true, userCache: [carol] });
+    await h.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toBe(reason);
+    expect(document.querySelectorAll("#xcb-mark-style")).toHaveLength(1);
+    expect(document.getElementById("xcb-mark-style")?.textContent).toBe(MARK_CSS);
+  });
+});

@@ -57,10 +57,10 @@ describe("country search", () => {
 
 describe("region search", () => {
   it("should find regions by their other names", () => {
-    expect(ids("regions", "middle east")).toEqual(["WEST_ASIA"]);
-    expect(ids("regions", "latin america")).toEqual(["AMERICAS"]);
-    expect(ids("regions", "latam")).toEqual(["AMERICAS"]);
-    expect(ids("regions", "eur")).toEqual(["EUROPE"]);
+    expect(ids("regions", "middle east")).toEqual(["MIDDLE_EAST", "WEST_ASIA"]);
+    expect(ids("regions", "latin america")).toEqual(["LATIN_AMERICA"]);
+    expect(ids("regions", "latam")).toEqual(["LATIN_AMERICA"]);
+    expect(ids("regions", "eur")[0]).toBe("EUROPE");
   });
 });
 
@@ -73,11 +73,13 @@ describe("language search", () => {
     expect(ids("languages", "deutsch")).toEqual(["de"]);
     expect(ids("languages", "español")).toEqual(["es"]);
     expect(ids("languages", "filipino")).toEqual(["tl"]);
-    expect(ids("languages", "bokmal")).toEqual(["nb"]);
+    expect(ids("languages", "bokmal")).toEqual(["no"]);
+    expect(ids("languages", "nynorsk")).toEqual(["no"]);
   });
 
-  it("should list all three Norwegian codes for 'norsk'", () => {
-    expect(ids("languages", "norsk").sort()).toEqual(["nb", "nn", "no"]);
+  it("should show one Norwegian row, since X tags all Norwegian as no", () => {
+    expect(ids("languages", "norsk")).toEqual(["no"]);
+    expect(ids("languages", "nb")).toEqual([]);
   });
 });
 

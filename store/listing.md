@@ -4,10 +4,6 @@ Copy for the Chrome Web Store, Firefox Add-ons (AMO) and Microsoft Edge
 Add-ons. Tamis was previously called X Country Block; the store item IDs,
 the AMO slug `x-country-block` and the privacy-policy URL stay the same.
 
-Lines marked **(0.2.0)** describe the Pause switch and the always-show list,
-which are new in 0.2.0. Before pasting, check that both are in the build you
-upload: if one is, drop the marker; if it is not, delete the line.
-
 Voice: plain and factual. Filter, focus, highlight, pause, show only. Never
 "block", "ban", "foreign", "clean" or "sanitize". Demo examples stay
 neutral (Japanese + Portuguese, Norway + Norwegian, Europe); never a single
@@ -42,12 +38,12 @@ Tick countries, regions or languages in the popup. Matching posts on x.com and t
 
 FREE
 • Hide posts in languages you don't read, or from places you pick.
-• Highlight instead of hide: matches get an outline, and hovering one shows why it matched.
-• 249 countries and territories, 10 regions (Europe, South Asia, the Americas and more) and 183 languages, with search.
+• Highlight instead of hide: matches get an outline and a short line saying why they matched, with a one-tap "Always show" for that account.
+• 250 countries and territories, 20 regions (Europe, South Asia, Latin America & Caribbean and more) and 182 languages, with search.
 • The toolbar badge shows how many posts on the page are currently filtered.
 • Works on the home timeline, search, profiles and notifications. In Hide mode, reposts and quotes of a match are hidden too.
-• Pause filtering with one switch. Your picks are kept. (0.2.0)
-• Always show the accounts you choose, whatever they match. (0.2.0)
+• Pause filtering with one switch. Your picks are kept.
+• Always show the accounts you choose, whatever they match. Your own posts are never hidden.
 
 PRO: FOCUS MODE ($5.99 once, 7-day free trial)
 • Only show: keep what comes from the places and languages you tick, and set the rest aside. Useful for local news, match day, or reading only in your own languages.

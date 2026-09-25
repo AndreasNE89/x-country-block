@@ -1,5 +1,5 @@
 import { COUNTRY_ALIASES, COUNTRY_ISO3, COUNTRY_NAMES } from "../shared/countries.ts";
-import { LANGUAGES, languageName } from "../shared/languages.ts";
+import { LANGUAGES, languageName, normalizeLang } from "../shared/languages.ts";
 import { REGIONS, regionName } from "../shared/regions.ts";
 import { foldSearch, type SearchRow } from "./search.ts";
 
@@ -19,10 +19,8 @@ const LANGUAGE_ALIASES: Record<string, string[]> = {
   id: ["bahasa indonesia"],
   it: ["italiano"],
   ms: ["bahasa melayu"],
-  nb: ["norsk", "bokmal"],
   nl: ["nederlands", "flemish"],
-  nn: ["norsk", "nynorsk"],
-  no: ["norsk"],
+  no: ["norsk", "bokmal", "nynorsk"],
   pa: ["panjabi"],
   pl: ["polski"],
   ps: ["pushto"],
@@ -33,9 +31,8 @@ const LANGUAGE_ALIASES: Record<string, string[]> = {
   zh: ["mandarin", "cantonese", "putonghua"],
 };
 
-const REGION_ALIASES: Record<string, string[]> = {
-  AMERICAS: ["latam"],
-};
+// Extra search words not already in REGIONS[].phrases.
+const REGION_ALIASES: Record<string, string[]> = {};
 
 function uniqueFolded(values: string[]): string[] {
   return [...new Set(values.map(foldSearch).filter(Boolean))];
@@ -69,8 +66,10 @@ function regionRows(): SearchRow[] {
   }));
 }
 
+// Rows whose code is an alias of another row (nb, nn -> no) are left out: ticking them
+// would store a pick that settings.ts folds into the canonical code anyway.
 function languageRows(): SearchRow[] {
-  return LANGUAGES.map((row) => ({
+  return LANGUAGES.filter((row) => normalizeLang(row.code) === row.code).map((row) => ({
     id: row.code,
     label: row.name,
     code: row.code,

@@ -49,6 +49,14 @@ describe("parseSettings", () => {
     });
   });
 
+  it("stores language picks under the code X uses", () => {
+    expect(parseSettings({ hiddenLanguageCodes: ["nb", "nn", "no", "zh-CN", "iw"] }).hiddenLanguageCodes).toEqual([
+      "no",
+      "zh",
+      "he",
+    ]);
+  });
+
   it("dedupes codes", () => {
     expect(parseSettings({ hiddenCountryCodes: ["in", "IN", " In "] }).hiddenCountryCodes).toEqual(["IN"]);
   });

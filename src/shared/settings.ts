@@ -1,3 +1,4 @@
+import { normalizeLang } from "./languages.ts";
 import { onlyShowAllowed, trialStartedAtFromUnknown } from "./license.ts";
 import { REGION_IDS } from "./regions.ts";
 import type { FilterMode, Settings } from "./types.ts";
@@ -44,7 +45,7 @@ export function parseSettings(raw: unknown, now = Date.now()): Settings {
   return {
     enabled: obj.enabled !== false,
     hiddenCountryCodes: normalizeCodes(obj.hiddenCountryCodes, "upper"),
-    hiddenLanguageCodes: normalizeCodes(obj.hiddenLanguageCodes, "lower"),
+    hiddenLanguageCodes: normalizeLanguageCodes(obj.hiddenLanguageCodes),
     hiddenRegionIds: normalizeRegionIds(obj.hiddenRegionIds),
     allowedHandles: normalizeHandles(obj.allowedHandles),
     markOnly: obj.markOnly === true,
@@ -86,6 +87,16 @@ function normalizeCodes(value: unknown, caseStyle: "upper" | "lower"): string[] 
     const trimmed = item.trim();
     if (!trimmed) continue;
     out.add(caseStyle === "upper" ? trimmed.toUpperCase() : trimmed.toLowerCase());
+  }
+  return [...out];
+}
+
+/** Canonical codes, so a stored "nb" or "nn" pick becomes "no" (the code X uses). */
+function normalizeLanguageCodes(value: unknown): string[] {
+  const out = new Set<string>();
+  for (const code of normalizeCodes(value, "lower")) {
+    const canonical = normalizeLang(code);
+    if (canonical) out.add(canonical);
   }
   return [...out];
 }

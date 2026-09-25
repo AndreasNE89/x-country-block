@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import { captureAnchor, holdAnchor, restoreAnchor } from "../src/content/scroll-anchor.ts";
 
 /** A column of boxes whose layout is driven by the test: tops come from a shared table. */
@@ -144,11 +144,11 @@ describe("scroll anchor (F52)", () => {
 
   it("corrects from a ResizeObserver in the frame X re-lays out, then lets go", () => {
     const { boxes, state, win } = column([300, 300, 300, 300]);
-    const observers: { cb: () => void; targets: Element[]; disconnect: ReturnType<typeof vi.fn> }[] = [];
+    const observers: { cb: () => void; targets: Element[]; disconnect: Mock<() => void> }[] = [];
     (win as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
       entry: (typeof observers)[number];
       constructor(cb: () => void) {
-        this.entry = { cb, targets: [], disconnect: vi.fn() };
+        this.entry = { cb, targets: [], disconnect: vi.fn<() => void>() };
         observers.push(this.entry);
       }
       observe(target: Element) {

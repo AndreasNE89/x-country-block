@@ -684,5 +684,18 @@
   ["ft lauderdale", ["US"]],
   ["Class ACT", []],
   ["LOVE YOU MA", []],
-  ["VR AR", []]
+  ["VR AR", []],
+  ["San Francisco", ["US"]],
+  ["san francisco", ["US"]],
+  ["SAN FRANCISCO", ["US"]],
+  ["San Francisco 🌉", ["US"]],
+  ["san francisco, ca", ["US"]],
+  ["San Francisco, California", ["US"]],
+  ["SF Bay Area", ["US"]],
+  ["San Francisco Bay Area", ["US"]],
+  ["Mesa, AZ", ["US"]],
+  ["Plano", ["US"]],
+  ["Plano Piloto, Brasília", ["BR"]],
+  ["Stockton-on-Tees", ["GB"]],
+  ["Port St. Lucie", ["US"]]
 ]

@@ -8,12 +8,23 @@ import { countriesForSubdivisionCode } from "../src/shared/places.ts";
 
 const real = defaultCountryIndex();
 
-const cases = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fixtures/locations.json"), "utf8"),
-) as [string, string[]][];
+function fixture<T>(name: string): T {
+  return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), name), "utf8")) as T;
+}
+
+const cases = fixture<[string, string[]][]>("fixtures/locations.json");
+/** Every name in the 0.1.2 country, alias, subdivision and city tables -> its country. */
+const oldTables = fixture<Record<string, string>>("fixtures/locations-0.1.2.json");
 
 function parse(text: string): string[] {
   return [...countriesFromLocation(text, real)].sort();
+}
+
+function titleCase(text: string): string {
+  return text.replace(
+    /(^|[\s.-])(\p{Ll})/gu,
+    (_match, before: string, letter: string) => before + letter.toUpperCase(),
+  );
 }
 
 describe("real-world profile locations", () => {
@@ -24,6 +35,62 @@ describe("real-world profile locations", () => {
 
   it.each(cases)("%s", (text, expected) => {
     expect(parse(text)).toEqual([...expected].sort());
+  });
+});
+
+describe("places 0.1.2 knew (R27)", () => {
+  // Deliberate changes since 0.1.2.
+  const changed: Record<string, string[]> = {
+    // The country and the US state are both common on X; context decides.
+    georgia: [],
+    // The English county; "Surrey, BC" is still Canada.
+    surrey: ["GB"],
+    // An everyday word and name; "Dar es Salaam" still reads as Tanzania.
+    dar: [],
+    // Brackets separate parts of a location; X's own label still reads as the name.
+    "cocos (keeling) islands": [],
+  };
+
+  it("still reads every name from the 0.1.2 tables as the same country", () => {
+    expect(Object.keys(oldTables).length).toBeGreaterThan(500);
+    for (const [name, code] of Object.entries(oldTables)) {
+      const want = changed[name] ?? [code];
+      expect(parse(titleCase(name)), titleCase(name)).toEqual(want);
+      // "chad" is only the country with a capital C.
+      if (name !== "chad") expect(parse(name), name).toEqual(want);
+    }
+  });
+
+  it("reads the 50 largest US cities by name alone", () => {
+    for (const city of [
+      "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
+      "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
+      "Fort Worth", "Columbus", "Indianapolis", "Charlotte", "San Francisco", "Seattle",
+      "Denver", "Washington", "Nashville", "Oklahoma City", "El Paso", "Boston", "Portland",
+      "Las Vegas", "Detroit", "Memphis", "Louisville", "Baltimore", "Milwaukee",
+      "Albuquerque", "Tucson", "Fresno", "Sacramento", "Kansas City", "Mesa", "Atlanta",
+      "Omaha", "Colorado Springs", "Raleigh", "Long Beach", "Virginia Beach", "Miami",
+      "Oakland", "Minneapolis", "Tulsa", "Bakersfield", "Wichita", "Arlington",
+    ]) {
+      expect(parse(city), city).toEqual(["US"]);
+      expect(parse(city.toLowerCase()), city).toEqual(["US"]);
+    }
+  });
+
+  it("reads San Francisco however it is written", () => {
+    for (const text of [
+      "San Francisco",
+      "san francisco",
+      "SAN FRANCISCO",
+      "San Francisco 🌉",
+      "san francisco, ca",
+      "San Fran",
+      "SF",
+      "SF Bay Area",
+      "San Francisco Bay Area",
+    ]) {
+      expect(parse(text), text).toEqual(["US"]);
+    }
   });
 });
 

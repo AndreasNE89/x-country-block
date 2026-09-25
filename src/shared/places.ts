@@ -459,11 +459,12 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Dundee|Oxford|Cambridge|Norwich|Exeter|Sunderland|Milton Keynes|Luton|Bournemouth|" +
     "Middlesbrough|Huddersfield|Blackpool|Bolton|Stockport|Salford|Croydon|Inverness|Stirling|" +
     "Canterbury|Ipswich|Northampton|Watford|Slough|Wembley|Hackney|Brixton|Islington|" +
-    "Shoreditch|Surrey|Kingston upon Hull|Tottenham|Peckham",
+    "Shoreditch|Surrey|Kingston upon Hull|Tottenham|Peckham|Stockton-on-Tees",
   // Americas
   US:
     "New York City|NYC|Los Angeles|Cali|Chicago|Houston|Phoenix|Philadelphia|Philly|" +
-    "San Antonio|San Diego|Dallas|Austin|Jacksonville|San Jose|Fort Worth|Columbus|Charlotte|" +
+    "San Antonio|San Diego|Dallas|Austin|Jacksonville|San Jose|San Francisco|San Fran|" +
+    "Fort Worth|Columbus|Charlotte|" +
     "Indianapolis|Seattle|Denver|Washington DC|Washington D C|Nashville|Oklahoma City|El Paso|" +
     "Boston|Portland|Las Vegas|Vegas|Detroit|Memphis|Louisville|Baltimore|Milwaukee|" +
     "Albuquerque|Tucson|Fresno|Sacramento|Kansas City|Atlanta|ATL|Omaha|Colorado Springs|" +
@@ -485,7 +486,12 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Waco|McAllen|Brownsville|Galveston|Frisco|Tempe|Flagstaff|Sedona|Juneau|Fairbanks|Hilo|" +
     "Maui|Boulder|Fort Collins|Provo|Ogden|Missoula|Bozeman|Rapid City|Duluth|Cedar Rapids|" +
     "Iowa City|Biloxi|Gulfport|Macon|Clearwater|Fort Myers|Boca Raton|Kissimmee|Daytona Beach|" +
-    "Arlington|" +
+    "Arlington|Mesa|Stockton|Plano|Modesto|Yonkers|Moreno Valley|Amarillo|Huntington Beach|" +
+    "Overland Park|Grand Prairie|McKinney|Cape Coral|Newport News|Elk Grove|Rancho Cucamonga|" +
+    "Garden Grove|Pembroke Pines|Palmdale|Clarksville|Rockford|Naperville|Joliet|Bridgeport|" +
+    "Killeen|Mesquite|Pomona|Fullerton|Visalia|Olathe|Round Rock|Thousand Oaks|Murfreesboro|" +
+    "Costa Mesa|College Station|Temecula|Jefferson City|Carson City|Chesapeake|Abilene|" +
+    "Carlsbad|Port Saint Lucie|" +
     "Hampton Roads|Jersey Shore|Sin City|Motor City|Windy City|Big Apple|Chi-town|H-Town|" +
     "Dallas-Fort Worth",
   CA:
@@ -545,7 +551,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "João Pessoa|Santo André|Osasco|Jaboatão|Ribeirão Preto|Uberlândia|Sorocaba|Contagem|" +
     "Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Florianópolis|Floripa|" +
     "Niterói|Porto Velho|Macapá|Boa Vista|Rio Branco|Vila Velha|Caxias do Sul|Pelotas|Maringá|" +
-    "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty",
+    "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty|" +
+    "Plano Piloto",
   GY: "Georgetown",
   SR: "Paramaribo",
   BZ: "Belize City|Belmopan",

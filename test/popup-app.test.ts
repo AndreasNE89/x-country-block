@@ -235,6 +235,40 @@ describe("storage sync", () => {
     expect(box("de").checked).toBe(true);
   });
 
+  it("should never repaint an older state while a later change is still queued", async () => {
+    const { api, store } = await open({ hiddenLanguageCodes: ["pt"] });
+    const seen: string[] = [];
+    const snapshot = () =>
+      [
+        box("ja").checked,
+        box("de").checked,
+        document.querySelectorAll("#chips li").length,
+        $("status").textContent,
+      ].join(" / ");
+    const set = api.storage.local.set.getMockImplementation() as (items: Raw) => Promise<void>;
+    api.storage.local.set.mockImplementation(async (items: Raw) => {
+      seen.push(snapshot());
+      return set(items);
+    });
+
+    box("ja").click();
+    box("de").click();
+    const ticked = snapshot();
+    await flush();
+    expect(ticked).toBe("true / true / 3 / Hiding Portuguese, Japanese, German");
+    expect(seen).toEqual([ticked, ticked]);
+    expect(store.data.hiddenLanguageCodes).toEqual(["pt", "ja", "de"]);
+
+    seen.length = 0;
+    box("ko").click();
+    $("clear-all").click();
+    const cleared = snapshot();
+    await flush();
+    expect(cleared).toBe("false / false / 0 / Nothing ticked yet. Pick a language, country or region.");
+    expect(seen).toEqual([cleared, cleared]);
+    expect(store.data.hiddenLanguageCodes).toEqual([]);
+  });
+
   it("should pick up a change made while the first read was on its way", async () => {
     const { store } = await open({ hiddenLanguageCodes: ["pt"] }, { holdGet: true, snapshotGet: true });
     store.data.hiddenLanguageCodes = ["pt", "de"];

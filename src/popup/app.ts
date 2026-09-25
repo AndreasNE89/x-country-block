@@ -210,8 +210,12 @@ export function startPopup(options: PopupOptions): PopupHandle {
     return enqueue([field], async () => {
       const fresh = parseSettings(await readFresh([field]), now());
       const next = change(fresh[field]);
-      apply({ [field]: next });
-      paint();
+      // A later tick or Clear all on this field is already on screen. Showing `next` now would
+      // flash an older state; the last queued write re-reads and shows the merged result.
+      if ((inflight.get(field) ?? 0) <= 1) {
+        apply({ [field]: next });
+        paint();
+      }
       await api.storage.local.set({ [field]: next });
     });
   }

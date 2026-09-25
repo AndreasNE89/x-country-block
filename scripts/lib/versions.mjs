@@ -12,13 +12,19 @@ export const VERSION_FILES = [
   "CHANGELOG.md",
 ];
 
+/**
+ * Checked like VERSION_FILES, but only when present. The source archive
+ * leaves store/ out, and the version check runs inside it too.
+ */
+export const OPTIONAL_VERSION_FILES = ["store/listing.md"];
+
 const ZIP_VERSION = /x-country-block-(\d+\.\d+\.\d+)-/g;
 const CHANGELOG_HEADING = /^## \[?(\d+\.\d+\.\d+)\]?/m;
 
 /**
- * Every version a file declares. JSON files use their version fields; README
- * and BUILD use the release zip names they document; CHANGELOG uses its
- * newest entry. `undefined` means the file declares none.
+ * Every version a file declares. JSON files use their version fields; README,
+ * BUILD and the store listing use the release zip names they document;
+ * CHANGELOG uses its newest entry. `undefined` means the file declares none.
  */
 export function versionsIn(file, text) {
   if (file === "package-lock.json") {
@@ -47,12 +53,13 @@ export async function checkVersions(root) {
   const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   const declared = {};
   const problems = [];
-  for (const file of VERSION_FILES) {
+  for (const file of [...VERSION_FILES, ...OPTIONAL_VERSION_FILES]) {
     let text;
     try {
       text = await readFile(join(root, file), "utf8");
-    } catch {
-      problems.push(`${file}: missing`);
+    } catch (error) {
+      const absent = error?.code === "ENOENT" && OPTIONAL_VERSION_FILES.includes(file);
+      if (!absent) problems.push(`${file}: missing`);
       continue;
     }
     declared[file] = versionsIn(file, text);

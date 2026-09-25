@@ -95,9 +95,9 @@ package from the source archive.
 
 To release a new version, update `package.json` and `package-lock.json`
 (`npm version <x.y.z> --no-git-tag-version`), both manifests, the zip names
-in this README and BUILD.md, and add a CHANGELOG heading.
-`npm run check-version` fails until they all agree, and so do the tests
-and builds.
+in this README, BUILD.md and `store/listing.md`, and add a CHANGELOG
+heading. `npm run check-version` fails until they all agree, and so do the
+tests and builds.
 
 ### Brand and store assets
 

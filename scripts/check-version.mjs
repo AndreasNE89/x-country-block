@@ -1,5 +1,6 @@
-// Fails when package.json, the lockfile, both manifests, README, BUILD or
-// CHANGELOG disagree on the release version.
+// Fails when package.json, the lockfile, both manifests, README, BUILD,
+// CHANGELOG or the store listing (when present) disagree on the release
+// version.
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkVersions } from "./lib/versions.mjs";

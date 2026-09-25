@@ -1,8 +1,11 @@
-# Tamis store listings (0.2.0)
+# Tamis store listings
 
 Copy for the Chrome Web Store, Firefox Add-ons (AMO) and Microsoft Edge
 Add-ons. Tamis was previously called X Country Block; the store item IDs,
 the AMO slug `x-country-block` and the privacy-policy URL stay the same.
+
+The package names below carry the release version. `npm run check-version`
+fails until they match `package.json`, so update them with every bump.
 
 Voice: plain and factual. Filter, focus, highlight, pause, show only. Never
 "block", "ban", "foreign", "clean" or "sanitize". Demo examples stay

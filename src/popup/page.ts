@@ -2,8 +2,11 @@ import { isPingResponse, PING_MSG } from "../shared/messages.ts";
 import { PAID_PAGE_MATCH } from "../shared/stripe.ts";
 import type { PageState } from "./status.ts";
 
+// Where X runs; twitter.com only redirects here.
+const X_ORIGIN = "https://x.com/*";
+
 /** The manifest's host permissions; permissions.request may only ask for these. */
-export const X_ORIGINS = ["https://x.com/*", "https://twitter.com/*"];
+export const X_ORIGINS = [X_ORIGIN, "https://twitter.com/*"];
 
 // Must match the content_scripts "matches" hosts in both manifests.
 const X_HOSTS = new Set(["x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"]);
@@ -88,15 +91,12 @@ export async function paidPageAllowed(api: typeof chrome): Promise<boolean> {
 /** TabApi backed by the extension APIs, feature-checked for Firefox and older Chrome. */
 export function extensionTabApi(api: typeof chrome): TabApi {
   return {
-    // Either X host is enough: contains() is all-or-nothing, and a user who turned off the
-    // twitter.com toggle (which only redirects to x.com) still has a working Tamis on x.com.
+    // Only x.com counts. contains() is all-or-nothing, so asking about both hosts would flag
+    // a user who just turned off twitter.com; accepting twitter.com alone would say "Open
+    // x.com" on x.com, because the browser hides an x.com tab's URL without x.com access.
     hasAccess: async () => {
-      const permissions = api.permissions;
-      if (typeof permissions?.contains !== "function") return true;
-      for (const origin of X_ORIGINS) {
-        if (await permissions.contains({ origins: [origin] })) return true;
-      }
-      return false;
+      if (typeof api.permissions?.contains !== "function") return true;
+      return api.permissions.contains({ origins: [X_ORIGIN] });
     },
     activeTab: async () => {
       const [tab] = await api.tabs.query({ active: true, currentWindow: true });

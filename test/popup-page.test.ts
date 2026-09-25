@@ -61,19 +61,31 @@ describe("probePage", () => {
     expect(await probePage(api({ ping: hang }), 10)).toEqual({ kind: "no-answer", tabId: 4 });
   });
 
-  it("should ping when only x.com or only twitter.com is granted", async () => {
-    for (const granted of [["https://x.com/*"], ["https://twitter.com/*"]]) {
-      const contains = vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
-        origins.every((origin) => granted.includes(origin)),
-      );
-      const sendMessage = vi.fn(async () => ({ ok: true, count: 5, version: "0.2.0" }));
-      const chromeApi = {
-        permissions: { contains, request: vi.fn() },
-        tabs: { query: async () => [{ id: 9, url: "https://x.com/home" }], sendMessage },
-      } as unknown as typeof chrome;
-      expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "ready", tabId: 9, count: 5 });
-      expect(sendMessage).toHaveBeenCalledTimes(1);
-    }
+  // A browser shows the tab URL only to an extension with access to that host.
+  const grantedApi = (granted: readonly string[]) => {
+    const contains = vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
+      origins.every((origin) => granted.includes(origin)),
+    );
+    const sendMessage = vi.fn(async () => ({ ok: true, count: 5, version: "0.2.0" }));
+    const url = granted.includes("https://x.com/*") ? "https://x.com/home" : undefined;
+    const chromeApi = {
+      permissions: { contains, request: vi.fn() },
+      tabs: { query: async () => [{ id: 9, url }], sendMessage },
+    } as unknown as typeof chrome;
+    return { chromeApi, sendMessage };
+  };
+
+  it("should ping when x.com is granted, even with twitter.com turned off", async () => {
+    const { chromeApi, sendMessage } = grantedApi(["https://x.com/*"]);
+    expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "ready", tabId: 9, count: 5 });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ask for access when only twitter.com is granted, since X runs on x.com", async () => {
+    // Without x.com access the x.com tab's URL is hidden; "Open x.com" would be wrong there.
+    const { chromeApi, sendMessage } = grantedApi(["https://twitter.com/*"]);
+    expect(await probePage(extensionTabApi(chromeApi))).toEqual({ kind: "no-access" });
+    expect(sendMessage).not.toHaveBeenCalled();
   });
 
   it("should report no access when neither X host is granted", async () => {

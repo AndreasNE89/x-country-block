@@ -311,10 +311,13 @@ const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US", NL: "NL
  * reading wins; foreign cities of any size are in the tables, so "Jaipur, IN" and
  * "Munich, DE" still resolve by the city. Exceptions: small provinces lose to the
  * country (NL, PE, SK), and DE/SA stay undecided (Germans write "Stadt, DE";
- * "SA" is Saudi Arabia, South Australia or South Africa). Flags beat these too.
+ * "SA" is Saudi Arabia, South Australia or South Africa). MG after an unknown town
+ * is far more often Minas Gerais than Madagascar, so it stays undecided too.
+ * Flags beat these defaults.
  */
 const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   DE: null,
+  MG: null,
   NL: "NL",
   PE: "PE",
   SK: "SK",
@@ -396,22 +399,30 @@ function parseLocation(text: string, derived: Derived): string[] {
 }
 
 /**
- * A group that names only a country or state settles the city just before it, when
- * that is one of the city's readings ("Cali - Colombia", "Hyderabad | Sindh").
+ * A group that names only one place can settle the place just before it:
+ * - a country or state settles a city when it is one of the city's readings
+ *   ("Cali - Colombia", "Hyderabad | Sindh");
+ * - a lone state code of another country confirms a place there, as "City, ST"
+ *   does ("Porto Alegre - RS", "Kochi - KL", "Tijuana - BC").
  * Two unrelated places stay two places ("London | Lagos", "London / LA").
  */
 function pinAcrossGroups(groups: Item[][]): void {
   for (let g = 1; g < groups.length; g += 1) {
     const named = groups[g]!.filter((item) => item.kind !== "region");
     const place = named[0];
-    if (named.length !== 1 || !place || (place.kind !== "country" && place.kind !== "subdivision")) {
-      continue;
-    }
     const before = groups[g - 1]!.filter((item) => item.kind !== "region");
     const last = before[before.length - 1];
-    if (!last || (last.kind !== "city" && last.kind !== "ambiguous")) continue;
-    const country = place.countries[0];
-    if (country && last.countries.includes(country)) last.pinned ??= country;
+    if (named.length !== 1 || !place || !last) continue;
+    const lastIsCity = last.kind === "city" || last.kind === "ambiguous";
+    if (place.kind === "country" || place.kind === "subdivision") {
+      const country = place.countries[0];
+      if (lastIsCity && country && last.countries.includes(country)) last.pinned ??= country;
+    } else if (place.code !== undefined && !place.hasPrefix && last.kind !== "code") {
+      const confirmed = intersect(countriesForForeignStateCode(place.code), readings(last))[0];
+      if (!confirmed) continue;
+      place.pinned = confirmed;
+      if (lastIsCity) last.pinned ??= confirmed;
+    }
   }
 }
 
@@ -569,9 +580,11 @@ function codeItem(
   const countries = iso2 ? [...states, iso2] : states;
   const foreign = countriesForForeignStateCode(code).filter((c) => !countries.includes(c));
   if (countries.length === 0) {
-    // Another country's state code only confirms the place before it ("La Paz, BCS").
+    // Another country's state code only confirms the place before it ("La Paz, BCS"),
+    // or, standing alone, the group before it ("La Paz - BCS", see pinAcrossGroups).
     const confirmed = adjacent ? intersect(foreign, readings(adjacent)) : [];
-    return confirmed.length > 0 ? make("code", confirmed) : null;
+    if (confirmed.length > 0) return make("code", confirmed);
+    return whole && !hasPrefix && foreign.length > 0 ? { ...make("code", []), foreign } : null;
   }
   if (!hasPrefix && whole && STANDALONE_CODE_WORDS.has(code)) return null;
   const item = make("code", countries);
@@ -630,7 +643,10 @@ function resolveItems(items: Item[], flags: string[]): string[] {
   const settled = (item: Item): string | null | undefined => {
     if (item.pinned !== undefined) return item.pinned;
     if (item.kind === "country" || item.kind === "subdivision") return item.countries[0] ?? null;
-    if (item.kind === "code" && item.countries.length === 1) return item.countries[0]!;
+    // A code that is also another country's state code stays open for a flag ("RS 🇧🇷").
+    if (item.kind === "code" && item.countries.length === 1 && !item.foreign) {
+      return item.countries[0]!;
+    }
     return undefined;
   };
   for (const item of items) {
@@ -734,8 +750,10 @@ function fallback(item: Item): string | null {
       return (item.afterComma ? item.entry?.afterPlace : item.entry?.alone) ?? null;
     case "code": {
       const code = item.code ?? "";
+      if (item.hasPrefix && code in AFTER_PLACE_COLLISIONS) return AFTER_PLACE_COLLISIONS[code]!;
+      // One country of its own, plus other countries' state codes: that country.
+      if (item.countries.length === 1) return item.countries[0]!;
       if (!item.hasPrefix) return code in STANDALONE_COLLISIONS ? STANDALONE_COLLISIONS[code]! : null;
-      if (code in AFTER_PLACE_COLLISIONS) return AFTER_PLACE_COLLISIONS[code]!;
       return item.countries[0] ?? null;
     }
     default:

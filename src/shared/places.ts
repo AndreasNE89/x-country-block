@@ -283,7 +283,8 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Belagavi|Warangal|Guntur|Nellore|Jamshedpur|Siliguri|Bareilly|Aligarh|Moradabad|Gorakhpur|" +
     "Ajmer|Bikaner|Jalandhar|Kolhapur|Solapur|Tirupati|Vellore|Thrissur|Imphal|Shillong|" +
     "Aizawl|Kohima|Agartala|Itanagar|Gangtok|Panaji|Port Blair|Ayodhya|Mathura|Rishikesh|" +
-    "Haridwar|Nainital|Darjeeling|Secunderabad|Hyderabad Deccan|मुंबई|दिल्ली|नई दिल्ली|कोलकाता|" +
+    "Haridwar|Nainital|Darjeeling|Secunderabad|Hyderabad Deccan|Bilaspur|Bhilai|" +
+    "मुंबई|दिल्ली|नई दिल्ली|कोलकाता|" +
     "बेंगलुरु|चेन्नई|लखनऊ|जयपुर|पटना|भोपाल|इंदौर|वाराणसी",
   ID:
     "Jakarta|Surabaya|Bandung|Medan|Semarang|Makassar|Palembang|Tangerang|Depok|Bekasi|Bogor|" +
@@ -552,7 +553,12 @@ const CITIES_BY_COUNTRY: Record<string, string> = {
     "Aracaju|Feira de Santana|Cuiabá|Joinville|Juiz de Fora|Londrina|Florianópolis|Floripa|" +
     "Niterói|Porto Velho|Macapá|Boa Vista|Rio Branco|Vila Velha|Caxias do Sul|Pelotas|Maringá|" +
     "Foz do Iguaçu|Balneário Camboriú|Petrópolis|Blumenau|Campina Grande|Olinda|Búzios|Paraty|" +
-    "Plano Piloto",
+    "Plano Piloto|Vitória|Palmas|Montes Claros|Uberaba|Governador Valadares|Ipatinga|Betim|" +
+    "Divinópolis|Sete Lagoas|Santa Maria|Passo Fundo|Novo Hamburgo|Ponta Grossa|Cascavel|" +
+    "Guarapuava|Chapecó|Itajaí|Criciúma|Ilhéus|Itabuna|Vitória da Conquista|Camaçari|" +
+    "Caruaru|Petrolina|Arapiraca|Mossoró|Juazeiro do Norte|Imperatriz|Santarém|Marabá|" +
+    "Rondonópolis|Dourados|Anápolis|Cariacica|São José dos Campos|Jundiaí|Piracicaba|Bauru|" +
+    "São José do Rio Preto|Campos dos Goytacazes|Volta Redonda",
   GY: "Georgetown",
   SR: "Paramaribo",
   BZ: "Belize City|Belmopan",
@@ -647,6 +653,9 @@ export const CITY_ALT_COUNTRIES: Record<string, string[]> = {
   "niagara falls": ["US"],
   scarborough: ["GB"],
   bethlehem: ["US"],
+  vitória: ["ES"],
+  "santa maria": ["US"],
+  santarém: ["PT"],
 };
 
 export type AmbiguousPlace = {

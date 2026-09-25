@@ -259,6 +259,62 @@ describe("countriesFromLocation", () => {
     expect(parse("KA")).toEqual([]);
   });
 
+  it("reads a state code after a dash or slash by the place before it (R29)", () => {
+    for (const [text, want] of [
+      ["Porto Alegre - RS", ["BR"]],
+      ["Porto Alegre/RS", ["BR"]],
+      ["Salvador - BA", ["BR"]],
+      ["Salvador/BA", ["BR"]],
+      ["Aracaju - SE", ["BR"]],
+      ["Belo Horizonte - MG", ["BR"]],
+      ["Curitiba - PR", ["BR"]],
+      ["Porto Velho - RO", ["BR"]],
+      ["Brasil - RS", ["BR"]],
+      ["Vitória - ES", ["BR"]],
+      ["Kochi - KL", ["IN"]],
+      ["Bhopal - MP", ["IN"]],
+      ["Tijuana - BC", ["MX"]],
+      ["La Paz - BCS", ["MX"]],
+      ["RS 🇧🇷", ["BR"]],
+      // Not that place's state: the code keeps its own reading.
+      ["London / LA", ["GB", "US"]],
+      ["London / KL", ["GB", "MY"]],
+      ["Toronto / BC", ["CA"]],
+      ["Paris / PA", ["FR"]],
+      ["RS", ["RS"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
+  it("knows mid-size Brazilian cities before a state code (R29)", () => {
+    for (const text of [
+      "Vitória, ES",
+      "Palmas, TO",
+      "Montes Claros, MG",
+      "Uberaba, MG",
+      "Santa Maria, RS",
+      "Ilhéus, BA",
+      "Vitória da Conquista, BA",
+      "Caruaru, PE",
+      "Petrolina, PE",
+      "Cascavel, PR",
+      "Chapecó, SC",
+    ]) {
+      expect(parse(text), text).toEqual(["BR"]);
+    }
+    // Minas Gerais is far more common on X than Madagascar after a town.
+    expect(parse("Somewhere, MG")).toEqual([]);
+    expect(parse("Antananarivo, MG")).toEqual(["MG"]);
+    expect(parse("Uppsala, SE")).toEqual(["SE"]);
+    expect(parse("Kragujevac, RS")).toEqual(["RS"]);
+    expect(parse("Cluj, RO")).toEqual(["RO"]);
+    expect(parse("Las Palmas")).toEqual(["ES"]);
+    expect(parse("Vitoria-Gasteiz")).toEqual(["ES"]);
+    expect(parse("Vitoria, España")).toEqual(["ES"]);
+    expect(parse("Santa Maria, CA")).toEqual(["US"]);
+  });
+
   it("drops a city abbreviation that disagrees with the place before it", () => {
     expect(parse("Kochi, KL")).toEqual(["IN"]);
     expect(parse("Petaling Jaya, KL")).toEqual(["MY"]);

@@ -274,6 +274,18 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     );
   });
 
+  it("reads Brazilian state codes after a dash, slash or town as Brazil (R29)", () => {
+    expect(reason({}, { location: "Porto Alegre - RS" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Salvador/BA" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Vitória, ES" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Belo Horizonte - MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Montes Claros, MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Curitiba - PR" }, settings({ regions: ["CARIBBEAN"] }))).toBeNull();
+    expect(reason({}, { location: "Porto Alegre - RS" }, settings({ countries: ["BR"] }))).toBe(
+      "Profile location: Brazil",
+    );
+  });
+
   it("reads a bare 'NL' as the Netherlands (R30)", () => {
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
     expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();

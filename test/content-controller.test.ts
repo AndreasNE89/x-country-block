@@ -1,0 +1,434 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ContentController } from "../src/content/controller.ts";
+import { BADGE_MSG } from "../src/shared/badge.ts";
+import {
+  ALLOW_ATTR,
+  HIDE_ATTR,
+  KEY_ATTR,
+  MARK_ATTR,
+  MARK_LABEL_CLASS,
+  SLIM_ATTR,
+} from "../src/shared/hide-dom.ts";
+import { ONLY_SHOW_TRIAL_MS } from "../src/shared/license.ts";
+import { PING_MSG } from "../src/shared/messages.ts";
+import { HOOK_SOURCE, type TweetRecord, type UserRecord } from "../src/shared/types.ts";
+
+const NOW = 1_800_000_000_000;
+
+type Changes = Record<string, { oldValue?: unknown; newValue?: unknown }>;
+
+function memoryArea(initial: Record<string, unknown>) {
+  const data: Record<string, unknown> = structuredClone(initial);
+  const listeners: ((changes: Changes) => void)[] = [];
+  const area = {
+    data,
+    get: vi.fn(async (keys: string[] | readonly string[]) =>
+      Object.fromEntries(keys.filter((k) => k in data).map((k) => [k, structuredClone(data[k])])),
+    ),
+    set: vi.fn(async (items: Record<string, unknown>) => {
+      const changes: Changes = {};
+      for (const [key, value] of Object.entries(items)) {
+        changes[key] = { oldValue: data[key], newValue: structuredClone(value) };
+        data[key] = structuredClone(value);
+      }
+      for (const cb of listeners) cb(changes);
+    }),
+    remove: vi.fn(async () => {}),
+    onChanged: { addListener: (cb: (changes: Changes) => void) => listeners.push(cb) },
+  };
+  return area;
+}
+
+type Harness = Awaited<ReturnType<typeof setup>>;
+
+async function setup(stored: Record<string, unknown>, init: { incognito?: boolean; path?: string } = {}) {
+  window.history.pushState({}, "", init.path ?? "/home");
+  const area = memoryArea(stored);
+  const frames: (() => void)[] = [];
+  const timers: (() => void)[] = [];
+  let tick: () => void = () => {};
+  let onRuntimeMessage: ((m: unknown, s: unknown, r: (x?: unknown) => void) => unknown) | null = null;
+  const runtime = {
+    id: "ext" as string | undefined,
+    sendMessage: vi.fn(() => Promise.resolve()),
+    getManifest: () => ({ version: "0.2.0", name: "Tamis" }),
+    onMessage: { addListener: (cb: typeof onRuntimeMessage) => (onRuntimeMessage = cb) },
+  };
+  let now = NOW;
+  const controller = new ContentController({
+    win: window,
+    doc: document,
+    area: area as unknown as typeof chrome.storage.local,
+    runtime: runtime as unknown as typeof chrome.runtime,
+    incognito: init.incognito ?? false,
+    now: () => now,
+    raf: (cb) => frames.push(cb),
+    setTimer: (fn) => timers.push(fn),
+    clearTimer: () => {
+      timers.length = 0;
+    },
+    setRepeat: (fn) => {
+      tick = fn;
+      return 1;
+    },
+    clearRepeat: () => {},
+  });
+  await controller.start();
+  const frame = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0)); // happy-dom delivers mutations in a task
+    for (let i = 0; i < 5 && frames.length; i += 1) for (const cb of frames.splice(0)) cb();
+  };
+  await frame();
+  const post = (users: UserRecord[], tweets: TweetRecord[], init2: { origin?: string; source?: Window | null } = {}) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { source: HOOK_SOURCE, type: "graphql", users, tweets },
+        origin: init2.origin ?? window.location.origin,
+        source: init2.source === undefined ? window : init2.source,
+      }),
+    );
+  };
+  const ping = () => {
+    let response: unknown;
+    onRuntimeMessage?.({ type: PING_MSG }, {}, (r) => (response = r));
+    return response;
+  };
+  const badges = () =>
+    runtime.sendMessage.mock.calls
+      .map((call) => (call as unknown[])[0] as { type: string; count: number })
+      .filter((m) => m.type === BADGE_MSG)
+      .map((m) => m.count);
+  return {
+    controller,
+    area,
+    runtime,
+    frame,
+    post,
+    ping,
+    badges,
+    runTimers: () => {
+      for (const fn of timers.splice(0)) fn();
+    },
+    tick: () => tick(),
+    setNow: (value: number) => {
+      now = value;
+    },
+  };
+}
+
+function user(partial: Partial<UserRecord> & Pick<UserRecord, "userId">): UserRecord {
+  return { screenName: null, location: null, basedIn: null, connectedVia: null, lang: null, ...partial };
+}
+
+function tweet(partial: Partial<TweetRecord> & Pick<TweetRecord, "tweetId">): TweetRecord {
+  return { lang: null, authorId: null, place: null, quoted: null, retweeted: null, ...partial };
+}
+
+const carol = user({ userId: "10", screenName: "carol", location: "Mumbai, India" });
+const olav = user({ userId: "11", screenName: "olav", location: "Oslo, Norway" });
+
+function article(id: string, handle: string, top = 100): string {
+  return `<div data-testid="cellInnerDiv" data-top="${top}"><article data-testid="tweet" id="a${id}"><a href="/${handle}/status/${id}">x</a></article></div>`;
+}
+
+function layout(): void {
+  for (const cell of document.querySelectorAll<HTMLElement>("[data-top]")) {
+    const top = Number(cell.dataset.top);
+    const rect = () => ({ top, bottom: top + 200, height: 200, left: 0, right: 600, width: 600, x: 0, y: top, toJSON() {} }) as DOMRect;
+    cell.getBoundingClientRect = rect;
+    (cell.firstElementChild as HTMLElement).getBoundingClientRect = rect;
+  }
+}
+
+function page(html: string): void {
+  document.body.innerHTML = `<nav><a data-testid="AppTabBar_Profile_Link" href="/me">Profile</a></nav>${html}`;
+  layout();
+}
+
+const el = (id: string) => document.getElementById(id) as HTMLElement;
+
+let current: Harness | null = null;
+afterEach(() => {
+  current?.controller.stop();
+  current = null;
+  document.body.innerHTML = "";
+});
+
+async function start(stored: Record<string, unknown>, init?: { incognito?: boolean; path?: string }) {
+  current = await setup(stored, init);
+  return current;
+}
+
+describe("hiding", () => {
+  it("hides matches in every position, including below the fold and the last card (F03, F15, C07)", async () => {
+    page(article("1", "carol", 100) + article("2", "olav", 620) + article("3", "carol", 2000));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol, olav] });
+    h.post([], [tweet({ tweetId: "1", authorId: "10" }), tweet({ tweetId: "3", authorId: "10" })]);
+    await h.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("India");
+    expect(el("a3").getAttribute(HIDE_ATTR)).toContain("India");
+    expect(el("a2").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("hides a card as soon as X adds it", async () => {
+    page("");
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    document.body.insertAdjacentHTML("beforeend", article("5", "carol", 3000));
+    await h.frame();
+    expect(el("a5").getAttribute(HIDE_ATTR)).toContain("India");
+  });
+
+  it("re-checks a node X reuses for another post (F54)", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol, olav] });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+    el("a1").querySelector("a")!.setAttribute("href", "/olav/status/9");
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    expect(el("a1").hasAttribute(KEY_ATTR)).toBe(false);
+  });
+
+  it("collapses set-aside posts to slim rows in Only show", async () => {
+    page(article("1", "carol") + article("2", "olav"));
+    const h = await start({
+      hiddenCountryCodes: ["NO"],
+      filterMode: "only",
+      onlyShowPaid: true,
+      userCache: [carol, olav],
+    });
+    await h.frame();
+    expect(el("a1").hasAttribute(SLIM_ATTR)).toBe(true);
+    expect(el("a2").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("never hides the signed-in account's own posts (F17)", async () => {
+    page(article("1", "me"));
+    const h = await start({ hiddenCountryCodes: ["NO"], filterMode: "only", onlyShowPaid: true });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("outlines the post a /status/ page was opened for instead of hiding it (F17)", async () => {
+    page(article("100", "carol") + article("101", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] }, { path: "/carol/status/100" });
+    await h.frame();
+    expect(el("a100").getAttribute(MARK_ATTR)).toContain("India");
+    expect(el("a100").querySelector(`.${MARK_LABEL_CLASS}`)).not.toBeNull();
+    expect(el("a101").getAttribute(HIDE_ATTR)).toContain("India");
+  });
+
+  it("ignores records posted from another origin (F11)", async () => {
+    page(article("1", "olav"));
+    const h = await start({ hiddenCountryCodes: ["RU"] });
+    h.post([user({ userId: "11", screenName: "olav", basedIn: "Russia" })], [tweet({ tweetId: "1", authorId: "11" })], {
+      origin: "https://evil.example",
+      source: null,
+    });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    expect(h.controller.userCache.peek("11")).toBeUndefined();
+  });
+});
+
+describe("settings", () => {
+  it("clears every hide when paused and restores them when resumed", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+    await h.area.set({ enabled: false });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    expect(h.badges().at(-1)).toBe(0);
+    expect(h.ping()).toEqual({ ok: true, count: 0, version: "0.2.0" });
+    await h.area.set({ enabled: true });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+  });
+
+  it("does not reload the account cache on a settings change (C06)", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.area.set({ hiddenLanguageCodes: ["pt"] });
+    await h.area.set({ markOnly: true });
+    expect(h.area.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops Only show in an open tab when the trial ends (F56)", async () => {
+    page(article("1", "carol"));
+    const h = await start({
+      hiddenCountryCodes: ["NO"],
+      filterMode: "only",
+      trialStartedAt: NOW - ONLY_SHOW_TRIAL_MS + 30_000,
+      userCache: [carol],
+    });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+    h.setNow(NOW + 60_000);
+    h.tick();
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("offers Always show in Highlight mode and applies it (F10, F32)", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], markOnly: true, userCache: [carol] });
+    await h.frame();
+    const button = el("a1").querySelector<HTMLElement>(`[${ALLOW_ATTR}]`)!;
+    expect(button.textContent).toBe("Always show @carol");
+    button.click();
+    await vi.waitFor(() => expect(h.area.data.allowedHandles).toEqual(["carol"]));
+    await h.frame();
+    expect(el("a1").hasAttribute(MARK_ATTR)).toBe(false);
+  });
+});
+
+describe("badge and ping (F55)", () => {
+  it("counts distinct posts on the page and sends only changes", async () => {
+    page(article("1", "carol") + article("2", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.frame();
+    expect(h.badges().at(-1)).toBe(2);
+    const sent = h.badges().length;
+    document.body.insertAdjacentHTML("beforeend", "<div>unrelated</div>");
+    await h.frame();
+    expect(h.badges()).toHaveLength(sent);
+    // X unmounts a hidden cell: the count stays.
+    el("a1").parentElement!.remove();
+    await h.frame();
+    expect(h.ping()).toEqual({ ok: true, count: 2, version: "0.2.0" });
+    window.history.pushState({}, "", "/explore");
+    document.body.insertAdjacentHTML("beforeend", "<div>new page</div>");
+    await h.frame();
+    expect(h.badges().at(-1)).toBe(1);
+  });
+});
+
+describe("account cache", () => {
+  it("writes batched rows only while a filter is on", async () => {
+    page("");
+    const h = await start({});
+    h.post([carol], []);
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).not.toHaveBeenCalled();
+    await h.area.set({ hiddenCountryCodes: ["IN"] });
+    h.area.set.mockClear();
+    h.post([olav], []);
+    h.post([user({ userId: "12", screenName: "x", location: "Lima, Peru" })], []);
+    expect(h.area.set).not.toHaveBeenCalled();
+    h.runTimers();
+    expect(h.area.set).toHaveBeenCalledTimes(1);
+    expect((h.area.data.userCache as UserRecord[]).map((u) => u.userId)).toEqual(["11", "12"]);
+  });
+
+  it("never writes in a private window (C05)", async () => {
+    page("");
+    const h = await start({ hiddenCountryCodes: ["IN"] }, { incognito: true });
+    h.post([carol], []);
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).not.toHaveBeenCalled();
+  });
+
+  it("flushes on pagehide", async () => {
+    page("");
+    const h = await start({ hiddenCountryCodes: ["IN"] });
+    h.post([carol], []);
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a stored location the account has cleared, for later tabs too (F13)", async () => {
+    const lagos = { ...user({ userId: "30", screenName: "ngacct", location: "Lagos, Nigeria" }), seenAt: NOW - 1000 };
+    page(article("1", "ngacct"));
+    const a = await start({ hiddenCountryCodes: ["NG"], userCache: [lagos] });
+    await a.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("Nigeria");
+    a.post([user({ userId: "30", screenName: "ngacct", location: "" })], [tweet({ tweetId: "1", authorId: "30" })]);
+    await a.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    a.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(a.area.set).toHaveBeenCalled();
+    expect((a.area.data.userCache as UserRecord[]).map((u) => u.userId)).not.toContain("30");
+
+    // A new tab loads what tab A stored.
+    a.controller.stop();
+    page(article("1", "ngacct"));
+    const b = await start(structuredClone(a.area.data));
+    await b.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("does not write rows that never had a location", async () => {
+    page("");
+    const h = await start({ hiddenCountryCodes: ["IN"] });
+    h.post([user({ userId: "31", screenName: "quiet", location: "" })], []);
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(h.area.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("About sheet (C01)", () => {
+  it("uses X's About sheet for that account only, and never over hook data", async () => {
+    const alice = user({ userId: "20", screenName: "alice", location: "Austin, TX" });
+    page(
+      article("1", "alice") +
+        `<div role="dialog"><span>@alice</span><div><span>Account based in</span></div><div><span>Nigeria</span></div></div>`,
+    );
+    const h = await start({ hiddenCountryCodes: ["NG"], userCache: [alice] }, { path: "/alice/about" });
+    await h.frame();
+    expect(el("a1").getAttribute(HIDE_ATTR)).toContain("Nigeria");
+    expect(h.controller.userCache.peek("20")?.basedIn).toBe("Nigeria");
+    h.post([user({ userId: "20", screenName: "alice", basedIn: "United States" })], []);
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+
+  it("does not read reply text in the photo viewer as About data", async () => {
+    const alice = user({ userId: "20", screenName: "alice", location: "Austin, TX" });
+    page(
+      article("1", "alice") +
+        `<div role="dialog"><span>@alice</span><span>Account based in</span><span>Nigeria lol</span></div>`,
+    );
+    const h = await start({ hiddenCountryCodes: ["NG"], userCache: [alice] }, { path: "/alice/status/1/photo/1" });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    expect(h.controller.userCache.peek("20")?.basedIn).toBeNull();
+  });
+});
+
+describe("extension reloaded under the tab (F57)", () => {
+  it("restores the page and stops listening", async () => {
+    page(article("1", "carol"));
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] });
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(true);
+    h.runtime.id = undefined;
+    h.post([carol], [tweet({ tweetId: "1", authorId: "10" })]);
+    expect(h.controller.isStopped).toBe(true);
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    document.body.insertAdjacentHTML("beforeend", article("2", "carol"));
+    await h.frame();
+    expect(el("a2").hasAttribute(HIDE_ATTR)).toBe(false);
+  });
+});
+
+describe("account rows and notifications", () => {
+  it("hides account rows and like notifications by the acting account", async () => {
+    page(
+      `<div data-testid="UserCell" id="cell"><a href="/carol">carol</a></div>` +
+        `<div data-testid="cellInnerDiv"><article data-testid="notification" id="like"><a href="/carol">carol</a> liked your post <a href="/me/status/5">p</a></article></div>`,
+    );
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [carol] }, { path: "/notifications" });
+    h.post([user({ userId: "13", screenName: "me", location: "Oslo, Norway" })], [tweet({ tweetId: "5", authorId: "13" })]);
+    await h.frame();
+    expect(el("cell").getAttribute(HIDE_ATTR)).toContain("India");
+    expect(el("like").getAttribute(HIDE_ATTR)).toContain("India");
+    // The account row is not a post, so the badge counts only the notification.
+    expect(h.badges().at(-1)).toBe(1);
+  });
+});

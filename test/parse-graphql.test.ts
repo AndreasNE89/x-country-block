@@ -77,6 +77,7 @@ describe("parseGraphQL", () => {
       basedIn: "India",
       connectedVia: "India Android App",
       lang: null,
+      locationAccurate: null,
     });
   });
 
@@ -170,7 +171,8 @@ describe("parseGraphQL", () => {
       },
     });
     expect(parsed.users[0]?.basedIn).toBe("Nigeria");
-    expect(parsed.users[0]?.location).toBeNull();
+    // Present but blank means the account has no location now: "" so it can replace a cached one.
+    expect(parsed.users[0]?.location).toBe("");
   });
 
   it("should unwrap a retweeted status and retain its original author", () => {
@@ -206,5 +208,166 @@ describe("parseGraphQL", () => {
     const outer = parsed.tweets.find((tweet) => tweet.tweetId === "444");
     expect(outer?.retweeted?.tweetId).toBe("555");
     expect(outer?.retweeted?.authorId).toBe("u-original");
+  });
+});
+
+function userResult(id: string, screenName: string, location: string) {
+  return {
+    user_results: {
+      result: { __typename: "User", rest_id: id, core: { screen_name: screenName }, location: { location } },
+    },
+  };
+}
+
+describe("parseGraphQL quotes by reference (F14)", () => {
+  it("reads quotedRefResult and keeps the quoted tweet from the same response", () => {
+    const parsed = parseGraphQL({
+      data: {
+        entries: [
+          {
+            __typename: "Tweet",
+            rest_id: "222",
+            core: userResult("20", "ada", "Lagos, Nigeria"),
+            legacy: { lang: "en" },
+          },
+          {
+            __typename: "Tweet",
+            rest_id: "111",
+            core: userResult("10", "alice", "Austin, TX"),
+            legacy: { lang: "en" },
+            quotedRefResult: { result: { __typename: "Tweet", rest_id: "222" } },
+          },
+        ],
+      },
+    });
+    const outer = parsed.tweets.find((t) => t.tweetId === "111");
+    expect(outer?.quotedId).toBe("222");
+    expect(outer?.quoted?.authorId).toBe("20");
+  });
+
+  it("reads legacy.quoted_status_id_str", () => {
+    const parsed = parseGraphQL({
+      __typename: "Tweet",
+      rest_id: "111",
+      legacy: { lang: "en", quoted_status_id_str: "333", user_id_str: "10" },
+    });
+    expect(parsed.tweets[0]?.quotedId).toBe("333");
+    expect(parsed.tweets[0]?.quoted).toBeNull();
+  });
+
+  it("reads the quoted id through a visibility wrapper", () => {
+    const parsed = parseGraphQL({
+      __typename: "Tweet",
+      rest_id: "111",
+      legacy: { lang: "en" },
+      quoted_status_result: {
+        result: {
+          __typename: "TweetWithVisibilityResults",
+          tweet: { __typename: "Tweet", rest_id: "444", legacy: { lang: "fr" }, core: userResult("40", "zoe", "Paris") },
+        },
+      },
+    });
+    const outer = parsed.tweets.find((t) => t.tweetId === "111");
+    expect(outer?.quotedId).toBe("444");
+    expect(outer?.quoted?.lang).toBe("fr");
+  });
+
+  it("does not emit bare reference stubs as tweet records (F46)", () => {
+    const parsed = parseGraphQL({
+      __typename: "Tweet",
+      rest_id: "111",
+      legacy: { lang: "en" },
+      quotedRefResult: { result: { __typename: "Tweet", rest_id: "222" } },
+    });
+    expect(parsed.tweets.map((t) => t.tweetId)).toEqual(["111"]);
+  });
+
+  it("records the retweeted id", () => {
+    const parsed = parseGraphQL({
+      __typename: "Tweet",
+      rest_id: "900",
+      legacy: {
+        lang: "en",
+        retweeted_status_result: {
+          result: { __typename: "Tweet", rest_id: "500", legacy: { lang: "en" }, core: userResult("5", "us", "Ohio") },
+        },
+      },
+    });
+    expect(parsed.tweets.find((t) => t.tweetId === "900")?.retweetedId).toBe("500");
+  });
+});
+
+describe("parseGraphQL ids (F48)", () => {
+  it("decodes a base64 node id to the numeric user id", () => {
+    const parsed = parseGraphQL({
+      __typename: "User",
+      id: "VXNlcjo0NDE5NjM5Nw==",
+      core: { screen_name: "someone" },
+      about_profile: { account_based_in: "United States" },
+    });
+    expect(parsed.users[0]?.userId).toBe("44196397");
+    expect(parsed.users[0]?.basedIn).toBe("United States");
+  });
+
+  it("ignores node ids of the wrong kind and non-numeric ids", () => {
+    const tweetNodeId = btoa("Tweet:123");
+    expect(parseGraphQL({ __typename: "User", id: tweetNodeId, core: { screen_name: "x" } }).users).toEqual([]);
+    expect(parseGraphQL({ __typename: "User", id: "not-an-id", core: { screen_name: "x" } }).users).toEqual([]);
+    expect(parseGraphQL({ __typename: "User", id: "12345", core: { screen_name: "x" } }).users[0]?.userId).toBe(
+      "12345",
+    );
+  });
+});
+
+describe("parseGraphQL location fields", () => {
+  it("returns an empty location when X sends it blank (F13)", () => {
+    const legacy = parseGraphQL({ __typename: "User", rest_id: "1", legacy: { screen_name: "a", location: "" } });
+    expect(legacy.users[0]?.location).toBe("");
+    const absent = parseGraphQL({ __typename: "User", rest_id: "1", legacy: { screen_name: "a" } });
+    expect(absent.users[0]?.location).toBeNull();
+  });
+
+  it("keeps about_profile.location_accurate (F47)", () => {
+    const parsed = parseGraphQL({
+      __typename: "User",
+      rest_id: "9",
+      core: { screen_name: "vpn" },
+      location: { location: "Toronto, Canada" },
+      about_profile: { account_based_in: "Nigeria", location_accurate: false, source: "Canada App Store" },
+    });
+    expect(parsed.users[0]).toMatchObject({ basedIn: "Nigeria", locationAccurate: false });
+    const accurate = parseGraphQL({
+      __typename: "User",
+      rest_id: "9",
+      about_profile: { account_based_in: "Canada", location_accurate: true },
+    });
+    expect(accurate.users[0]?.locationAccurate).toBe(true);
+  });
+});
+
+describe("parseGraphQL resilience (F50)", () => {
+  it("keeps the other records when one record throws", () => {
+    const bad = {
+      __typename: "Tweet",
+      rest_id: "2",
+      get legacy(): never {
+        throw new Error("boom");
+      },
+    };
+    const parsed = parseGraphQL({
+      entries: [bad, { __typename: "Tweet", rest_id: "1", legacy: { lang: "en" }, core: userResult("10", "a", "Oslo") }],
+    });
+    expect(parsed.tweets.map((t) => t.tweetId)).toEqual(["1"]);
+    expect(parsed.users.map((u) => u.userId)).toEqual(["10"]);
+  });
+
+  it("stops at a sane depth instead of overflowing the stack", () => {
+    let deep: Record<string, unknown> = { __typename: "Tweet", rest_id: "7", legacy: { lang: "en" } };
+    for (let i = 0; i < 20_000; i += 1) deep = { child: deep };
+    const parsed = parseGraphQL({
+      top: { __typename: "Tweet", rest_id: "1", legacy: { lang: "en" } },
+      deep,
+    });
+    expect(parsed.tweets.map((t) => t.tweetId)).toEqual(["1"]);
   });
 });

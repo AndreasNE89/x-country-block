@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
 import { LANGUAGES, languageCodeFromName, languageName } from "../src/shared/languages.ts";
 import { foldText } from "../src/shared/normalize.ts";
-import {
-  actionReason,
-  cardDecision,
-  countriesFromLocation,
-  shouldHideTweet,
-  tweetDecision,
-} from "../src/shared/match.ts";
+import { actionReason, cardDecision, countriesFromLocation, tweetDecision } from "../src/shared/match.ts";
 import { regionsFromLocation } from "../src/shared/regions.ts";
 import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
@@ -88,6 +82,15 @@ function user(partial: Partial<UserRecord> = {}): UserRecord {
     lang: null,
     ...partial,
   };
+}
+
+function shouldHideTweet(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(tweetDecision(post, author, picks, countryIndex), picks) !== null;
 }
 
 function tweetMatchReason(

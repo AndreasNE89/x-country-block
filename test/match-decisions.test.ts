@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
-import { actionReason, cardDecision, shouldHideTweet, tweetDecision } from "../src/shared/match.ts";
-import type { FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
+import { actionReason, cardDecision, tweetDecision } from "../src/shared/match.ts";
+import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
 const index = defaultCountryIndex();
 
@@ -46,6 +46,15 @@ function user(partial: Partial<UserRecord> = {}): UserRecord {
     lang: null,
     ...partial,
   };
+}
+
+function shouldHideTweet(
+  post: TweetRecord,
+  author: UserRecord | undefined,
+  picks: Settings,
+  countryIndex: CountryIndex,
+): boolean {
+  return actionReason(tweetDecision(post, author, picks, countryIndex), picks) !== null;
 }
 
 function reason(post: Partial<TweetRecord>, author: Partial<UserRecord> | undefined, s: Settings) {

@@ -315,6 +315,15 @@ describe("countriesFromLocation", () => {
       ["Tijuana - BC", ["MX"]],
       ["La Paz - BCS", ["MX"]],
       ["RS 🇧🇷", ["BR"]],
+      // After a town missing from the tables, as "Town, MG": Minas Gerais is far
+      // more common than Madagascar, so MG decides nothing.
+      ["Lavras/MG", []],
+      ["Pouso Alegre - MG", []],
+      ["Pouso Alegre, MG", []],
+      ["Lavras - MG, Brasil", ["BR"]],
+      ["Antananarivo - MG", ["MG"]],
+      ["Antananarivo, MG", ["MG"]],
+      ["MG", ["MG"]],
       // Not that place's state: the code keeps its own reading.
       ["London / LA", ["GB", "US"]],
       ["London / KL", ["GB", "MY"]],

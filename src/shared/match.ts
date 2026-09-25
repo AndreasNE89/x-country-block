@@ -303,8 +303,9 @@ const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US", NL: "NL
  * "Munich, DE" still resolve by the city. Exceptions: small provinces lose to the
  * country (NL, PE, SK), and DE/SA stay undecided (Germans write "Stadt, DE";
  * "SA" is Saudi Arabia, South Australia or South Africa). MG after an unknown town
- * is far more often Minas Gerais than Madagascar, so it stays undecided too.
- * Flags beat these defaults.
+ * is far more often Minas Gerais than Madagascar, so it stays undecided too, also
+ * after a dash or slash ("Lavras/MG", see pinAcrossGroups). Flags beat these
+ * defaults.
  */
 const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   DE: null,
@@ -432,6 +433,12 @@ function pinAcrossGroups(groups: Item[][]): void {
     const place = named[0];
     const before = groups[g - 1]!.filter((item) => item.kind !== "region");
     const last = before[before.length - 1];
+    // "Lavras/MG", "Pouso Alegre - MG": a town missing from the tables, then a lone
+    // code. Read it as "Town, MG", so the codes that decide nothing there do not here.
+    const afterUnknownTown = groups[g - 1]!.length === 0 && named.length === 1 && !place?.hasPrefix;
+    if (afterUnknownTown && place?.kind === "code" && AFTER_PLACE_COLLISIONS[place.code ?? ""] === null) {
+      place.pinned = null;
+    }
     if (named.length !== 1 || !place || !last) continue;
     const lastIsCity = last.kind === "city" || last.kind === "ambiguous";
     if (place.kind === "country" || place.kind === "subdivision") {

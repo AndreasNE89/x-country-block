@@ -299,6 +299,8 @@ describe("profile locations end to end (F04, F05, F19)", () => {
     expect(reason({}, { location: "Vitória, ES" }, settings({ regions: ["EUROPE"] }))).toBeNull();
     expect(reason({}, { location: "Belo Horizonte - MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
     expect(reason({}, { location: "Montes Claros, MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Lavras/MG" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "Pouso Alegre - MG" }, settings({ countries: ["MG"] }))).toBeNull();
     expect(reason({}, { location: "Curitiba - PR" }, settings({ regions: ["CARIBBEAN"] }))).toBeNull();
     expect(reason({}, { location: "Porto Alegre - RS" }, settings({ countries: ["BR"] }))).toBe(
       "Profile location: Brazil",

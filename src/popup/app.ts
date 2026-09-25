@@ -29,7 +29,7 @@ export type PopupOptions = {
   api: typeof chrome;
   doc: Document;
   now?: () => number;
-  /** Production build: hides the dev-only "Test unlock". */
+  /** Production build: leaves out the dev-only "Test unlock" (so does __XCB_PROD__). */
   prod?: boolean;
   /** How often to re-check the active tab while the popup is open; 0 turns it off. */
   pollMs?: number;
@@ -89,8 +89,8 @@ export function startPopup(options: PopupOptions): PopupHandle {
     proPrice: $("pro-price"),
     proPay: $<HTMLButtonElement>("pro-pay"),
     proTrial: $<HTMLButtonElement>("pro-trial"),
+    proActions: $("pro-actions"),
     proHide: $<HTMLButtonElement>("pro-hide"),
-    proTest: $<HTMLButtonElement>("pro-test"),
     proRestore: $<HTMLButtonElement>("pro-restore"),
     restoreConfirm: $("restore-confirm"),
     restoreYes: $<HTMLButtonElement>("restore-yes"),
@@ -281,7 +281,6 @@ export function startPopup(options: PopupOptions): PopupHandle {
     ui.proHide.hidden = !view.card?.showSwitchToHide;
     // While "Only show" is stuck on a locked mode the card is the way out, so it stays.
     ui.proClose.hidden = Boolean(view.card?.showSwitchToHide);
-    ui.proTest.hidden = prod;
     ui.restoreConfirm.hidden = !restoreOpen;
     ui.proRestore.setAttribute("aria-expanded", String(restoreOpen));
   }
@@ -549,8 +548,16 @@ export function startPopup(options: PopupOptions): PopupHandle {
     say("Focus mode restored.");
     ui.modeOnly.focus();
   });
-  if (!prod) {
-    on(ui.proTest, "click", () => {
+  // Dev builds only. The compile-time constant lets esbuild drop this whole block from
+  // production, so neither the button nor its handler ships to the stores.
+  if (!__XCB_PROD__ && !prod) {
+    const proTest = doc.createElement("button");
+    proTest.type = "button";
+    proTest.id = "pro-test";
+    proTest.className = "btn btn-ghost";
+    proTest.textContent = "Test unlock";
+    ui.proActions.append(proTest);
+    on(proTest, "click", () => {
       if (!loaded) return;
       cardOpen = false;
       void write({ onlyShowPaid: true, filterMode: "only" });

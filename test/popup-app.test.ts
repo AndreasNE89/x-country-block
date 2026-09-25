@@ -392,14 +392,23 @@ describe("Focus mode", () => {
     expect(visible("trial-row")).toBe(false);
   });
 
-  it("should show Test unlock only in dev builds", async () => {
+  it("should not ship Test unlock in popup.html", () => {
+    expect(HTML).not.toContain("pro-test");
+    expect(HTML).not.toContain("Test unlock");
+  });
+
+  it("should add Test unlock only in dev builds", async () => {
     await open({}, { prod: true });
     $("mode-only").click();
-    expect(visible("pro-test")).toBe(false);
+    expect($("pro-test")).toBeNull();
     handle?.dispose();
-    await open({}, { prod: false });
+    const { api } = await open({}, { prod: false });
     $("mode-only").click();
     expect(visible("pro-test")).toBe(true);
+    expect($("pro-test").textContent).toBe("Test unlock");
+    $("pro-test").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenCalledWith({ onlyShowPaid: true, filterMode: "only" });
   });
 });
 

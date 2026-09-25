@@ -33,7 +33,15 @@ function memoryArea(initial: Record<string, unknown>) {
       }
       for (const cb of listeners) cb(changes);
     }),
-    remove: vi.fn(async () => {}),
+    remove: vi.fn(async (keys: string | string[]) => {
+      const changes: Changes = {};
+      for (const key of typeof keys === "string" ? [keys] : keys) {
+        if (!(key in data)) continue;
+        changes[key] = { oldValue: data[key] };
+        delete data[key];
+      }
+      for (const cb of listeners) cb(changes);
+    }),
     onChanged: { addListener: (cb: (changes: Changes) => void) => listeners.push(cb) },
   };
   return area;
@@ -124,8 +132,13 @@ function tweet(partial: Partial<TweetRecord> & Pick<TweetRecord, "tweetId">): Tw
   return { lang: null, authorId: null, place: null, quoted: null, retweeted: null, ...partial };
 }
 
-const carol = user({ userId: "10", screenName: "carol", location: "Mumbai, India" });
-const olav = user({ userId: "11", screenName: "olav", location: "Oslo, Norway" });
+/** A row as this version stores it (rows from before 0.2.0 carry no seenAt and are dropped). */
+function saved<T extends UserRecord>(row: T, seenAt = NOW): T & { seenAt: number } {
+  return { ...row, seenAt };
+}
+
+const carol = saved(user({ userId: "10", screenName: "carol", location: "Mumbai, India" }));
+const olav = saved(user({ userId: "11", screenName: "olav", location: "Oslo, Norway" }));
 
 function article(id: string, handle: string, top = 100): string {
   return `<div data-testid="cellInnerDiv" data-top="${top}"><article data-testid="tweet" id="a${id}"><a href="/${handle}/status/${id}">x</a></article></div>`;
@@ -393,7 +406,7 @@ describe("account cache", () => {
 
 describe("About sheet (C01)", () => {
   it("uses X's About sheet for that account only, and never over hook data", async () => {
-    const alice = user({ userId: "20", screenName: "alice", location: "Austin, TX" });
+    const alice = saved(user({ userId: "20", screenName: "alice", location: "Austin, TX" }));
     page(
       article("1", "alice") +
         `<div role="dialog"><span>@alice</span><div><span>Account based in</span></div><div><span>Nigeria</span></div></div>`,
@@ -408,7 +421,7 @@ describe("About sheet (C01)", () => {
   });
 
   it("does not read reply text in the photo viewer as About data", async () => {
-    const alice = user({ userId: "20", screenName: "alice", location: "Austin, TX" });
+    const alice = saved(user({ userId: "20", screenName: "alice", location: "Austin, TX" }));
     page(
       article("1", "alice") +
         `<div role="dialog"><span>@alice</span><span>Account based in</span><span>Nigeria lol</span></div>`,
@@ -451,3 +464,87 @@ describe("account rows and notifications", () => {
     expect(h.badges().at(-1)).toBe(1);
   });
 });
+
+describe("stored accounts from earlier versions (R12, R13, R34, R41)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  // Rows written by 0.1.x carry no seenAt; its About reader could take reply text for "based in".
+  const legacy = user({ userId: "20", screenName: "alice", location: "Austin, TX", basedIn: "Nigeria lolcarol@carol1hnice" });
+  const legacyQuiet = user({ userId: "21", screenName: "quiet" });
+  const noSignal = saved(user({ userId: "22", screenName: "lang_only", lang: "en" }));
+  const expired = saved(user({ userId: "23", screenName: "gone", location: "Lagos" }), NOW - 40 * DAY);
+  const storedIds = (h: Harness) => (h.area.data.userCache as UserRecord[] | undefined)?.map((u) => u.userId);
+
+  it.each([
+    ["nothing is ticked", {}],
+    ["filtering is paused", { hiddenCountryCodes: ["NG"], enabled: false }],
+    ["Focus mode is locked", { hiddenCountryCodes: ["NG"], filterMode: "only" }],
+  ])("prunes the stored copy once at startup when %s", async (_what, settings) => {
+    page("");
+    const h = await start({ ...settings, userCache: [legacy, legacyQuiet, noSignal, expired, olav] });
+    expect(h.area.set).toHaveBeenCalledTimes(1);
+    expect(storedIds(h)).toEqual(["11"]);
+    expect(h.controller.userCache.peek("20")).toBeUndefined();
+  });
+
+  it("removes the key when nothing is left, and writes nothing when nothing is dropped", async () => {
+    page("");
+    const h = await start({ userCache: [legacy, expired] });
+    expect(h.area.remove).toHaveBeenCalledWith("userCache");
+    expect("userCache" in h.area.data).toBe(false);
+    h.controller.stop();
+    const clean = await start({ userCache: [carol, olav] });
+    expect(clean.area.set).not.toHaveBeenCalled();
+    expect(clean.area.remove).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing from a private window, and still ignores the old rows there", async () => {
+    page("");
+    const h = await start({ userCache: [legacy, olav] }, { incognito: true });
+    expect(h.area.set).not.toHaveBeenCalled();
+    expect(h.area.remove).not.toHaveBeenCalled();
+    expect(h.controller.userCache.peek("20")).toBeUndefined();
+  });
+
+  it("keeps the 5,000 most recently seen rows", async () => {
+    page("");
+    const rows = Array.from({ length: 5_003 }, (_, i) =>
+      saved(user({ userId: String(1000 + i), location: "Oslo" }), NOW - 5_003 + i),
+    );
+    const h = await start({ userCache: rows });
+    const kept = storedIds(h)!;
+    expect(kept).toHaveLength(5_000);
+    expect(kept).not.toContain("1000");
+    expect(kept).toContain("6002");
+  });
+
+  it("does not filter by a 'based in' stored by 0.1.x", async () => {
+    page(article("1", "alice"));
+    const h = await start({ hiddenCountryCodes: ["NG"], userCache: [legacy] });
+    h.post([user({ userId: "20", screenName: "alice", location: "Austin, TX" })], [tweet({ tweetId: "1", authorId: "20" })]);
+    await h.frame();
+    expect(el("a1").hasAttribute(HIDE_ATTR)).toBe(false);
+    h.runTimers();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(JSON.stringify(h.area.data.userCache)).not.toContain("Nigeria");
+  });
+
+  it("writes a fresh sighting over an old row and keeps new accounts, however large the old cache", async () => {
+    page("");
+    const many = Array.from({ length: 6_001 }, (_, i) => user({ userId: String(1000 + i), location: "Paris, France" }));
+    const moved = user({ userId: "50", screenName: "moved", location: "Paris, France", lang: "fr" });
+    const h = await start({ hiddenCountryCodes: ["IN"], userCache: [...many, moved] });
+    h.post(
+      [
+        user({ userId: "50", screenName: "moved", location: "Berlin", basedIn: "Germany", lang: "de" }),
+        user({ userId: "51", screenName: "newbie", location: "Lima, Peru" }),
+      ],
+      [],
+    );
+    h.setNow(NOW + 5_000); // the batched write runs a few seconds later
+    h.runTimers();
+    const rows = h.area.data.userCache as UserRecord[];
+    expect(rows.find((u) => u.userId === "50")).toMatchObject({ location: "Berlin", lang: "de" });
+    expect(rows.map((u) => u.userId)).toContain("51");
+  });
+});
+

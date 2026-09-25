@@ -1,5 +1,5 @@
 import { BADGE_MSG } from "../shared/badge.ts";
-import { UserCache } from "../shared/cache.ts";
+import { mergeStoredRows, type StoredUser, UserCache } from "../shared/cache.ts";
 import { defaultCountryIndex } from "../shared/countries.ts";
 import {
   aboutRouteHandle,
@@ -213,15 +213,38 @@ export class ContentController {
     if (area) {
       try {
         const raw = await area.get([...SETTINGS_KEYS, "userCache"]);
-        this.state.load(raw, this.now());
-        this.users.load(parseStoredUsers(raw.userCache, this.now()));
-        this.persister.setStored(raw.userCache);
+        const now = this.now();
+        this.state.load(raw, now);
+        const rows = mergeStoredRows(parseStoredUsers(raw.userCache, now), [], now);
+        this.users.load(rows);
+        this.persister.setStored(rows);
         area.onChanged.addListener(this.onStorageChanged);
+        this.pruneStored(area, raw.userCache, rows);
       } catch {
         // fail open: defaults filter nothing
       }
     }
     this.settingsChanged();
+  }
+
+  /**
+   * Write the stored accounts back without what the cache does not keep: expired rows, rows
+   * without a location signal, rows from builds before 0.2.0 and anything past PERSIST_LIMIT.
+   * This runs whether or not a filter is on, since it only deletes, and only when something was
+   * dropped, so tabs that start together do not overwrite fresher writes for nothing. Nothing is
+   * written from a private window.
+   */
+  private pruneStored(area: StorageArea, raw: unknown, kept: StoredUser[]): void {
+    if (this.deps.incognito || raw === undefined) return;
+    if (Array.isArray(raw) && raw.length === kept.length) return;
+    try {
+      const done = kept.length > 0 ? area.set({ userCache: kept }) : area.remove("userCache");
+      void done.catch(() => {
+        // extension context gone: the next tab prunes
+      });
+    } catch {
+      // extension context invalidated
+    }
   }
 
   private orphaned(): boolean {

@@ -87,11 +87,11 @@ describe("record sanitizers", () => {
     expect(sanitizeTweet({ tweetId: "1", authorId: "u-1" })?.authorId).toBeNull();
   });
 
-  it("reads stored rows: drops junk and expired rows, dates legacy rows now", () => {
+  it("reads stored rows: drops junk, expired rows and rows from before 0.2.0 (R12, R41)", () => {
     const rows = parseStoredUsers(
       [
         { ...USER, userId: "1", seenAt: NOW - 1000 },
-        { ...USER, userId: "2" },
+        { ...USER, userId: "2", basedIn: "Nigeria lol" },
         { ...USER, userId: "3", seenAt: NOW - USER_TTL_MS - 1 },
         { userId: 5 },
         "junk",
@@ -100,7 +100,6 @@ describe("record sanitizers", () => {
     );
     expect(rows.map((r) => [r.userId, r.seenAt])).toEqual([
       ["1", NOW - 1000],
-      ["2", NOW],
     ]);
     expect(parseStoredUsers({ not: "a list" }, NOW)).toEqual([]);
   });

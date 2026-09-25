@@ -73,18 +73,19 @@ export function sanitizeList<T>(raw: unknown, clean: (row: unknown) => T | null,
 }
 
 /**
- * Rows from chrome.storage.local "userCache": malformed rows are dropped, rows from builds before
- * 0.2.0 (no seenAt) count as seen now, and rows not refreshed within the TTL are dropped.
+ * Rows from chrome.storage.local "userCache": malformed rows are dropped, and so are rows not
+ * refreshed within the TTL. Rows from builds before 0.2.0 carry no seenAt and are dropped too:
+ * they never expired, cached accounts with no location, and their "based in" may be reply text
+ * the old About reader took for X's label. X sends every account again as the user browses.
  */
 export function parseStoredUsers(raw: unknown, now: number, ttlMs = USER_TTL_MS): StoredUser[] {
   if (!Array.isArray(raw)) return [];
   const out: StoredUser[] = [];
   for (const row of raw) {
+    if (!isObject(row) || typeof row.seenAt !== "number" || !Number.isFinite(row.seenAt)) continue;
     const user = sanitizeUser(row);
     if (!user) continue;
-    const seenAt = isObject(row) && typeof row.seenAt === "number" && Number.isFinite(row.seenAt)
-      ? Math.min(row.seenAt, now)
-      : now;
+    const seenAt = Math.min(row.seenAt, now);
     if (now - seenAt > ttlMs) continue;
     out.push({ ...user, seenAt });
   }

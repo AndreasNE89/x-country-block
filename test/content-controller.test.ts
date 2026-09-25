@@ -11,7 +11,7 @@ import {
 } from "../src/shared/hide-dom.ts";
 import { ONLY_SHOW_TRIAL_MS } from "../src/shared/license.ts";
 import { PING_MSG } from "../src/shared/messages.ts";
-import { HOOK_SOURCE, type TweetRecord, type UserRecord } from "../src/shared/types.ts";
+import { HOOK_SOURCE, HOOK_VERSION, type TweetRecord, type UserRecord } from "../src/shared/types.ts";
 
 const NOW = 1_800_000_000_000;
 
@@ -82,7 +82,7 @@ async function setup(stored: Record<string, unknown>, init: { incognito?: boolea
   const post = (users: UserRecord[], tweets: TweetRecord[], init2: { origin?: string; source?: Window | null } = {}) => {
     window.dispatchEvent(
       new MessageEvent("message", {
-        data: { source: HOOK_SOURCE, type: "graphql", users, tweets },
+        data: { source: HOOK_SOURCE, type: "graphql", v: HOOK_VERSION, users, tweets },
         origin: init2.origin ?? window.location.origin,
         source: init2.source === undefined ? window : init2.source,
       }),

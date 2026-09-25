@@ -2,7 +2,7 @@
 // records to the content script. It makes no requests of its own.
 import { isGraphqlUrl, requestUrl } from "../shared/graphql-url.ts";
 import { parseGraphQL } from "../shared/parse-graphql.ts";
-import { HOOK_SOURCE, type HookMessage } from "../shared/types.ts";
+import { HOOK_INSTALLED, HOOK_SOURCE, HOOK_VERSION, type HookMessage } from "../shared/types.ts";
 
 type Send = (payload: unknown) => void;
 
@@ -11,6 +11,7 @@ export type HookWindow = {
   XMLHttpRequest: typeof XMLHttpRequest;
   postMessage: (message: unknown, targetOrigin: string) => void;
   location: { origin: string };
+  addEventListener?: (type: "message", listener: (event: MessageEvent) => void) => void;
 };
 
 const installed = new WeakSet<object>();
@@ -19,7 +20,7 @@ export function publish(win: HookWindow, payload: unknown): void {
   try {
     const parsed = parseGraphQL(payload);
     if (parsed.tweets.length === 0 && parsed.users.length === 0) return;
-    const message: HookMessage = { source: HOOK_SOURCE, type: "graphql", ...parsed };
+    const message: HookMessage = { source: HOOK_SOURCE, type: "graphql", v: HOOK_VERSION, ...parsed };
     // Same-origin only: never delivered to a frame of another origin.
     win.postMessage(message, win.location.origin);
   } catch {
@@ -89,19 +90,45 @@ export function readXhr(xhr: XMLHttpRequest, send: Send): void {
 }
 
 /**
+ * Stand down when a newer hook installs in the same page. Firefox runs the new build's hook in
+ * tabs left open across an update while the old one keeps running (page code cannot be unloaded),
+ * so each update would add a layer that clones, parses and posts every response again. The newest
+ * hook posts HOOK_INSTALLED with a token of its own; every other layer that hears it passes calls
+ * straight through from then on. Nothing is stored on window, which X could see.
+ */
+function watchForNewerHook(win: HookWindow): () => boolean {
+  let superseded = false;
+  const token = `${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}`;
+  try {
+    win.addEventListener?.("message", (event) => {
+      if (superseded || event.source !== (win as unknown)) return;
+      const data = event.data as { source?: unknown; type?: unknown; token?: unknown } | null;
+      if (data?.source === HOOK_SOURCE && data.type === HOOK_INSTALLED && data.token !== token) superseded = true;
+    });
+    win.postMessage({ source: HOOK_SOURCE, type: HOOK_INSTALLED, token }, win.location.origin);
+  } catch {
+    // fail open: keep working as the only hook
+  }
+  return () => superseded;
+}
+
+/**
  * Wrap fetch and XMLHttpRequest. The wrappers are Proxies of the originals, so they keep their
  * native name, length and toString; request URLs live in a WeakMap, not on the XHR objects.
  */
 export function installHook(win: HookWindow): void {
   if (installed.has(win)) return;
   installed.add(win);
-  const send: Send = (payload) => publish(win, payload);
+  const superseded = watchForNewerHook(win);
+  const send: Send = (payload) => {
+    if (!superseded()) publish(win, payload);
+  };
 
   win.fetch = new Proxy(win.fetch, {
     apply(target, thisArg, args: Parameters<typeof fetch>) {
       const pending = Reflect.apply(target, thisArg, args) as Promise<Response>;
       try {
-        if (isGraphqlUrl(requestUrl(args[0]))) {
+        if (!superseded() && isGraphqlUrl(requestUrl(args[0]))) {
           pending.then(
             (response) => readFetch(response, send),
             () => {
@@ -132,7 +159,7 @@ export function installHook(win: HookWindow): void {
     apply(target, thisArg, args: unknown[]) {
       try {
         const xhr = thisArg as XMLHttpRequest;
-        if (isGraphqlUrl(urls.get(xhr) ?? "")) {
+        if (!superseded() && isGraphqlUrl(urls.get(xhr) ?? "")) {
           xhr.addEventListener("load", () => readXhr(xhr, send), { once: true });
         }
       } catch {

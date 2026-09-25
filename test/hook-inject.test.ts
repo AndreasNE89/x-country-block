@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { type HookWindow, installHook, readXhr } from "../src/hook/inject.ts";
-import { HOOK_SOURCE } from "../src/shared/types.ts";
+import { HOOK_INSTALLED, HOOK_SOURCE, HOOK_VERSION } from "../src/shared/types.ts";
 
 const PAYLOAD = {
   data: {
@@ -14,7 +14,7 @@ const PAYLOAD = {
   },
 };
 
-type Posted = { message: { source: string; type: string; users: { userId: string }[] }; origin: string };
+type Posted = { message: { source: string; type: string; v?: number; users: { userId: string }[] }; origin: string };
 
 function jsonResponse(body: unknown, type = "application/json"): Response {
   return new Response(JSON.stringify(body), { headers: { "content-type": type } });
@@ -44,16 +44,26 @@ class FakeXhr {
   }
 }
 
-function fakeWindow(fetchImpl: typeof fetch = async () => jsonResponse(PAYLOAD)) {
-  const posted: Posted[] = [];
-  const win = {
+/** A page window: posted messages reach its "message" listeners in a later task, as in a browser. */
+function fakeWindow(fetchImpl: typeof fetch = async () => jsonResponse(PAYLOAD), install = installHook) {
+  const all: Posted[] = [];
+  const listeners: ((event: MessageEvent) => void)[] = [];
+  const win: HookWindow = {
     fetch: fetchImpl,
     XMLHttpRequest: class extends FakeXhr {} as unknown as typeof XMLHttpRequest,
-    postMessage: (message: unknown, origin: string) => posted.push({ message: message as Posted["message"], origin }),
+    postMessage: (message: unknown, origin: string) => {
+      all.push({ message: message as Posted["message"], origin });
+      setTimeout(() => {
+        for (const cb of listeners) cb({ data: message, origin, source: win } as unknown as MessageEvent);
+      }, 0);
+    },
     location: { origin: "https://x.com" },
-  } satisfies HookWindow;
-  installHook(win);
-  return { win, posted };
+    addEventListener: (_type, cb) => listeners.push(cb),
+  };
+  install(win);
+  // Record batches only; the hook also announces itself once.
+  const batches = () => all.filter((p) => p.message.type === "graphql");
+  return { win, batches, all };
 }
 
 async function settle(): Promise<void> {
@@ -63,23 +73,24 @@ async function settle(): Promise<void> {
 describe("fetch hook", () => {
   it("returns X's own response and posts parsed records to this origin only", async () => {
     const original = vi.fn(async () => jsonResponse(PAYLOAD));
-    const { win, posted } = fakeWindow(original);
+    const { win, batches } = fakeWindow(original);
     const response = await win.fetch("https://x.com/i/api/graphql/abc/UserByScreenName");
     expect(await response.json()).toEqual(PAYLOAD);
     await settle();
     expect(original).toHaveBeenCalledTimes(1);
-    expect(posted).toHaveLength(1);
-    expect(posted[0]!.origin).toBe("https://x.com");
-    expect(posted[0]!.message.source).toBe(HOOK_SOURCE);
-    expect(posted[0]!.message.users.map((u) => u.userId)).toEqual(["42"]);
+    expect(batches()).toHaveLength(1);
+    expect(batches()[0]!.origin).toBe("https://x.com");
+    expect(batches()[0]!.message.source).toBe(HOOK_SOURCE);
+    expect(batches()[0]!.message.v).toBe(HOOK_VERSION);
+    expect(batches()[0]!.message.users.map((u) => u.userId)).toEqual(["42"]);
   });
 
   it("ignores responses that are not GraphQL JSON", async () => {
-    const { win, posted } = fakeWindow(async () => jsonResponse(PAYLOAD, "text/html"));
+    const { win, batches } = fakeWindow(async () => jsonResponse(PAYLOAD, "text/html"));
     await win.fetch("https://x.com/i/api/graphql/abc/HomeTimeline");
     await win.fetch("https://x.com/i/api/1.1/jot/client_event.json");
     await settle();
-    expect(posted).toHaveLength(0);
+    expect(batches()).toHaveLength(0);
   });
 
   it("passes failures through untouched", async () => {
@@ -111,7 +122,7 @@ describe("XMLHttpRequest hook", () => {
   });
 
   it("reads text, json, arraybuffer and blob bodies (F50)", async () => {
-    const { win, posted } = fakeWindow();
+    const { win, batches } = fakeWindow();
     const url = "https://x.com/i/api/graphql/abc/HomeTimeline";
     const text = sendXhr(win, url);
     text.responseText = JSON.stringify(PAYLOAD);
@@ -129,13 +140,44 @@ describe("XMLHttpRequest hook", () => {
     blob.response = new Blob([JSON.stringify(PAYLOAD)], { type: "application/json" });
     blob.finish();
     await settle();
-    expect(posted).toHaveLength(4);
+    expect(batches()).toHaveLength(4);
   });
 
   it("does not listen to requests that are not GraphQL", () => {
     const { win } = fakeWindow();
     const xhr = sendXhr(win, "https://x.com/i/api/1.1/jot/client_event.json");
     expect((xhr as unknown as { listeners: unknown[] }).listeners).toHaveLength(0);
+  });
+
+  it("stands down when a newer hook.js installs in the same page (R40)", async () => {
+    const { win, batches } = fakeWindow();
+    await settle();
+    // Firefox runs the next build's hook.js in a tab left open across an update: a new bundle,
+    // with its own module state, wraps the proxies this one left.
+    vi.resetModules();
+    const next = await import("../src/hook/inject.ts");
+    next.installHook(win);
+    await settle();
+    const url = "https://x.com/i/api/graphql/abc/HomeTimeline";
+    const xhr = sendXhr(win, url);
+    xhr.responseText = JSON.stringify(PAYLOAD);
+    xhr.finish();
+    expect((xhr as unknown as { listeners: unknown[] }).listeners).toHaveLength(1);
+    const clone = vi.spyOn(Response.prototype, "clone");
+    await win.fetch(url);
+    await settle();
+    expect(clone).toHaveBeenCalledTimes(1);
+    clone.mockRestore();
+    expect(batches()).toHaveLength(2);
+  });
+
+  it("is not silenced by its own announcement", async () => {
+    const { win, batches, all } = fakeWindow();
+    await settle();
+    expect(all.filter((p) => p.message.type === HOOK_INSTALLED)).toHaveLength(1);
+    await win.fetch("https://x.com/i/api/graphql/abc/HomeTimeline");
+    await settle();
+    expect(batches()).toHaveLength(1);
   });
 
   it("skips a document body and a malformed body without throwing", () => {

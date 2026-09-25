@@ -382,19 +382,101 @@ describe("Focus mode", () => {
     expect(api.tabs.create).toHaveBeenCalledWith({ url: STRIPE_PAYMENT_LINK });
   });
 
-  it("should show the ended notice with a way back to Hide", async () => {
-    const { api } = await open({ filterMode: "only", trialStartedAt: NOW - 8 * DAY, hiddenCountryCodes: ["NO"] });
-    expect(visible("pro-card")).toBe(true);
-    expect(visible("pro-ended")).toBe(true);
-    expect($("pro-ended").textContent).toBe("Your free trial has ended. Your picks are saved.");
-    expect(visible("pro-trial")).toBe(false);
-    expect(visible("pro-close")).toBe(false);
+  const ENDED = { filterMode: "only", trialStartedAt: NOW - 8 * DAY, hiddenCountryCodes: ["NO"] };
+
+  it("should fold the ended card to one line so the list keeps its room", async () => {
+    await open(ENDED);
     expect($("status").textContent).toBe("Your free trial has ended. Nothing is filtered right now.");
+    expect(visible("pro-card")).toBe(false);
+    expect(document.body.classList.contains("card-open")).toBe(false);
+    expect(visible("trial-row")).toBe(true);
+    expect($("trial-chip").textContent).toBe("Trial ended");
+    expect(visible("trial-buy")).toBe(false);
+    expect(visible("pro-expand")).toBe(true);
+    expect($("pro-expand").textContent).toBe("Unlock or switch to Hide");
+  });
+
+  it("should open the ended card on request and fold it back with the close button", async () => {
+    await open(ENDED);
+    $("pro-expand").click();
+    expect(visible("pro-card")).toBe(true);
+    expect(visible("trial-row")).toBe(false);
+    expect(document.activeElement).toBe($("pro-title"));
+    expect($("pro-ended").textContent).toBe("Your picks are saved. Unlock Focus mode to see only them again, or switch to Hide.");
+    expect(visible("pro-trial")).toBe(false);
+    expect(visible("pro-pay")).toBe(true);
+    expect(visible("pro-close")).toBe(true);
+    $("pro-close").focus();
+    $("pro-close").click();
+    expect(visible("pro-card")).toBe(false);
+    expect(visible("trial-row")).toBe(true);
+    expect(document.activeElement).toBe($("pro-expand"));
+  });
+
+  it("should ask before Switch to Hide turns an allow-list into a hide-list", async () => {
+    const { api } = await open(ENDED);
+    $("pro-expand").click();
+    expect($("pro-hide").textContent).toBe("Switch to Hide…");
     $("pro-hide").click();
+    expect(visible("hide-confirm")).toBe(true);
+    expect($("pro-hide").getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe($("hide-keep"));
+    expect(api.storage.local.set).not.toHaveBeenCalled();
+    $("hide-keep").click();
     await flush();
     expect(api.storage.local.set).toHaveBeenCalledWith({ filterMode: "hide" });
     expect(visible("pro-card")).toBe(false);
+    expect(visible("trial-row")).toBe(false);
     expect($("status").textContent).toBe("Hiding Norway");
+    expect(document.activeElement).toBe($("mode-hide"));
+  });
+
+  it("should switch to Hide with the picks cleared, and undo that", async () => {
+    const { api, store } = await open(ENDED);
+    $("pro-expand").click();
+    $("pro-hide").click();
+    $("hide-clear").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenCalledWith({
+      filterMode: "hide",
+      hiddenCountryCodes: [],
+      hiddenLanguageCodes: [],
+      hiddenRegionIds: [],
+    });
+    expect($("status").textContent).toBe("Nothing ticked yet. Pick a language, country or region.");
+    expect(visible("undo-clear")).toBe(true);
+    expect(document.activeElement).toBe($("undo-clear"));
+    $("undo-clear").click();
+    await flush();
+    expect(store.data.hiddenCountryCodes).toEqual(["NO"]);
+  });
+
+  it("should ask first when the Hide segment would flip an allow-list", async () => {
+    const { api } = await open(ENDED);
+    $("mode-hide").click();
+    expect(visible("pro-card")).toBe(true);
+    expect(visible("hide-confirm")).toBe(true);
+    expect(document.activeElement).toBe($("hide-keep"));
+    expect(api.storage.local.set).not.toHaveBeenCalled();
+    expect($("mode-only").getAttribute("aria-checked")).toBe("true");
+    $("hide-cancel").click();
+    expect(visible("hide-confirm")).toBe(false);
+    expect(document.activeElement).toBe($("pro-hide"));
+    expect(api.storage.local.set).not.toHaveBeenCalled();
+  });
+
+  it("should switch straight to Hide when nothing is picked", async () => {
+    const { api } = await open({ filterMode: "only", trialStartedAt: NOW - 8 * DAY });
+    $("pro-expand").click();
+    expect($("pro-hide").textContent).toBe("Switch to Hide");
+    $("pro-hide").click();
+    await flush();
+    expect(api.storage.local.set).toHaveBeenCalledWith({ filterMode: "hide" });
+    handle?.dispose();
+    const second = await open({ filterMode: "only", trialStartedAt: NOW - 8 * DAY });
+    $("mode-hide").click();
+    await flush();
+    expect(second.api.storage.local.set).toHaveBeenCalledWith({ filterMode: "hide" });
   });
 
   it("should offer only Unlock after the trial when Hide is selected", async () => {
@@ -415,7 +497,9 @@ describe("Focus mode", () => {
 
   it("should not unlock with a trial start in the future", async () => {
     await open({ trialStartedAt: NOW + 30 * DAY, filterMode: "only", hiddenCountryCodes: ["NO"] });
-    expect(visible("trial-row")).toBe(false);
+    expect($("trial-chip").textContent).toBe("Trial ended");
+    expect(visible("trial-buy")).toBe(false);
+    $("pro-expand").click();
     expect(visible("pro-card")).toBe(true);
     expect(visible("pro-trial")).toBe(false);
     expect($("status").textContent).not.toContain("Showing only");

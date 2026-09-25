@@ -762,13 +762,6 @@ export const CITY_OWN_CODES: Record<string, string> = {
   trento: "TN",
 };
 
-export function countryForSubdivisionCode(code: string): string | null {
-  if (US_STATE_CODES.has(code)) return "US";
-  if (CA_PROVINCE_CODES.has(code)) return "CA";
-  if (AU_STATE_CODES.has(code)) return "AU";
-  return null;
-}
-
 /** Every country that uses this subdivision code ("WA" -> US and AU). */
 export function countriesForSubdivisionCode(code: string): string[] {
   const out: string[] = [];

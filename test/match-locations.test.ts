@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildCountryIndex, defaultCountryIndex } from "../src/shared/countries.ts";
-import { countriesFromLocation, countryFromBasedIn } from "../src/shared/match.ts";
+import { countriesFromLocation } from "../src/shared/match.ts";
 import { countriesForSubdivisionCode } from "../src/shared/places.ts";
 
 const real = defaultCountryIndex();
@@ -529,7 +529,7 @@ describe("countriesFromLocation", () => {
     expect(parse("Georgia")).toEqual([]);
     expect(parse("South Georgia")).toEqual(["US"]);
     expect(parse("South Georgia and the South Sandwich Islands")).toEqual(["GS"]);
-    expect(countryFromBasedIn("Georgia", real)).toBe("GE");
+    // X's "Account based in: Georgia" is the country: see match-decisions.test.ts.
   });
 
   it("tells similar names apart", () => {

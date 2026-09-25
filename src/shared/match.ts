@@ -28,18 +28,6 @@ import type { CountryIndex, FilterMode, Settings, TweetRecord, UserRecord } from
 
 const NOT_IN_PICKS = "Not in your Focus picks";
 
-/** Short list of the ticked items: "Japan, Norway +3". */
-export function allowListLabel(settings: Settings, max = 2): string {
-  const bits = [
-    ...settings.hiddenCountryCodes.map((code) => COUNTRY_NAMES[code] ?? code),
-    ...settings.hiddenRegionIds.map((id) => regionName(id)),
-    ...settings.hiddenLanguageCodes.map((code) => languageName(code)),
-  ];
-  if (bits.length === 0) return "your Focus picks";
-  const shown = bits.slice(0, max).join(", ");
-  return bits.length > max ? `${shown} +${bits.length - max}` : shown;
-}
-
 export function effectiveFilterMode(settings: Settings): FilterMode {
   if (settings.filterMode === "only" && settings.onlyShowUnlocked) return "only";
   return "hide";
@@ -780,10 +768,6 @@ function xLabelCountries(text: string, index: CountryIndex): string[] {
   return countriesFromLocation(text, index);
 }
 
-export function countryFromBasedIn(text: string, index: CountryIndex): string | null {
-  return xLabelCountries(text, index)[0] ?? null;
-}
-
 // ---------------------------------------------------------------------------
 // Decisions
 // ---------------------------------------------------------------------------
@@ -970,15 +954,6 @@ export function tweetDecision(
   return mergeDecision(out, authorDecision(author, settings, index));
 }
 
-export function tweetMatchReason(
-  tweet: TweetRecord,
-  author: UserRecord | undefined,
-  settings: Settings,
-  index: CountryIndex,
-): string | null {
-  return tweetDecision(tweet, author, settings, index).hit;
-}
-
 export function shouldHideTweet(
   tweet: TweetRecord,
   author: UserRecord | undefined,
@@ -988,6 +963,12 @@ export function shouldHideTweet(
   return actionReason(tweetDecision(tweet, author, settings, index), settings) !== null;
 }
 
+/**
+ * A post card: the post itself, and in Hide mode the post it quotes. The content
+ * script judges a repost by the original post (it passes that post here with
+ * `retweeted: null`), so `tweet.retweeted` is not followed. In Focus mode a quote
+ * from a picked place does not keep a parent post from elsewhere.
+ */
 export function cardDecision(
   tweet: TweetRecord,
   users: Map<string, UserRecord>,
@@ -999,47 +980,17 @@ export function cardDecision(
   if (self.hit) return self;
   const mode = effectiveFilterMode(settings);
   switch (mode) {
-    case "only": {
-      if (!tweet.retweeted) return self;
-      const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-      if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
-      return mergeDecision(self, retweeted);
-    }
+    case "only":
+      return self;
     case "hide": {
-      let out = self;
-      if (tweet.quoted) {
-        const quoted = cardDecision(tweet.quoted, users, settings, index);
-        if (quoted.hit) return { hit: `Quotes a match: ${quoted.hit}`, decided: true };
-        out = mergeDecision(out, quoted);
-      }
-      if (tweet.retweeted) {
-        const retweeted = cardDecision(tweet.retweeted, users, settings, index);
-        if (retweeted.hit) return { hit: `Repost of a match: ${retweeted.hit}`, decided: true };
-        out = mergeDecision(out, retweeted);
-      }
-      return out;
+      if (!tweet.quoted) return self;
+      const quoted = cardDecision(tweet.quoted, users, settings, index);
+      if (quoted.hit) return { hit: `Quotes a match: ${quoted.hit}`, decided: true };
+      return mergeDecision(self, quoted);
     }
     default: {
       const _never: never = mode;
       return _never;
     }
   }
-}
-
-export function cardMatchReason(
-  tweet: TweetRecord,
-  users: Map<string, UserRecord>,
-  settings: Settings,
-  index: CountryIndex,
-): string | null {
-  return cardDecision(tweet, users, settings, index).hit;
-}
-
-export function shouldHideCard(
-  tweet: TweetRecord,
-  users: Map<string, UserRecord>,
-  settings: Settings,
-  index: CountryIndex,
-): boolean {
-  return actionReason(cardDecision(tweet, users, settings, index), settings) !== null;
 }

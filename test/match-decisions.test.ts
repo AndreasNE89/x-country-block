@@ -1,15 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultCountryIndex } from "../src/shared/countries.ts";
-import {
-  actionReason,
-  allowListLabel,
-  cardDecision,
-  cardMatchReason,
-  shouldHideCard,
-  shouldHideTweet,
-  tweetDecision,
-  tweetMatchReason,
-} from "../src/shared/match.ts";
+import { actionReason, cardDecision, shouldHideTweet, tweetDecision } from "../src/shared/match.ts";
 import type { FilterMode, Settings, TweetRecord, UserRecord } from "../src/shared/types.ts";
 
 const index = defaultCountryIndex();
@@ -327,40 +318,28 @@ describe("reason wording (F59)", () => {
     expect(text).not.toMatch(/Tamis|·/);
   });
 
-  it("explains reposts and quotes", () => {
+  it("explains quotes", () => {
     const users = new Map<string, UserRecord>([
       ["outer", user({ userId: "outer", basedIn: "United Kingdom" })],
       ["inner", user({ userId: "inner", basedIn: "Nigeria" })],
     ]);
     const quote = tweet({ authorId: "outer", lang: "en", quoted: tweet({ tweetId: "2", authorId: "inner" }) });
-    const repost = tweet({ authorId: "outer", lang: "en", retweeted: tweet({ tweetId: "3", authorId: "inner" }) });
     const hideNigeria = settings({ countries: ["NG"] });
-    expect(cardMatchReason(quote, users, hideNigeria, index)).toBe(
+    const onlyNigeria = settings({ countries: ["NG"] }, "only");
+    expect(cardDecision(quote, users, hideNigeria, index).hit).toBe(
       "Quotes a match: Account based in: Nigeria (as shown by X)",
     );
-    expect(cardMatchReason(repost, users, hideNigeria, index)).toBe(
-      "Repost of a match: Account based in: Nigeria (as shown by X)",
+    // In Focus mode a quote from a pick does not keep a parent post from elsewhere.
+    expect(actionReason(cardDecision(quote, users, onlyNigeria, index), onlyNigeria)).toBe(
+      "Not in your Focus picks",
     );
-    expect(shouldHideCard(repost, users, settings({ countries: ["NG"] }, "only"), index)).toBe(false);
     expect(cardDecision(tweet({ authorId: "outer", lang: "zxx" }), users, hideNigeria, index).hit).toBeNull();
   });
 });
 
-describe("allowListLabel", () => {
-  it("shortens long lists and names languages", () => {
-    expect(allowListLabel(settings({ countries: ["JP", "NO", "IN"], regions: ["AFRICA"], languages: ["hi"] }))).toBe(
-      "Japan, Norway +3",
-    );
-    expect(allowListLabel(settings({ countries: ["IN"], languages: ["hi"] }))).toBe("India, Hindi");
-    expect(allowListLabel(settings({ languages: ["iw"] }))).toBe("Hebrew");
-    expect(allowListLabel(settings())).toBe("your Focus picks");
-    expect(allowListLabel(settings({ countries: ["JP", "NO", "IN"] }), 3)).toBe("Japan, Norway, India");
-  });
-});
-
-describe("tweetMatchReason", () => {
+describe("tweetDecision", () => {
   it("returns the hit in both modes", () => {
-    expect(tweetMatchReason(tweet({ lang: "ja" }), undefined, settings({ languages: ["ja"] }, "only"), index)).toBe(
+    expect(tweetDecision(tweet({ lang: "ja" }), undefined, settings({ languages: ["ja"] }, "only"), index).hit).toBe(
       "Post language: Japanese",
     );
   });

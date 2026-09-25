@@ -15,7 +15,14 @@ describe("confirmPaidPage", () => {
     const note = document.getElementById("paid-note") as HTMLElement;
     expect(note.hidden).toBe(false);
     expect(note.textContent).toBe(PAID_UNLOCKED_TEXT);
+    expect(note.getAttribute("role")).toBe("status");
     expect(PAID_UNLOCKED_TEXT).toBe("Tamis Focus mode is unlocked. You can close this tab.");
+  });
+
+  it("should leave the page's own #paid-note to the page's light or dark styles", async () => {
+    document.body.innerHTML = '<h1>Privacy</h1><p id="paid-note" hidden>Pro unlocked.</p>';
+    await confirmPaidPage(document, async () => ({ ok: true }));
+    expect(document.getElementById("paid-note")?.getAttribute("style")).toBeNull();
   });
 
   it("should add its own notice when the page has no #paid-note", async () => {
@@ -24,6 +31,8 @@ describe("confirmPaidPage", () => {
     expect(note).not.toBeNull();
     expect(note.textContent).toBe(PAID_UNLOCKED_TEXT);
     expect(document.body.firstElementChild).toBe(note);
+    // A page without the element has no styles for it either, so the note brings its own.
+    expect(note.getAttribute("style")).toContain("border-left");
   });
 
   it("should point to the restore link when the extension does not confirm", async () => {

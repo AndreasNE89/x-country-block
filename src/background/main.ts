@@ -35,10 +35,13 @@ async function markPaid(): Promise<void> {
   await chrome.storage.local.set({ onlyShowPaid: true });
 }
 
+// 0.1.x also stored a derived onlyShowUnlocked flag; parseSettings ignores it, so drop it.
+const LEGACY_LOCAL_KEYS = ["onlyShowUnlocked"];
+
 async function clearLegacyPayData(): Promise<void> {
   const keys = [...LEGACY_EXTPAY_KEYS];
   try {
-    await chrome.storage.local.remove(keys);
+    await chrome.storage.local.remove([...keys, ...LEGACY_LOCAL_KEYS]);
   } catch {
     // nothing to remove
   }

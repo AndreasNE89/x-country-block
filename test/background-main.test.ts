@@ -116,7 +116,7 @@ describe("background legacy ExtensionPay cleanup", () => {
     expect(installedListeners).toHaveLength(1);
     installedListeners[0]({ reason: "update", previousVersion: "0.1.2" });
     await flush();
-    expect(api.storage.local.remove).toHaveBeenCalledWith(keys);
+    expect(api.storage.local.remove).toHaveBeenCalledWith([...keys, "onlyShowUnlocked"]);
     expect(api.storage.sync?.remove).toHaveBeenCalledWith(keys);
   });
 

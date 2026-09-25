@@ -69,6 +69,13 @@ console.log(`${label} ${prod ? "production" : "development"} build ${version}: $
 if (!prod) console.log("Development build: shows the Test unlock button. Never upload it.");
 
 if (prod) {
+  // The dev-only Test unlock must never reach a store package.
+  for (const name of ["popup.html", "popup.js"]) {
+    const text = await readFile(join(dist, name), "utf8");
+    if (text.includes("pro-test") || text.includes("Test unlock")) {
+      throw new Error(`Production ${name} still contains the dev-only Test unlock.`);
+    }
+  }
   const releaseDir = join(root, "release");
   await mkdir(releaseDir, { recursive: true });
   const zipPath = join(releaseDir, `x-country-block-${version}-${target}.zip`);

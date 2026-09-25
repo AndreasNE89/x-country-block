@@ -436,8 +436,19 @@ export function startPopup(options: PopupOptions): PopupHandle {
     );
   }
 
+  let sayTimer: ReturnType<typeof setTimeout> | undefined;
+
   function say(text: string): void {
-    ui.announce.textContent = text;
+    clearTimeout(sayTimer);
+    // A live region is only read out when its text changes, so a repeat is cleared first.
+    if (ui.announce.textContent !== text) {
+      ui.announce.textContent = text;
+      return;
+    }
+    ui.announce.textContent = "";
+    sayTimer = setTimeout(() => {
+      if (!disposed) ui.announce.textContent = text;
+    }, 100);
   }
 
   // --- actions -------------------------------------------------------------
@@ -709,10 +720,20 @@ export function startPopup(options: PopupOptions): PopupHandle {
     ui.handleError.hidden = result.ok;
     ui.handleError.textContent = result.ok ? "" : result.error;
     ui.handleInput.setAttribute("aria-invalid", String(!result.ok));
-    if (!result.ok) return;
+    if (!result.ok) {
+      // A changed aria-describedby is not read out on a focused field, so say it.
+      say(result.error);
+      return;
+    }
     ui.handleInput.value = "";
     void updateList("allowedHandles", (list) => (list.includes(result.handle) ? [...list] : [...list, result.handle]));
     say(`@${result.handle} added. Their posts are always shown.`);
+  });
+  on(ui.handleInput, "input", () => {
+    if (ui.handleError.hidden) return;
+    ui.handleError.hidden = true;
+    ui.handleError.textContent = "";
+    ui.handleInput.setAttribute("aria-invalid", "false");
   });
 
   on(ui.pageAction, "click", () => {
@@ -794,6 +815,7 @@ export function startPopup(options: PopupOptions): PopupHandle {
       disposed = true;
       events.abort();
       if (timer !== undefined) clearInterval(timer);
+      clearTimeout(sayTimer);
     },
   };
 }

@@ -738,6 +738,28 @@ describe("always-shown accounts", () => {
     await flush();
     expect(api.storage.local.set).toHaveBeenLastCalledWith({ allowedHandles: [] });
   });
+
+  it("should announce why a handle was not added, every time", async () => {
+    await open();
+    const input = $<HTMLInputElement>("handle-input");
+    const submit = () => $("handle-form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    input.value = "https://x.com/home";
+    submit();
+    const error = "That link is not a profile or a post. Paste one of those, or type @name.";
+    expect($("handle-error").textContent).toBe(error);
+    expect($("announce").textContent).toBe(error);
+    // The same message again: the live region is cleared first so it is spoken again.
+    submit();
+    expect($("announce").textContent).toBe("");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect($("announce").textContent).toBe(error);
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    // Editing the field clears the stale error.
+    input.value = "@jack";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(visible("handle-error")).toBe(false);
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+  });
 });
 
 describe("footer", () => {

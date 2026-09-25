@@ -244,7 +244,7 @@ export function isNoLanguageCode(code: string | null | undefined): boolean {
 /** Languages X detects on posts (after normalizeLang). All are in LANGUAGES. */
 export const X_LANGUAGE_CODES: ReadonlySet<string> = new Set([
   "am", "ar", "bg", "bn", "bo", "ca", "chr", "cs", "cy", "da", "de", "dv", "el", "en",
-  "es", "et", "eu", "fa", "fi", "fr", "gu", "he", "hi", "ht", "hu", "hy", "id", "is",
+  "es", "et", "eu", "fa", "fi", "fr", "gu", "he", "hi", "hr", "ht", "hu", "hy", "id", "is",
   "it", "ja", "ka", "km", "kn", "ko", "ku", "lo", "lt", "lv", "ml", "mr", "ms", "my",
   "ne", "nl", "no", "or", "pa", "pl", "ps", "pt", "ro", "ru", "sd", "si", "sk", "sl",
   "sr", "sv", "ta", "te", "th", "tl", "tr", "ug", "uk", "ur", "vi", "zh",

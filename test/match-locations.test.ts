@@ -308,14 +308,84 @@ describe("countriesFromLocation", () => {
     expect(parse("Springfield, IL, USA")).toEqual(["US"]);
   });
 
-  it("leaves a bare colliding code undecided, except LA", () => {
+  it("leaves a bare colliding code undecided, except LA, NL and SK", () => {
     expect(parse("MA")).toEqual([]);
     expect(parse("IN")).toEqual([]);
     expect(parse("CA")).toEqual([]);
+    expect(parse("PE")).toEqual([]);
     expect(parse("LA")).toEqual(["US"]);
     expect(parse("TX")).toEqual(["US"]);
     expect(parse("FR")).toEqual(["FR"]);
     expect(parse("IT")).toEqual([]);
+    // Small provinces lose to the country, as after a place (R30).
+    expect(parse("NL")).toEqual(["NL"]);
+    expect(parse("NL.")).toEqual(["NL"]);
+    expect(parse("SK")).toEqual(["SK"]);
+    expect(parse("NL, Europe")).toEqual(["NL"]);
+    expect(parse("NL / EU")).toEqual(["NL"]);
+  });
+
+  it("lets a flag pick between the readings of a bare code (R30)", () => {
+    expect(parse("NL 🇨🇦")).toEqual(["CA"]);
+    expect(parse("PE 🇧🇷")).toEqual(["BR"]);
+    expect(parse("LA 🇱🇦")).toEqual(["LA"]);
+    expect(parse("MA 🇲🇦")).toEqual(["MA"]);
+    expect(parse("CA 🇨🇦")).toEqual(["CA"]);
+  });
+
+  it("lets a country or state after a separator decide which city is meant (R28)", () => {
+    for (const [text, want] of [
+      ["Cali - Colombia", ["CO"]],
+      ["Cali | Colombia", ["CO"]],
+      ["Cali/Colombia", ["CO"]],
+      ["Cali — Colombia", ["CO"]],
+      ["Cali. Colombia", ["CO"]],
+      ["Cali; Colombia", ["CO"]],
+      ["Cali • Colombia", ["CO"]],
+      ["Valencia - Venezuela", ["VE"]],
+      ["Barcelona - Venezuela", ["VE"]],
+      ["Mérida - Venezuela", ["VE"]],
+      ["San José - Costa Rica", ["CR"]],
+      ["León - Nicaragua", ["NI"]],
+      ["Granada - Nicaragua", ["NI"]],
+      ["Tripoli - Lebanon", ["LB"]],
+      ["Hyderabad | Sindh", ["PK"]],
+      ["Santiago - República Dominicana", ["DO"]],
+      ["Córdoba - España", ["ES"]],
+      ["Paris - Texas", ["US"]],
+      ["London - Ontario", ["CA"]],
+      // Two unrelated places stay two places.
+      ["London | Lagos", ["GB", "NG"]],
+      ["London / LA", ["GB", "US"]],
+      ["Paris / LA", ["FR", "US"]],
+      ["London / Toronto", ["CA", "GB"]],
+      ["Karachi, Pakistan | Dallas, TX", ["PK", "US"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
+  });
+
+  it("lets a flag pick between a place's own readings, never add one (R28)", () => {
+    for (const [text, want] of [
+      ["Cali 🇨🇴", ["CO"]],
+      ["Valencia 🇻🇪", ["VE"]],
+      ["Hyderabad 🇵🇰", ["PK"]],
+      ["Santiago 🇩🇴", ["DO"]],
+      ["London 🇨🇦", ["CA"]],
+      ["Victoria 🇨🇦", ["CA"]],
+      ["Kingston 🇨🇦", ["CA"]],
+      ["Georgia 🇺🇸", ["US"]],
+      ["Georgia 🇬🇪", ["GE"]],
+      // A flag that is not one of the place's readings changes nothing.
+      ["NYC 🇺🇦", ["US"]],
+      ["London 🇳🇬", ["GB"]],
+      ["London 🇬🇧🇨🇦", ["GB"]],
+      // The words beat the flag.
+      ["Paris, Texas 🇫🇷", ["US"]],
+      ["Cali, Colombia 🇺🇸", ["CO"]],
+    ] as [string, string[]][]) {
+      expect(parse(text), text).toEqual(want);
+    }
   });
 
   it("keeps every place in a multi-location text (F19)", () => {

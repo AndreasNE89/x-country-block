@@ -247,6 +247,37 @@ describe("profile locations end to end (F04, F05, F19)", () => {
       reason({ lang: "en" }, { location: "Valdosta, South Georgia" }, settings({ regions: ["LATIN_AMERICA"] })),
     ).toBeNull();
   });
+
+  it("reads 'City, st' in any case as the US town (R26)", () => {
+    expect(reason({}, { location: "cambridge, ma" }, settings({ countries: ["GB"] }))).toBeNull();
+    expect(reason({}, { location: "Naples, Fl" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Alexandria, Va" }, settings({ regions: ["AFRICA"] }))).toBeNull();
+    expect(reason({}, { location: "katy, tx" }, settings({ countries: ["US"] }, "only"))).toBeNull();
+    expect(reason({}, { location: "katy, tx" }, settings({ countries: ["US"] }))).toBe(
+      "Profile location: United States",
+    );
+  });
+
+  it("reads San Francisco as the US (R27)", () => {
+    expect(reason({}, { location: "San Francisco" }, settings({ countries: ["US"] }))).toBe(
+      "Profile location: United States",
+    );
+    expect(reason({}, { location: "San Francisco" }, settings({ countries: ["US"] }, "only"))).toBeNull();
+  });
+
+  it("lets a country after a separator or a flag pick the city (R28)", () => {
+    expect(reason({}, { location: "Cali - Colombia" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Valencia - Venezuela" }, settings({ regions: ["EUROPE"] }))).toBeNull();
+    expect(reason({}, { location: "Cali 🇨🇴" }, settings({ countries: ["US"] }))).toBeNull();
+    expect(reason({}, { location: "Cali - Colombia" }, settings({ countries: ["CO"] }))).toBe(
+      "Profile location: Colombia",
+    );
+  });
+
+  it("reads a bare 'NL' as the Netherlands (R30)", () => {
+    expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }))).toBe("Profile location: Netherlands");
+    expect(reason({}, { location: "NL" }, settings({ countries: ["NL"] }, "only"))).toBeNull();
+  });
 });
 
 describe("reason wording (F59)", () => {

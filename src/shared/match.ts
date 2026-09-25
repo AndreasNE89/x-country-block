@@ -299,16 +299,19 @@ const ACRONYM_CODES = new Set([
 /**
  * A bare code that is both a country and a US/Canadian/Australian state ("MA",
  * "IN", "CA") is ambiguous on its own and decides nothing, except "LA", which on X
- * is Los Angeles far more often than Laos.
+ * is Los Angeles far more often than Laos, and the small provinces that lose to the
+ * country as they do after a place (NL, SK). "PE" stays open: Peru, Prince Edward
+ * Island and Brazil's Pernambuco are all common. A flag that names one of the
+ * readings beats these defaults ("LA 🇱🇦", "NL 🇨🇦").
  */
-const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US" };
+const STANDALONE_COLLISIONS: Record<string, string | null> = { LA: "US", NL: "NL", SK: "SK" };
 /**
  * "City, XX" where the city is not in the tables and XX is both a state code and a
  * country code. US "City, ST" is by far the most common form on X, so the state
  * reading wins; foreign cities of any size are in the tables, so "Jaipur, IN" and
  * "Munich, DE" still resolve by the city. Exceptions: small provinces lose to the
  * country (NL, PE, SK), and DE/SA stay undecided (Germans write "Stadt, DE";
- * "SA" is Saudi Arabia, South Australia or South Africa).
+ * "SA" is Saudi Arabia, South Australia or South Africa). Flags beat these too.
  */
 const AFTER_PLACE_COLLISIONS: Record<string, string | null> = {
   DE: null,
@@ -377,15 +380,39 @@ export function countriesFromLocation(text: string, index: CountryIndex): string
 function parseLocation(text: string, derived: Derived): string[] {
   const flags = flagCountryCodes(text).filter((code) => code in COUNTRY_NAMES || derived.iso2.has(code));
   const cleaned = cleanLocation(stripFlags(text));
-  const out = new Set<string>();
+  const groups: Item[][] = [];
   for (const group of cleaned.split(GROUP_SEPARATOR)) {
     if (!group || !group.trim()) continue;
-    for (const code of parseGroup(tokenizeGroup(group), derived)) out.add(code);
+    groups.push(parseGroup(tokenizeGroup(group), derived));
   }
-  // Flags are a fallback: many profiles add them for heritage or solidarity
-  // next to the place they live ("NYC 🇺🇦").
+  pinAcrossGroups(groups);
+  const out = new Set<string>();
+  for (const items of groups) for (const code of resolveItems(items, flags)) out.add(code);
+  // Flags never add a country next to a named place: many profiles add them for
+  // heritage or solidarity ("NYC 🇺🇦"). They only pick between the readings of a
+  // place the words leave open ("Cali 🇨🇴"), or stand in when no place is named.
   if (out.size === 0) for (const code of flags) out.add(code);
   return [...out];
+}
+
+/**
+ * A group that names only a country or state settles the city just before it, when
+ * that is one of the city's readings ("Cali - Colombia", "Hyderabad | Sindh").
+ * Two unrelated places stay two places ("London | Lagos", "London / LA").
+ */
+function pinAcrossGroups(groups: Item[][]): void {
+  for (let g = 1; g < groups.length; g += 1) {
+    const named = groups[g]!.filter((item) => item.kind !== "region");
+    const place = named[0];
+    if (named.length !== 1 || !place || (place.kind !== "country" && place.kind !== "subdivision")) {
+      continue;
+    }
+    const before = groups[g - 1]!.filter((item) => item.kind !== "region");
+    const last = before[before.length - 1];
+    if (!last || (last.kind !== "city" && last.kind !== "ambiguous")) continue;
+    const country = place.countries[0];
+    if (country && last.countries.includes(country)) last.pinned ??= country;
+  }
 }
 
 /**
@@ -393,7 +420,7 @@ function parseLocation(text: string, derived: Derived): string[] {
  * List words that no phrase consumed ("Berlin & LA") start a new segment: places on
  * either side are listed side by side, not one inside the other.
  */
-function parseGroup(tokens: Token[], derived: Derived): string[] {
+function parseGroup(tokens: Token[], derived: Derived): Item[] {
   const at: Cursor = { tokens, segment: 0, segmentStart: 0 };
   const items: Item[] = [];
   let i = 0;
@@ -418,7 +445,7 @@ function parseGroup(tokens: Token[], derived: Derived): string[] {
     else if (NO_SPACE_SCRIPT.test(token.text)) items.push(...scriptItems(at, i, derived));
     i += 1;
   }
-  return resolveItems(items);
+  return items;
 }
 
 function matchPhrase(tokens: Token[], start: number, derived: Derived): [number, Entry] | null {
@@ -593,9 +620,10 @@ function readings(item: Item): string[] {
 /**
  * Decide what each place in one location means: first from its right-hand
  * neighbour (resolvePair); anything still open then takes a country named
- * elsewhere in the same segment ("Springfield, IL, USA"), else its default reading.
+ * elsewhere in the same segment ("Springfield, IL, USA"), else a reading a flag
+ * names ("Cali 🇨🇴", "NL 🇨🇦"), else its default reading.
  */
-function resolveItems(items: Item[]): string[] {
+function resolveItems(items: Item[], flags: string[]): string[] {
   for (let i = 0; i < items.length - 1; i += 1) resolvePair(items[i]!, items[i + 1]!);
 
   const explicit = new Map<number, Set<string>>();
@@ -619,7 +647,10 @@ function resolveItems(items: Item[]): string[] {
     let code = settled(item);
     if (code === undefined) {
       const context = explicit.get(item.segment);
-      code = item.countries.find((c) => context?.has(c)) ?? fallback(item);
+      code =
+        item.countries.find((c) => context?.has(c)) ??
+        readings(item).find((c) => flags.includes(c)) ??
+        fallback(item);
     }
     if (code) out.push(code);
   }
